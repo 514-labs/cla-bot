@@ -1,0 +1,57 @@
+/**
+ * GitHubClient — interface that both the real Octokit-based client and the
+ * mock implementation satisfy.
+ *
+ * Production:  getGitHubClient() returns an OctokitGitHubClient
+ * Development: getGitHubClient() returns a MockGitHubClient
+ *
+ * The webhook handler and sign API only import this interface, never Octokit directly.
+ */
+
+import type {
+  GitHubUser,
+  OrgMembershipStatus,
+  CheckRun,
+  CreateCheckRunParams,
+  UpdateCheckRunParams,
+  IssueComment,
+  CreateCommentParams,
+  UpdateCommentParams,
+  ListCommentsParams,
+} from "./types"
+
+export interface GitHubClient {
+  // --- Users ---
+  /** Get a GitHub user by username. Returns null if not found. */
+  getUser(username: string): Promise<GitHubUser | null>
+
+  // --- Org Membership ---
+  /** Check if a GitHub user is a member of an organization. */
+  checkOrgMembership(org: string, username: string): Promise<OrgMembershipStatus>
+
+  // --- Check Runs ---
+  /** Create a new check run on a commit. */
+  createCheckRun(params: CreateCheckRunParams): Promise<CheckRun>
+
+  /** Update an existing check run. */
+  updateCheckRun(params: UpdateCheckRunParams): Promise<CheckRun>
+
+  /** Find a check run by name on a specific PR (commit SHA). */
+  getCheckRunForPr(owner: string, repo: string, headSha: string, checkName: string): Promise<CheckRun | null>
+
+  /** List all check runs we created for a repo + PR number combo. */
+  listCheckRunsForRef(owner: string, repo: string, ref: string): Promise<CheckRun[]>
+
+  // --- PR Comments ---
+  /** Create a comment on a PR/issue. */
+  createComment(params: CreateCommentParams): Promise<IssueComment>
+
+  /** Update an existing comment. */
+  updateComment(params: UpdateCommentParams): Promise<IssueComment>
+
+  /** List all comments on a PR/issue. */
+  listComments(params: ListCommentsParams): Promise<IssueComment[]>
+
+  /** Find the bot's existing comment on a PR (to update instead of creating a new one). */
+  findBotComment(owner: string, repo: string, issueNumber: number): Promise<IssueComment | null>
+}

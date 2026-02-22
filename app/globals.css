@@ -1,0 +1,106 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 240 6% 4%;
+    --foreground: 0 0% 96%;
+    --card: 240 5% 7%;
+    --card-foreground: 0 0% 96%;
+    --popover: 240 5% 7%;
+    --popover-foreground: 0 0% 96%;
+    --primary: 160 84% 39%;
+    --primary-foreground: 0 0% 2%;
+    --secondary: 240 4% 14%;
+    --secondary-foreground: 0 0% 96%;
+    --muted: 240 4% 14%;
+    --muted-foreground: 240 4% 55%;
+    --accent: 160 84% 39%;
+    --accent-foreground: 0 0% 2%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 4% 16%;
+    --input: 240 4% 16%;
+    --ring: 160 84% 39%;
+    --chart-1: 160 84% 39%;
+    --chart-2: 173 58% 39%;
+    --chart-3: 197 37% 24%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+    --radius: 0.625rem;
+    --sidebar-background: 240 5% 7%;
+    --sidebar-foreground: 0 0% 96%;
+    --sidebar-primary: 160 84% 39%;
+    --sidebar-primary-foreground: 0 0% 2%;
+    --sidebar-accent: 240 4% 14%;
+    --sidebar-accent-foreground: 0 0% 96%;
+    --sidebar-border: 240 4% 16%;
+    --sidebar-ring: 160 84% 39%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+/* Markdown renderer styles (no @tailwindcss/typography dependency) */
+.cla-markdown h1 {
+  @apply text-2xl font-bold text-foreground mb-4 mt-0;
+}
+.cla-markdown h2 {
+  @apply text-xl font-bold text-foreground mb-3 mt-6;
+}
+.cla-markdown h3 {
+  @apply text-lg font-semibold text-foreground mb-2 mt-4;
+}
+.cla-markdown p {
+  @apply text-muted-foreground leading-relaxed mb-3;
+}
+.cla-markdown strong {
+  @apply text-foreground font-semibold;
+}
+.cla-markdown em {
+  @apply italic;
+}
+.cla-markdown code {
+  @apply rounded bg-secondary px-1.5 py-0.5 text-sm font-mono text-foreground;
+}
+.cla-markdown a {
+  @apply text-primary underline underline-offset-2 hover:text-primary/80 transition-colors;
+}
+.cla-markdown ol {
+  @apply list-decimal pl-6 space-y-2 mb-4;
+}
+.cla-markdown ul {
+  @apply list-disc pl-6 space-y-2 mb-4;
+}
+.cla-markdown li {
+  @apply text-muted-foreground leading-relaxed;
+}
+.cla-markdown blockquote {
+  @apply border-l-2 border-primary/40 pl-4 my-4;
+}
+.cla-markdown blockquote p {
+  @apply text-muted-foreground italic;
+}
+.cla-markdown hr {
+  @apply border-border my-6;
+}
+.cla-markdown sub {
+  @apply text-xs text-muted-foreground;
+}
+.cla-markdown sub a {
+  @apply text-muted-foreground hover:text-foreground;
+}
