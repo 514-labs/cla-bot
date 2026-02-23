@@ -1,109 +1,283 @@
 /**
  * GitHub Webhook handler for CLA Bot.
  *
- * Uses two distinct layers:
- *   - GitHubClient (mock or Octokit) for all GitHub API calls:
- *       check runs, PR comments, org membership, user lookup
- *   - mock-db for app-level data:
- *       CLA versions, signatures, organizations
- *
- * Scenarios:
- *   1. Org member           -> green check, NO comment
- *   2. Non-member, unsigned -> red check, comment with sign CTA
- *   3. Non-member, stale    -> red check, comment with re-sign CTA
- *   4. Non-member, signed   -> green check, NO comment
- *   5. Bot deactivated      -> NO check, NO comment (completely skipped)
+ * Production behavior:
+ *   - Verifies x-hub-signature-256 using GITHUB_WEBHOOK_SECRET.
+ *   - Uses installation-scoped Octokit client for checks/comments/membership.
+ *   - Persists installation activation state and installation IDs.
  */
 
 import { type NextRequest, NextResponse } from "next/server"
-import { getGitHubClient } from "@/lib/github"
+import { getGitHubClient, upsertMockPullRequest } from "@/lib/github"
 import {
   getOrganizationBySlug,
+  getSignatureStatusByGithubId,
   getSignatureStatusByUsername,
   createOrganization,
   setOrganizationActive,
+  updateOrganizationInstallationId,
+  upsertUser,
+  reserveWebhookDelivery,
+  createAuditEvent,
 } from "@/lib/db/queries"
-import {
-  generateUnsignedComment,
-  generateSignedComment,
-} from "@/lib/pr-comment-template"
+import { generateUnsignedComment } from "@/lib/pr-comment-template"
+import { verifyGitHubWebhookSignature } from "@/lib/github/webhook-signature"
 
 const CHECK_NAME = "CLA Bot / Contributor License Agreement"
 
-// ============================================================
-// POST — incoming webhooks from GitHub
-// ============================================================
+type InstallationPayload = {
+  action: string
+  installation?: {
+    id?: number
+    account?: {
+      login?: string
+      avatar_url?: string
+    }
+  }
+  sender?: {
+    id?: number
+    login?: string
+    avatar_url?: string
+  }
+}
+
+type PullRequestPayload = {
+  action?: string
+  number?: number
+  installation?: { id?: number }
+  pull_request?: {
+    user?: { login?: string; id?: number }
+    head?: { sha?: string }
+  }
+  repository?: {
+    name?: string
+    owner?: { login?: string }
+  }
+}
+
+type IssueCommentPayload = {
+  action?: string
+  installation?: { id?: number }
+  comment?: {
+    body?: string
+    user?: { login?: string }
+  }
+  issue?: {
+    number?: number
+    user?: { login?: string; id?: number }
+    pull_request?: { url?: string }
+  }
+  repository?: {
+    name?: string
+    owner?: { login?: string }
+  }
+}
 
 export async function POST(request: NextRequest) {
   const event = request.headers.get("x-github-event")
-  const payload = await request.json()
+  if (!event) {
+    return NextResponse.json({ error: "Missing x-github-event header" }, { status: 400 })
+  }
+
+  const deliveryId = request.headers.get("x-github-delivery")
+  if (process.env.NODE_ENV === "production" && !deliveryId) {
+    return NextResponse.json({ error: "Missing x-github-delivery header" }, { status: 400 })
+  }
+
+  const rawBody = await request.text()
+  const verificationError = verifyWebhookRequest(
+    rawBody,
+    request.headers.get("x-hub-signature-256")
+  )
+  if (verificationError) return verificationError
+
+  if (deliveryId) {
+    const isNewDelivery = await reserveWebhookDelivery(deliveryId, event)
+    if (!isNewDelivery) {
+      return NextResponse.json({ message: "Duplicate delivery ignored", deliveryId })
+    }
+  }
+
+  let payload: unknown
+  try {
+    payload = JSON.parse(rawBody)
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 })
+  }
+
   const baseUrl = getBaseUrl(request)
 
   if (event === "installation") {
-    return await handleInstallation(payload)
+    return handleInstallation(payload as InstallationPayload)
+  }
+
+  if (event === "installation_repositories") {
+    return handleInstallationRepositories(payload as InstallationPayload)
   }
 
   if (event === "pull_request") {
-    const action = payload.action
-    if (!["opened", "synchronize", "reopened"].includes(action)) {
-      return NextResponse.json({ message: "PR action ignored", action })
+    const prPayload = payload as PullRequestPayload
+    const action = prPayload.action
+    if (!action || !["opened", "synchronize", "reopened"].includes(action)) {
+      return NextResponse.json({ message: "PR action ignored", action: action ?? "unknown" })
     }
+
+    const orgSlug = prPayload.repository?.owner?.login
+    const repoName = prPayload.repository?.name
+    const prNumber = prPayload.number
+    const prAuthor = prPayload.pull_request?.user?.login
+    const prAuthorId = prPayload.pull_request?.user?.id
+    const headSha = prPayload.pull_request?.head?.sha
+    const installationId = prPayload.installation?.id
+
+    if (!orgSlug || !repoName || !prNumber || !prAuthor || !headSha) {
+      return NextResponse.json(
+        { error: "Missing required pull_request payload fields" },
+        { status: 400 }
+      )
+    }
+
+    if (process.env.NODE_ENV !== "production") {
+      upsertMockPullRequest({
+        owner: orgSlug,
+        repo: repoName,
+        number: prNumber,
+        headSha,
+        authorLogin: prAuthor,
+        authorId: prAuthorId,
+      })
+    }
+
     return handlePrCheck({
-      orgSlug: payload.repository.owner.login,
-      repoName: payload.repository.name,
-      prNumber: payload.number,
-      prAuthor: payload.pull_request.user.login,
-      headSha: payload.pull_request.head.sha ?? `sha-${Date.now()}`,
+      orgSlug,
+      repoName,
+      prNumber,
+      prAuthor,
+      prAuthorId,
+      headSha,
       baseUrl,
+      installationId,
     })
   }
 
   if (event === "issue_comment") {
-    if (payload.action !== "created") {
+    const commentPayload = payload as IssueCommentPayload
+    if (commentPayload.action !== "created") {
       return NextResponse.json({ message: "Ignored non-created comment" })
     }
-    const body: string = payload.comment?.body ?? ""
+
+    const body = commentPayload.comment?.body ?? ""
     if (!body.trim().toLowerCase().startsWith("/recheck")) {
       return NextResponse.json({ message: "Not a /recheck command" })
     }
+    if (!commentPayload.issue?.pull_request) {
+      return NextResponse.json({ message: "Ignored /recheck on non-PR issue" })
+    }
+
+    const orgSlug = commentPayload.repository?.owner?.login
+    const repoName = commentPayload.repository?.name
+    const prNumber = commentPayload.issue?.number
+    const prAuthor = commentPayload.issue?.user?.login
+    const prAuthorId = commentPayload.issue?.user?.id
+    const requester = commentPayload.comment?.user?.login
+    const installationId = commentPayload.installation?.id
+
+    if (!orgSlug || !repoName || !prNumber || !prAuthor || !requester) {
+      return NextResponse.json(
+        { error: "Missing required issue_comment payload fields" },
+        { status: 400 }
+      )
+    }
+
+    const org = await getOrganizationBySlug(orgSlug)
+    if (!org) {
+      return NextResponse.json({ error: `Organization "${orgSlug}" not found` }, { status: 404 })
+    }
+    const resolvedInstallationId = installationId ?? org.installationId ?? undefined
+
+    let github: ReturnType<typeof getGitHubClient>
+    try {
+      github = getGitHubClient(resolvedInstallationId)
+    } catch (err) {
+      console.error("Failed to initialize GitHub client for /recheck:", err)
+      return NextResponse.json({ error: "GitHub client is not configured" }, { status: 500 })
+    }
+
+    const requesterIsPrAuthor = requester === prAuthor
+    let requesterIsOrgMember = false
+    let requesterCanMaintain = false
+    if (!requesterIsPrAuthor) {
+      try {
+        const membership = await github.checkOrgMembership(orgSlug, requester)
+        requesterIsOrgMember = membership === "active"
+        if (!requesterIsOrgMember) {
+          const permission = await github.getRepositoryPermissionLevel(orgSlug, repoName, requester)
+          requesterCanMaintain =
+            permission === "admin" || permission === "maintain" || permission === "write"
+        }
+      } catch (err) {
+        console.error("Failed to authorize /recheck requester:", err)
+        return NextResponse.json(
+          { error: "Failed to authorize /recheck requester" },
+          { status: 502 }
+        )
+      }
+    }
+
+    if (!requesterIsPrAuthor && !requesterIsOrgMember && !requesterCanMaintain) {
+      return NextResponse.json(
+        {
+          error:
+            "Forbidden: /recheck requires org membership, PR author access, or maintainer permissions",
+        },
+        { status: 403 }
+      )
+    }
+
+    let headSha: string
+    try {
+      headSha = await github.getPullRequestHeadSha(orgSlug, repoName, prNumber)
+    } catch (err) {
+      if (process.env.NODE_ENV === "production") {
+        console.error("Failed to resolve PR head SHA for /recheck:", err)
+        return NextResponse.json({ error: "Failed to resolve PR head SHA" }, { status: 502 })
+      }
+      headSha = `recheck-${Date.now()}`
+    }
+
     return handlePrCheck({
-      orgSlug: payload.repository.owner.login,
-      repoName: payload.repository.name,
-      prNumber: payload.issue.number,
-      prAuthor: payload.issue.user.login,
-      headSha: `recheck-${Date.now()}`,
+      orgSlug,
+      repoName,
+      prNumber,
+      prAuthor,
+      prAuthorId,
+      headSha,
       baseUrl,
+      installationId,
     })
   }
 
   return NextResponse.json({ message: `Ignored event: ${event}` })
 }
 
-// ============================================================
-// Core PR check logic — delegates to GitHubClient + app DB
-// ============================================================
-
 async function handlePrCheck(params: {
   orgSlug: string
   repoName: string
   prNumber: number
   prAuthor: string
+  prAuthorId?: number
   headSha: string
   baseUrl: string
+  installationId?: number
 }) {
-  const { orgSlug, repoName, prNumber, prAuthor, headSha, baseUrl } = params
-  const github = getGitHubClient()
+  const { orgSlug, repoName, prNumber, prAuthor, prAuthorId, headSha, baseUrl, installationId } =
+    params
 
-  // ── Look up org in app DB ──
   const org = await getOrganizationBySlug(orgSlug)
   if (!org) {
-    return NextResponse.json(
-      { error: `Organization "${orgSlug}" not found` },
-      { status: 404 }
-    )
+    return NextResponse.json({ error: `Organization "${orgSlug}" not found` }, { status: 404 })
   }
 
-  // ── Scenario 5: Bot deactivated -> skip entirely ──
   if (!org.isActive) {
     return NextResponse.json({
       message: `CLA bot is deactivated for ${orgSlug}. No check or comment.`,
@@ -111,7 +285,26 @@ async function handlePrCheck(params: {
     })
   }
 
-  // ── Scenario 1: Org member -> green check, no comment ──
+  const resolvedInstallationId = installationId ?? org.installationId ?? undefined
+  if (installationId && org.installationId !== installationId) {
+    await updateOrganizationInstallationId(orgSlug, installationId)
+  }
+
+  if (!resolvedInstallationId && process.env.NODE_ENV === "production") {
+    return NextResponse.json(
+      { error: `Missing installation ID for organization "${orgSlug}"` },
+      { status: 424 }
+    )
+  }
+
+  let github: ReturnType<typeof getGitHubClient>
+  try {
+    github = getGitHubClient(resolvedInstallationId)
+  } catch (err) {
+    console.error("Failed to initialize GitHub client:", err)
+    return NextResponse.json({ error: "GitHub client is not configured" }, { status: 500 })
+  }
+
   const membership = await github.checkOrgMembership(orgSlug, prAuthor)
   if (membership === "active") {
     const check = await github.createCheckRun({
@@ -126,6 +319,19 @@ async function handlePrCheck(params: {
         summary: `@${prAuthor} is a member of @${orgSlug}. No CLA signature required.`,
       },
     })
+    await createAuditEvent({
+      eventType: "webhook.pr_check",
+      orgId: org.id,
+      actorGithubId: prAuthorId ? String(prAuthorId) : null,
+      actorGithubUsername: prAuthor,
+      payload: {
+        owner: orgSlug,
+        repo: repoName,
+        prNumber,
+        decision: "org_member",
+        checkConclusion: check.conclusion,
+      },
+    })
     return NextResponse.json({
       message: `@${prAuthor} is an org member of ${orgSlug}. Check passed.`,
       check: { id: check.id, status: "success", conclusion: check.conclusion },
@@ -135,13 +341,14 @@ async function handlePrCheck(params: {
     })
   }
 
-  // ── Check CLA signature in app DB (by GitHub username) ──
-  const sigStatus = await getSignatureStatusByUsername(orgSlug, prAuthor)
+  const sigStatus =
+    typeof prAuthorId === "number"
+      ? await getSignatureStatusByGithubId(orgSlug, String(prAuthorId))
+      : await getSignatureStatusByUsername(orgSlug, prAuthor)
   const isSigned = sigStatus.signed && sigStatus.currentVersion
   const needsResign = sigStatus.signed && !sigStatus.currentVersion
   const versionLabel = org.claTextSha256 ? org.claTextSha256.slice(0, 7) : "unknown"
 
-  // ── Scenario 4: Signed current version -> green check, no comment ──
   if (isSigned) {
     const check = await github.createCheckRun({
       owner: orgSlug,
@@ -155,6 +362,21 @@ async function handlePrCheck(params: {
         summary: `@${prAuthor} has signed the current CLA (version \`${versionLabel}\`).`,
       },
     })
+    await createAuditEvent({
+      eventType: "webhook.pr_check",
+      orgId: org.id,
+      actorGithubId: prAuthorId ? String(prAuthorId) : null,
+      actorGithubUsername: prAuthor,
+      payload: {
+        owner: orgSlug,
+        repo: repoName,
+        prNumber,
+        decision: "signed",
+        checkConclusion: check.conclusion,
+        needsResign,
+      },
+    })
+
     return NextResponse.json({
       message: `@${prAuthor} has signed the current CLA. Check passed.`,
       check: { id: check.id, status: "success", conclusion: check.conclusion },
@@ -165,7 +387,6 @@ async function handlePrCheck(params: {
     })
   }
 
-  // ── Scenarios 2 & 3: Not signed / needs re-sign -> red check + comment ──
   const check = await github.createCheckRun({
     owner: orgSlug,
     repo: repoName,
@@ -181,17 +402,17 @@ async function handlePrCheck(params: {
     },
   })
 
-  // Generate comment markdown
   const commentBody = generateUnsignedComment({
     prAuthor,
     orgName: org.name,
     orgSlug: org.githubOrgSlug,
+    repoName,
+    prNumber,
     claVersionLabel: versionLabel,
     appBaseUrl: baseUrl,
     isResign: needsResign,
   })
 
-  // Update existing bot comment or create a new one
   const existingComment = await github.findBotComment(orgSlug, repoName, prNumber)
   let comment: { id: number; commentMarkdown: string }
 
@@ -213,6 +434,21 @@ async function handlePrCheck(params: {
     comment = { id: created.id, commentMarkdown: created.body }
   }
 
+  await createAuditEvent({
+    eventType: "webhook.pr_check",
+    orgId: org.id,
+    actorGithubId: prAuthorId ? String(prAuthorId) : null,
+    actorGithubUsername: prAuthor,
+    payload: {
+      owner: orgSlug,
+      repo: repoName,
+      prNumber,
+      decision: needsResign ? "resign_required" : "signature_required",
+      checkConclusion: check.conclusion,
+      commentId: comment.id,
+    },
+  })
+
   return NextResponse.json({
     message: needsResign
       ? `@${prAuthor} needs to re-sign the CLA (version ${versionLabel}). Check failed, comment posted.`
@@ -225,79 +461,141 @@ async function handlePrCheck(params: {
   })
 }
 
-// ============================================================
-// Installation events
-// ============================================================
+async function handleInstallation(payload: InstallationPayload) {
+  const orgSlug = payload.installation?.account?.login
+  const installationId = payload.installation?.id
+  if (!orgSlug) {
+    return NextResponse.json({ error: "Missing installation account login" }, { status: 400 })
+  }
 
-async function handleInstallation(payload: {
-  action: string
-  installation: { account: { login: string } }
-}) {
-  const orgSlug = payload.installation.account.login
+  if (payload.action === "created" || payload.action === "unsuspend") {
+    let adminUserId = "user_1"
+    if (payload.sender?.login && payload.sender?.id) {
+      const senderUser = await upsertUser({
+        githubId: String(payload.sender.id),
+        githubUsername: payload.sender.login,
+        avatarUrl: payload.sender.avatar_url || "https://avatars.githubusercontent.com/u/1",
+        name: payload.sender.login,
+        role: "admin",
+      })
+      adminUserId = senderUser.id
+    } else if (process.env.NODE_ENV === "production") {
+      return NextResponse.json({ error: "Missing installation sender info" }, { status: 400 })
+    }
 
-  if (payload.action === "created") {
     const existing = await getOrganizationBySlug(orgSlug)
     if (existing) {
       await setOrganizationActive(orgSlug, true)
+      if (installationId) {
+        await updateOrganizationInstallationId(orgSlug, installationId)
+      }
       return NextResponse.json({
-        message: `App re-installed on org: ${orgSlug}`,
-        org: existing,
+        message: `App active on org: ${orgSlug}`,
+        org: { ...existing, installationId: installationId ?? existing.installationId },
       })
     }
+
     const org = await createOrganization({
       githubOrgSlug: orgSlug,
       name: orgSlug,
-      avatarUrl: `https://api.dicebear.com/7.x/initials/svg?seed=${orgSlug}&backgroundColor=059669`,
-      adminUserId: "user_1",
+      avatarUrl:
+        payload.installation?.account?.avatar_url ??
+        `https://api.dicebear.com/7.x/initials/svg?seed=${orgSlug}&backgroundColor=059669`,
+      adminUserId,
+      installationId,
     })
+
     return NextResponse.json({
       message: `App installed on org: ${orgSlug}`,
       org,
     })
   }
 
-  if (payload.action === "deleted") {
+  if (payload.action === "deleted" || payload.action === "suspend") {
     await setOrganizationActive(orgSlug, false)
+    await updateOrganizationInstallationId(orgSlug, null)
     return NextResponse.json({
-      message: `App uninstalled from org: ${orgSlug}`,
+      message:
+        payload.action === "deleted"
+          ? `App uninstalled from org: ${orgSlug}`
+          : `App suspended on org: ${orgSlug}`,
     })
   }
 
   return NextResponse.json({ message: `Ignored installation action: ${payload.action}` })
 }
 
-// ============================================================
-// GET — debug / preview endpoint to inspect PR state
-// ============================================================
+async function handleInstallationRepositories(payload: InstallationPayload) {
+  const orgSlug = payload.installation?.account?.login
+  const installationId = payload.installation?.id
+  if (!orgSlug) {
+    return NextResponse.json({ error: "Missing installation account login" }, { status: 400 })
+  }
+
+  if (installationId) {
+    await updateOrganizationInstallationId(orgSlug, installationId)
+  }
+
+  return NextResponse.json({
+    message: `installation_repositories processed for org: ${orgSlug}`,
+    action: payload.action,
+  })
+}
 
 export async function GET(request: NextRequest) {
+  if (process.env.NODE_ENV === "production") {
+    return NextResponse.json({ error: "Not found" }, { status: 404 })
+  }
+
   const { searchParams } = new URL(request.url)
   const orgSlug = searchParams.get("orgSlug")
   const repoName = searchParams.get("repoName")
   const prNumber = searchParams.get("prNumber")
 
   if (!orgSlug || !repoName || !prNumber) {
-    return NextResponse.json(
-      { error: "Missing orgSlug, repoName, or prNumber" },
-      { status: 400 }
-    )
+    return NextResponse.json({ error: "Missing orgSlug, repoName, or prNumber" }, { status: 400 })
   }
 
-  const github = getGitHubClient()
+  const org = await getOrganizationBySlug(orgSlug)
+  const github = getGitHubClient(org?.installationId ?? undefined)
 
-  // Get bot comment for this PR
   const botComment = await github.findBotComment(orgSlug, repoName, Number(prNumber))
 
   return NextResponse.json({
-    comment: botComment
-      ? { id: botComment.id, commentMarkdown: botComment.body }
-      : null,
+    comment: botComment ? { id: botComment.id, commentMarkdown: botComment.body } : null,
   })
 }
 
-// ============================================================
-// Helpers
-// ============================================================
+function verifyWebhookRequest(rawPayload: string, signatureHeader: string | null) {
+  const secret = process.env.GITHUB_WEBHOOK_SECRET
+  if (!secret) {
+    if (process.env.NODE_ENV === "production") {
+      return NextResponse.json(
+        { error: "GITHUB_WEBHOOK_SECRET is not configured" },
+        { status: 500 }
+      )
+    }
+    return null
+  }
+
+  if (!signatureHeader) {
+    if (process.env.NODE_ENV === "production") {
+      return NextResponse.json({ error: "Missing x-hub-signature-256 header" }, { status: 401 })
+    }
+    return null
+  }
+
+  const valid = verifyGitHubWebhookSignature({
+    secret,
+    payload: rawPayload,
+    signatureHeader,
+  })
+  if (!valid) {
+    return NextResponse.json({ error: "Invalid webhook signature" }, { status: 401 })
+  }
+
+  return null
+}
 
 function getBaseUrl(request: NextRequest): string {
   const url = new URL(request.url)

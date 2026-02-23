@@ -11,6 +11,7 @@
 import type {
   GitHubUser,
   OrgMembershipStatus,
+  RepositoryPermissionLevel,
   CheckRun,
   CreateCheckRunParams,
   UpdateCheckRunParams,
@@ -18,6 +19,8 @@ import type {
   CreateCommentParams,
   UpdateCommentParams,
   ListCommentsParams,
+  PullRequestRef,
+  OpenOrganizationPullRequestRef,
 } from "./types"
 
 export interface GitHubClient {
@@ -29,6 +32,13 @@ export interface GitHubClient {
   /** Check if a GitHub user is a member of an organization. */
   checkOrgMembership(org: string, username: string): Promise<OrgMembershipStatus>
 
+  /** Get the caller-visible collaborator permission level for a repo user. */
+  getRepositoryPermissionLevel(
+    owner: string,
+    repo: string,
+    username: string
+  ): Promise<RepositoryPermissionLevel>
+
   // --- Check Runs ---
   /** Create a new check run on a commit. */
   createCheckRun(params: CreateCheckRunParams): Promise<CheckRun>
@@ -37,7 +47,12 @@ export interface GitHubClient {
   updateCheckRun(params: UpdateCheckRunParams): Promise<CheckRun>
 
   /** Find a check run by name on a specific PR (commit SHA). */
-  getCheckRunForPr(owner: string, repo: string, headSha: string, checkName: string): Promise<CheckRun | null>
+  getCheckRunForPr(
+    owner: string,
+    repo: string,
+    headSha: string,
+    checkName: string
+  ): Promise<CheckRun | null>
 
   /** List all check runs we created for a repo + PR number combo. */
   listCheckRunsForRef(owner: string, repo: string, ref: string): Promise<CheckRun[]>
@@ -54,4 +69,21 @@ export interface GitHubClient {
 
   /** Find the bot's existing comment on a PR (to update instead of creating a new one). */
   findBotComment(owner: string, repo: string, issueNumber: number): Promise<IssueComment | null>
+
+  // --- Pull Requests ---
+  /** Get the current head SHA for a pull request. */
+  getPullRequestHeadSha(owner: string, repo: string, pullNumber: number): Promise<string>
+
+  /** Get open or closed pull request metadata by number. */
+  getPullRequest(owner: string, repo: string, pullNumber: number): Promise<PullRequestRef | null>
+
+  /** List open pull requests created by a specific author. */
+  listOpenPullRequestsByAuthor(
+    owner: string,
+    repo: string,
+    author: string
+  ): Promise<PullRequestRef[]>
+
+  /** List open pull requests across repositories for an organization installation. */
+  listOpenPullRequestsForOrganization(owner: string): Promise<OpenOrganizationPullRequestRef[]>
 }

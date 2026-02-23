@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
-import {
-  getSessionUser,
-  getOrganizationBySlug,
-  getSignatureStatus,
-} from "@/lib/db/queries"
+import { getOrganizationBySlug, getSignatureStatus } from "@/lib/db/queries"
+import { getSessionUser } from "@/lib/auth"
+import { toSessionUserDto } from "@/lib/session-user"
 
 /**
  * GET /api/sign/:orgSlug
@@ -21,7 +19,11 @@ export async function GET(
     return NextResponse.json({ error: "Organization not found" }, { status: 404 })
   }
 
-  const user = getSessionUser()
+  const user = await getSessionUser()
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
   const status = await getSignatureStatus(orgSlug, user.id)
 
   return NextResponse.json({
@@ -29,7 +31,7 @@ export async function GET(
       ...org,
       claMarkdown: org.claText,
     },
-    user,
+    user: toSessionUserDto(user),
     alreadySigned: status.signed && status.currentVersion,
     needsResign: status.signed && !status.currentVersion,
     signature: status.signature ?? null,

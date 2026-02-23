@@ -12,7 +12,6 @@ import { Badge } from "@/components/ui/badge"
 import {
   ArrowLeft,
   Check,
-  Eye,
   FileEdit,
   Github,
   History,
@@ -101,12 +100,8 @@ export default function OrgManagePage() {
   }
 
   // Count how many signers are on the current sha256
-  const currentVersionSigners = signatures.filter(
-    (s) => s.claSha256 === currentSha256
-  )
-  const outdatedSigners = signatures.filter(
-    (s) => s.claSha256 !== currentSha256
-  )
+  const currentVersionSigners = signatures.filter((s) => s.claSha256 === currentSha256)
+  const outdatedSigners = signatures.filter((s) => s.claSha256 !== currentSha256)
 
   async function handleSave() {
     const res = await fetch(`/api/orgs/${orgSlug}`, {
@@ -167,13 +162,15 @@ export default function OrgManagePage() {
               />
               <div>
                 <div className="flex items-center gap-3">
-                  <h1 className="text-2xl font-bold tracking-tight text-foreground">
-                    {org.name}
-                  </h1>
+                  <h1 className="text-2xl font-bold tracking-tight text-foreground">{org.name}</h1>
                   {org.isActive ? (
-                    <Badge variant="outline" className="border-primary/30 text-primary">Active</Badge>
+                    <Badge variant="outline" className="border-primary/30 text-primary">
+                      Active
+                    </Badge>
                   ) : (
-                    <Badge variant="outline" className="border-destructive/30 text-destructive">Inactive</Badge>
+                    <Badge variant="outline" className="border-destructive/30 text-destructive">
+                      Inactive
+                    </Badge>
                   )}
                 </div>
                 <p className="flex items-center gap-1 text-sm text-muted-foreground">
@@ -200,7 +197,12 @@ export default function OrgManagePage() {
                 )}
                 {org.isActive ? "Deactivate" : "Activate"}
               </Button>
-              <Button variant="outline" size="sm" className="gap-2 bg-transparent" onClick={handleCopyLink}>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2 bg-transparent"
+                onClick={handleCopyLink}
+              >
                 {copied ? (
                   <>
                     <Check className="h-4 w-4 text-primary" />
@@ -220,19 +222,26 @@ export default function OrgManagePage() {
           <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
             <Card>
               <CardContent className="py-4 text-center">
-                <p className="text-2xl font-bold text-foreground" data-testid="signer-count">{signatures.length}</p>
+                <p className="text-2xl font-bold text-foreground" data-testid="signer-count">
+                  {signatures.length}
+                </p>
                 <p className="text-xs text-muted-foreground">Total Signers</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="py-4 text-center">
-                <p className="text-2xl font-bold text-primary" data-testid="current-signer-count">{currentVersionSigners.length}</p>
+                <p className="text-2xl font-bold text-primary" data-testid="current-signer-count">
+                  {currentVersionSigners.length}
+                </p>
                 <p className="text-xs text-muted-foreground">Signed Current CLA</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="py-4 text-center">
-                <p className="text-2xl font-bold text-foreground font-mono" data-testid="version-count">
+                <p
+                  className="text-2xl font-bold text-foreground font-mono"
+                  data-testid="version-count"
+                >
                   {currentSha256 ? currentSha256.slice(0, 7) : "---"}
                 </p>
                 <p className="text-xs text-muted-foreground">CLA Version</p>
@@ -241,11 +250,19 @@ export default function OrgManagePage() {
             <Card>
               <CardContent className="py-4 text-center">
                 <p className="text-2xl font-bold text-foreground">
-                  {new Date(org.installedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                  {new Date(org.installedAt).toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                  })}
                 </p>
                 <p className="text-xs text-muted-foreground">Installed</p>
               </CardContent>
             </Card>
+          </div>
+
+          <div className="mb-8 rounded-lg border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-sm text-amber-600">
+            Enforcement note: configure GitHub branch protection or rulesets to require the status
+            check <code>CLA Bot / Contributor License Agreement</code> on protected branches.
           </div>
 
           {/* Tabs */}
@@ -310,19 +327,34 @@ export default function OrgManagePage() {
                   </CardDescription>
                 </div>
                 {!isEditing ? (
-                  <Button variant="outline" size="sm" className="gap-2 bg-transparent" data-testid="edit-cla-btn" onClick={() => setIsEditing(true)}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2 bg-transparent"
+                    data-testid="edit-cla-btn"
+                    onClick={() => setIsEditing(true)}
+                  >
                     <FileEdit className="h-4 w-4" />
                     Edit
                   </Button>
                 ) : (
                   <div className="flex gap-2">
-                    <Button variant="ghost" size="sm" onClick={() => {
-                      setIsEditing(false)
-                      setClaContent(data?.currentClaMarkdown ?? "")
-                    }}>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setIsEditing(false)
+                        setClaContent(data?.currentClaMarkdown ?? "")
+                      }}
+                    >
                       Cancel
                     </Button>
-                    <Button size="sm" className="gap-2" data-testid="save-cla-btn" onClick={handleSave}>
+                    <Button
+                      size="sm"
+                      className="gap-2"
+                      data-testid="save-cla-btn"
+                      onClick={handleSave}
+                    >
                       <Check className="h-4 w-4" />
                       Save as New Version
                     </Button>
@@ -331,8 +363,12 @@ export default function OrgManagePage() {
               </CardHeader>
               <CardContent>
                 {saved && (
-                  <div className="mb-4 rounded-lg border border-primary/30 bg-primary/5 px-4 py-3 text-sm text-primary" data-testid="save-success">
-                    New CLA version saved. Existing signers will need to re-sign the updated agreement.
+                  <div
+                    className="mb-4 rounded-lg border border-primary/30 bg-primary/5 px-4 py-3 text-sm text-primary"
+                    data-testid="save-success"
+                  >
+                    New CLA version saved. Existing signers will need to re-sign the updated
+                    agreement.
                   </div>
                 )}
                 {isEditing ? (
@@ -367,9 +403,7 @@ export default function OrgManagePage() {
                 {signatures.length === 0 ? (
                   <div className="py-12 text-center">
                     <Users className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
-                    <p className="text-sm text-muted-foreground">
-                      No one has signed the CLA yet.
-                    </p>
+                    <p className="text-sm text-muted-foreground">No one has signed the CLA yet.</p>
                   </div>
                 ) : (
                   <div className="space-y-1" data-testid="signers-list">
@@ -395,13 +429,10 @@ export default function OrgManagePage() {
                               className="h-8 w-8 rounded-full"
                               crossOrigin="anonymous"
                             />
-                            <span className="text-sm font-medium text-foreground">
-                              {sig.name}
-                            </span>
+                            <span className="text-sm font-medium text-foreground">{sig.name}</span>
                           </div>
                           <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                            <Github className="h-3 w-3" />
-                            @{sig.githubUsername}
+                            <Github className="h-3 w-3" />@{sig.githubUsername}
                           </div>
                           <div className="text-sm text-muted-foreground">
                             {new Date(sig.signedAt).toLocaleDateString("en-US", {
@@ -412,11 +443,17 @@ export default function OrgManagePage() {
                           </div>
                           <div>
                             {isOnCurrentVersion ? (
-                              <Badge variant="outline" className="border-primary/30 text-primary font-mono">
+                              <Badge
+                                variant="outline"
+                                className="border-primary/30 text-primary font-mono"
+                              >
                                 {sig.claSha256.slice(0, 7)}
                               </Badge>
                             ) : (
-                              <Badge variant="outline" className="border-amber-500/30 text-amber-500 font-mono">
+                              <Badge
+                                variant="outline"
+                                className="border-amber-500/30 text-amber-500 font-mono"
+                              >
                                 {sig.claSha256.slice(0, 7)} (outdated)
                               </Badge>
                             )}
@@ -428,7 +465,8 @@ export default function OrgManagePage() {
                 )}
                 {outdatedSigners.length > 0 && (
                   <div className="mt-4 rounded-lg border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-sm text-amber-500">
-                    {outdatedSigners.length} signer{outdatedSigners.length > 1 ? "s" : ""} signed an older version and will need to re-sign.
+                    {outdatedSigners.length} signer{outdatedSigners.length > 1 ? "s" : ""} signed an
+                    older version and will need to re-sign.
                   </div>
                 )}
               </CardContent>
@@ -441,7 +479,8 @@ export default function OrgManagePage() {
               <CardHeader>
                 <CardTitle className="text-base">CLA Archives</CardTitle>
                 <CardDescription>
-                  Snapshots of CLA text at the moment someone signed. Only versions that were actually signed appear here.
+                  Snapshots of CLA text at the moment someone signed. Only versions that were
+                  actually signed appear here.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -456,7 +495,9 @@ export default function OrgManagePage() {
                   <div className="space-y-3" data-testid="version-list">
                     {archives.map((archive) => {
                       const isCurrent = archive.sha256 === currentSha256
-                      const archiveSigners = signatures.filter((s) => s.claSha256 === archive.sha256)
+                      const archiveSigners = signatures.filter(
+                        (s) => s.claSha256 === archive.sha256
+                      )
                       return (
                         <div
                           key={archive.id}
@@ -477,7 +518,10 @@ export default function OrgManagePage() {
                               )}
                             </div>
                             <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                              <span>{archiveSigners.length} signer{archiveSigners.length !== 1 ? "s" : ""}</span>
+                              <span>
+                                {archiveSigners.length} signer
+                                {archiveSigners.length !== 1 ? "s" : ""}
+                              </span>
                               <span>
                                 {new Date(archive.createdAt).toLocaleDateString("en-US", {
                                   year: "numeric",

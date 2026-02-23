@@ -15,6 +15,7 @@ export type GitHubUser = {
 
 // --- Org Membership ---
 export type OrgMembershipStatus = "active" | "pending" | "not_member"
+export type RepositoryPermissionLevel = "admin" | "maintain" | "write" | "triage" | "read" | "none"
 
 // --- Check Runs (GitHub Checks API) ---
 export type CheckRunConclusion =
@@ -99,4 +100,16 @@ export type ListCommentsParams = {
   owner: string
   repo: string
   issue_number: number
+}
+
+// --- Pull Requests ---
+export type PullRequestRef = {
+  number: number
+  headSha: string
+  authorLogin: string
+  authorId?: number
+}
+
+export type OpenOrganizationPullRequestRef = PullRequestRef & {
+  repoName: string
 }

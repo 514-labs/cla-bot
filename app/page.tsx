@@ -34,15 +34,14 @@ export default function HomePage() {
       <header className="border-b bg-background/80 backdrop-blur-md">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
           <Link href="/" className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary" aria-hidden="true">
+            <div
+              className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary"
+              aria-hidden="true"
+            >
               <FileCheck2 className="h-4 w-4 text-primary-foreground" />
             </div>
-            <span className="text-lg font-bold tracking-tight text-foreground">
-              CLA Bot
-            </span>
-            <span className="hidden text-xs text-muted-foreground sm:inline">
-              by fiveonefour
-            </span>
+            <span className="text-lg font-bold tracking-tight text-foreground">CLA Bot</span>
+            <span className="hidden text-xs text-muted-foreground sm:inline">by fiveonefour</span>
           </Link>
           <nav aria-label="Primary navigation" className="flex items-center gap-3">
             <Link href="/dashboard">
@@ -80,21 +79,20 @@ export default function HomePage() {
               Automate your Contributor License Agreements
             </h1>
             <p className="mx-auto mt-6 max-w-2xl text-pretty text-lg leading-relaxed text-muted-foreground">
-              Install the GitHub App on your organization, upload your CLA, and
-              automatically check every pull request. Contributors sign once and
-              contribute freely.
+              Install the GitHub App on your organization, upload your CLA, and automatically check
+              every pull request. Contributors sign once and contribute freely.
             </p>
             <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
               <Link href="/auth/signin">
                 <Button size="lg" className="gap-2 text-base">
-                <Github className="h-5 w-5" aria-hidden="true" />
-                Sign in with GitHub
-              </Button>
-            </Link>
-            <Link href="/sign/fiveonefour">
-              <Button variant="outline" size="lg" className="gap-2 text-base bg-transparent">
-                View example CLA
-                <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                  <Github className="h-5 w-5" aria-hidden="true" />
+                  Sign in with GitHub
+                </Button>
+              </Link>
+              <Link href="/sign/fiveonefour">
+                <Button variant="outline" size="lg" className="gap-2 text-base bg-transparent">
+                  View example CLA
+                  <ArrowRight className="h-4 w-4" aria-hidden="true" />
                 </Button>
               </Link>
             </div>
@@ -142,13 +140,9 @@ export default function HomePage() {
                     <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
                       <item.icon className="h-5 w-5 text-primary" />
                     </div>
-                    <span className="font-mono text-sm text-muted-foreground">
-                      {item.step}
-                    </span>
+                    <span className="font-mono text-sm text-muted-foreground">{item.step}</span>
                   </div>
-                  <h3 className="mb-2 text-lg font-semibold text-foreground">
-                    {item.title}
-                  </h3>
+                  <h3 className="mb-2 text-lg font-semibold text-foreground">{item.title}</h3>
                   <p className="text-sm leading-relaxed text-muted-foreground">
                     {item.description}
                   </p>
@@ -172,9 +166,7 @@ export default function HomePage() {
                 <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
                   <ShieldCheck className="h-6 w-6 text-primary" aria-hidden="true" />
                 </div>
-                <h3 className="mb-2 text-xl font-semibold text-foreground">
-                  Org Admin
-                </h3>
+                <h3 className="mb-2 text-xl font-semibold text-foreground">Org Admin</h3>
                 <ul className="space-y-3 text-sm leading-relaxed text-muted-foreground">
                   <li className="flex items-start gap-2">
                     <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
@@ -204,9 +196,7 @@ export default function HomePage() {
                 <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
                   <Users className="h-6 w-6 text-primary" aria-hidden="true" />
                 </div>
-                <h3 className="mb-2 text-xl font-semibold text-foreground">
-                  Contributor
-                </h3>
+                <h3 className="mb-2 text-xl font-semibold text-foreground">Contributor</h3>
                 <ul className="space-y-3 text-sm leading-relaxed text-muted-foreground">
                   <li className="flex items-start gap-2">
                     <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
@@ -263,11 +253,20 @@ export default function HomePage() {
             <span>CLA Bot by fiveonefour</span>
           </div>
           <nav aria-label="Footer navigation" className="flex gap-6 text-sm text-muted-foreground">
-            <Link href="https://fiveonefour.com" className="transition-colors hover:text-foreground">
+            <Link
+              href="https://fiveonefour.com"
+              className="transition-colors hover:text-foreground"
+            >
               fiveonefour.com
             </Link>
             <Link href="https://github.com" className="transition-colors hover:text-foreground">
               GitHub
+            </Link>
+            <Link href="/terms" className="transition-colors hover:text-foreground">
+              Terms
+            </Link>
+            <Link href="/privacy" className="transition-colors hover:text-foreground">
+              Privacy
             </Link>
           </nav>
         </div>
