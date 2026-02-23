@@ -50,6 +50,7 @@
     "@neondatabase/serverless": "^0.10.0",
     "date-fns": "4.1.0",
     "drizzle-orm": "^0.44.0",
+    "jose": "^5.2.0",
     "embla-carousel-react": "8.5.1",
     "input-otp": "1.4.1",
     "lucide-react": "^0.544.0",
