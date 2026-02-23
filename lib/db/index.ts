@@ -59,9 +59,31 @@ async function initDb(db: Database) {
 
 async function assertMigrationsApplied() {
   const sql = neon(getDatabaseUrl())
+  const migrationsTable = process.env.DRIZZLE_MIGRATIONS_TABLE ?? "__drizzle_migrations"
+  const migrationsSchema = process.env.DRIZZLE_MIGRATIONS_SCHEMA
   try {
     if (process.env.NODE_ENV === "production") {
-      await sql`SELECT 1 FROM "__drizzle_migrations" LIMIT 1`
+      const migrationsRows = migrationsSchema
+        ? await sql`
+            SELECT 1
+            FROM information_schema.tables
+            WHERE table_schema = ${migrationsSchema}
+              AND table_name = ${migrationsTable}
+            LIMIT 1
+          `
+        : await sql`
+            SELECT 1
+            FROM information_schema.tables
+            WHERE table_name = ${migrationsTable}
+            ORDER BY CASE WHEN table_schema = 'drizzle' THEN 0 ELSE 1 END
+            LIMIT 1
+          `
+      if (migrationsRows.length === 0) {
+        if (migrationsSchema) {
+          throw new Error(`relation "${migrationsSchema}.${migrationsTable}" does not exist`)
+        }
+        throw new Error(`relation "${migrationsTable}" does not exist`)
+      }
       await sql`SELECT 1 FROM users LIMIT 1`
       await sql`SELECT 1 FROM cla_signatures LIMIT 1`
       await sql`SELECT 1 FROM webhook_deliveries LIMIT 1`
@@ -72,7 +94,7 @@ async function assertMigrationsApplied() {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     throw new Error(
-      `[db] Drizzle migrations are not fully applied. Run "pnpm db:migrate" before starting the app (Vercel build command should run migrations before build). Underlying error: ${message}`
+      `[db] Drizzle migrations are not fully applied. Run "pnpm db:migrate" before starting the app (Vercel build command should run migrations before build). If you use a custom migrations schema/table, set DRIZZLE_MIGRATIONS_SCHEMA and DRIZZLE_MIGRATIONS_TABLE for both build and runtime. Underlying error: ${message}`
     )
   }
 }

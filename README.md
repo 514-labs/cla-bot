@@ -44,6 +44,10 @@ Optional:
 
 - `NEXT_PUBLIC_APP_URL`
 - `SEED_DATABASE=true` to auto-seed local data on startup
+- `DRIZZLE_MIGRATIONS_SCHEMA` (default: `drizzle`)
+- `DRIZZLE_MIGRATIONS_TABLE` (default: `__drizzle_migrations`)
+
+If you set custom migration metadata location, configure the same values in both build and runtime environments.
 
 ## Dev Setup
 
