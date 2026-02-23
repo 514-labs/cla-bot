@@ -1241,6 +1241,18 @@ test("Webhook: installation suspend and unsuspend toggles active state", async (
   assertEqual(orgAfterUnsuspend.org.isActive, true, "org is active after unsuspend")
 })
 
+test("Webhook: ping event is acknowledged", async (baseUrl) => {
+  await resetDb(baseUrl)
+  const { res, data } = await sendWebhook(baseUrl, "ping", {
+    zen: "Keep it logically awesome.",
+    hook_id: 123,
+  })
+  assertEqual(res.status, 200, "ping accepted")
+  assertEqual(data.message, "Webhook ping received", "ping message")
+  assertEqual(data.zen, "Keep it logically awesome.", "zen echoed")
+  assertEqual(data.hookId, 123, "hook id echoed")
+})
+
 test("Webhook: duplicate delivery id is deduplicated", async (baseUrl) => {
   await resetDb(baseUrl)
 

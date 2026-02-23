@@ -73,6 +73,14 @@ type IssueCommentPayload = {
   }
 }
 
+type PingPayload = {
+  zen?: string
+  hook_id?: number
+  hook?: {
+    id?: number
+  }
+}
+
 export async function POST(request: NextRequest) {
   const event = request.headers.get("x-github-event")
   if (!event) {
@@ -103,6 +111,15 @@ export async function POST(request: NextRequest) {
     payload = JSON.parse(rawBody)
   } catch {
     return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 })
+  }
+
+  if (event === "ping") {
+    const pingPayload = payload as PingPayload
+    return NextResponse.json({
+      message: "Webhook ping received",
+      zen: pingPayload.zen ?? null,
+      hookId: pingPayload.hook_id ?? pingPayload.hook?.id ?? null,
+    })
   }
 
   const baseUrl = getBaseUrl(request)
@@ -567,8 +584,8 @@ export async function GET(request: NextRequest) {
 }
 
 function verifyWebhookRequest(rawPayload: string, signatureHeader: string | null) {
-  const secret = process.env.GITHUB_WEBHOOK_SECRET
-  if (!secret) {
+  const configuredSecret = process.env.GITHUB_WEBHOOK_SECRET
+  if (!configuredSecret) {
     if (process.env.NODE_ENV === "production") {
       return NextResponse.json(
         { error: "GITHUB_WEBHOOK_SECRET is not configured" },
@@ -578,6 +595,7 @@ function verifyWebhookRequest(rawPayload: string, signatureHeader: string | null
     return null
   }
 
+  const secret = normalizeWebhookSecret(configuredSecret)
   if (!signatureHeader) {
     if (process.env.NODE_ENV === "production") {
       return NextResponse.json({ error: "Missing x-hub-signature-256 header" }, { status: 401 })
@@ -588,13 +606,30 @@ function verifyWebhookRequest(rawPayload: string, signatureHeader: string | null
   const valid = verifyGitHubWebhookSignature({
     secret,
     payload: rawPayload,
-    signatureHeader,
+    signatureHeader: signatureHeader.trim(),
   })
   if (!valid) {
-    return NextResponse.json({ error: "Invalid webhook signature" }, { status: 401 })
+    return NextResponse.json(
+      {
+        error:
+          "Invalid webhook signature. Ensure GITHUB_WEBHOOK_SECRET exactly matches the GitHub App webhook secret.",
+      },
+      { status: 401 }
+    )
   }
 
   return null
+}
+
+function normalizeWebhookSecret(secret: string): string {
+  const trimmed = secret.trim()
+  if (
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  ) {
+    return trimmed.slice(1, -1)
+  }
+  return trimmed
 }
 
 function getBaseUrl(request: NextRequest): string {
