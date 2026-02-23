@@ -1,9 +1,11 @@
-import { pgTable, text, boolean, uniqueIndex } from "drizzle-orm/pg-core"
+import { pgTable, text, boolean, integer, uniqueIndex } from "drizzle-orm/pg-core"
 
 // ── Users ──────────────────────────────────────────────────────────
 export const users = pgTable("users", {
   id: text("id").primaryKey(),
   githubUsername: text("github_username").notNull().unique(),
+  /** Numeric GitHub user ID — used to match OAuth sessions */
+  githubId: integer("github_id"),
   avatarUrl: text("avatar_url").notNull(),
   name: text("name").notNull(),
   role: text("role").notNull().default("contributor"),
@@ -23,6 +25,8 @@ export const organizations = pgTable("organizations", {
     .notNull()
     .references(() => users.id),
   isActive: boolean("is_active").notNull().default(true),
+  /** GitHub App installation ID — used to authenticate API calls for this org */
+  installationId: integer("installation_id"),
   /** The current CLA markdown text */
   claText: text("cla_text").notNull().default(""),
   /** SHA-256 hex digest of claText -- null means no CLA configured yet */

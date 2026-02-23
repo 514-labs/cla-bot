@@ -72,6 +72,50 @@ export async function getUserByUsername(username: string) {
   return rows[0] ?? undefined
 }
 
+/**
+ * Create or update a user from GitHub OAuth data.
+ * Used during the OAuth callback to ensure the user exists in the DB.
+ */
+export async function upsertUser(data: {
+  githubId: number
+  githubUsername: string
+  avatarUrl: string
+  name: string
+  role?: "admin" | "contributor"
+}) {
+  const db = await ensureDbReady()
+
+  // Check if user exists by GitHub username
+  const existing = await getUserByUsername(data.githubUsername)
+  if (existing) {
+    // Update avatar/name/githubId if changed
+    const rows = await db
+      .update(users)
+      .set({
+        avatarUrl: data.avatarUrl,
+        name: data.name || existing.name,
+        githubId: data.githubId,
+      })
+      .where(eq(users.id, existing.id))
+      .returning()
+    return rows[0]
+  }
+
+  // Create new user
+  const rows = await db
+    .insert(users)
+    .values({
+      id: `user_${Date.now()}`,
+      githubUsername: data.githubUsername,
+      githubId: data.githubId,
+      avatarUrl: data.avatarUrl,
+      name: data.name || data.githubUsername,
+      role: data.role ?? "contributor",
+    })
+    .returning()
+  return rows[0]
+}
+
 // ---------- Organizations ----------
 
 export async function getOrganizations() {
@@ -111,6 +155,7 @@ export async function createOrganization(data: {
   name: string
   avatarUrl: string
   adminUserId: string
+  installationId?: number
 }) {
   const db = await ensureDbReady()
   const { DEFAULT_CLA_MARKDOWN } = await import("./seed")
@@ -126,12 +171,23 @@ export async function createOrganization(data: {
       installedAt: new Date().toISOString(),
       adminUserId: data.adminUserId,
       isActive: true,
+      installationId: data.installationId ?? null,
       claText: DEFAULT_CLA_MARKDOWN,
       claTextSha256: hash,
     })
     .returning()
 
   return rows[0]
+}
+
+export async function updateOrganizationInstallationId(slug: string, installationId: number) {
+  const db = await ensureDbReady()
+  const rows = await db
+    .update(organizations)
+    .set({ installationId })
+    .where(eq(organizations.githubOrgSlug, slug))
+    .returning()
+  return rows[0] ?? undefined
 }
 
 /**

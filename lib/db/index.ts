@@ -43,6 +43,7 @@ async function initDb(db: Database) {
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
       github_username TEXT NOT NULL UNIQUE,
+      github_id INTEGER,
       avatar_url TEXT NOT NULL,
       name TEXT NOT NULL,
       role TEXT NOT NULL DEFAULT 'contributor'
@@ -57,6 +58,7 @@ async function initDb(db: Database) {
       installed_at TEXT NOT NULL,
       admin_user_id TEXT NOT NULL REFERENCES users(id),
       is_active BOOLEAN NOT NULL DEFAULT true,
+      installation_id INTEGER,
       cla_text TEXT NOT NULL DEFAULT '',
       cla_text_sha256 TEXT
     )
