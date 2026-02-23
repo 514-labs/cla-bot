@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useRef } from "react"
 import Link from "next/link"
 import useSWR from "swr"
 import { SiteHeader } from "@/components/site-header"
@@ -12,9 +13,20 @@ const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
 export default function AdminPage() {
   const { data, isLoading } = useSWR("/api/orgs", fetcher)
+  const installRedirectedRef = useRef(false)
 
   const user = data?.user
   const orgs = data?.orgs ?? []
+
+  useEffect(() => {
+    if (isLoading) return
+    if (installRedirectedRef.current) return
+    if (!data || data.error === "Unauthorized") return
+    if (orgs.length > 0) return
+
+    installRedirectedRef.current = true
+    window.location.href = "/api/github/install?returnTo=%2Fadmin"
+  }, [data, isLoading, orgs.length])
 
   function handleInstall() {
     window.location.href = "/api/github/install?returnTo=%2Fadmin"

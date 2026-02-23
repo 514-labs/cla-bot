@@ -25,6 +25,7 @@ export type {
   UpdateCommentParams,
   ListCommentsParams,
   PullRequestRef,
+  OpenOrganizationPullRequestRef,
 } from "./types"
 
 // Test-only exports — only import these from test/dev code paths

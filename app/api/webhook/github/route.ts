@@ -11,18 +11,19 @@ import { type NextRequest, NextResponse } from "next/server"
 import { getGitHubClient, upsertMockPullRequest } from "@/lib/github"
 import {
   getOrganizationBySlug,
+  getSignatureStatusByGithubId,
   getSignatureStatusByUsername,
   createOrganization,
   setOrganizationActive,
   updateOrganizationInstallationId,
   upsertUser,
+  reserveWebhookDelivery,
+  createAuditEvent,
 } from "@/lib/db/queries"
 import { generateUnsignedComment } from "@/lib/pr-comment-template"
 import { verifyGitHubWebhookSignature } from "@/lib/github/webhook-signature"
 
 const CHECK_NAME = "CLA Bot / Contributor License Agreement"
-const DELIVERY_TTL_MS = 1000 * 60 * 30
-const deliveryCache = new Map<string, number>()
 
 type InstallationPayload = {
   action: string
@@ -45,7 +46,7 @@ type PullRequestPayload = {
   number?: number
   installation?: { id?: number }
   pull_request?: {
-    user?: { login?: string }
+    user?: { login?: string; id?: number }
     head?: { sha?: string }
   }
   repository?: {
@@ -63,7 +64,7 @@ type IssueCommentPayload = {
   }
   issue?: {
     number?: number
-    user?: { login?: string }
+    user?: { login?: string; id?: number }
     pull_request?: { url?: string }
   }
   repository?: {
@@ -91,10 +92,10 @@ export async function POST(request: NextRequest) {
   if (verificationError) return verificationError
 
   if (deliveryId) {
-    if (isDuplicateDelivery(deliveryId)) {
+    const isNewDelivery = await reserveWebhookDelivery(deliveryId, event)
+    if (!isNewDelivery) {
       return NextResponse.json({ message: "Duplicate delivery ignored", deliveryId })
     }
-    markDelivery(deliveryId)
   }
 
   let payload: unknown
@@ -125,6 +126,7 @@ export async function POST(request: NextRequest) {
     const repoName = prPayload.repository?.name
     const prNumber = prPayload.number
     const prAuthor = prPayload.pull_request?.user?.login
+    const prAuthorId = prPayload.pull_request?.user?.id
     const headSha = prPayload.pull_request?.head?.sha
     const installationId = prPayload.installation?.id
 
@@ -142,6 +144,7 @@ export async function POST(request: NextRequest) {
         number: prNumber,
         headSha,
         authorLogin: prAuthor,
+        authorId: prAuthorId,
       })
     }
 
@@ -150,6 +153,7 @@ export async function POST(request: NextRequest) {
       repoName,
       prNumber,
       prAuthor,
+      prAuthorId,
       headSha,
       baseUrl,
       installationId,
@@ -174,6 +178,7 @@ export async function POST(request: NextRequest) {
     const repoName = commentPayload.repository?.name
     const prNumber = commentPayload.issue?.number
     const prAuthor = commentPayload.issue?.user?.login
+    const prAuthorId = commentPayload.issue?.user?.id
     const requester = commentPayload.comment?.user?.login
     const installationId = commentPayload.installation?.id
 
@@ -245,6 +250,7 @@ export async function POST(request: NextRequest) {
       repoName,
       prNumber,
       prAuthor,
+      prAuthorId,
       headSha,
       baseUrl,
       installationId,
@@ -259,11 +265,13 @@ async function handlePrCheck(params: {
   repoName: string
   prNumber: number
   prAuthor: string
+  prAuthorId?: number
   headSha: string
   baseUrl: string
   installationId?: number
 }) {
-  const { orgSlug, repoName, prNumber, prAuthor, headSha, baseUrl, installationId } = params
+  const { orgSlug, repoName, prNumber, prAuthor, prAuthorId, headSha, baseUrl, installationId } =
+    params
 
   const org = await getOrganizationBySlug(orgSlug)
   if (!org) {
@@ -311,6 +319,19 @@ async function handlePrCheck(params: {
         summary: `@${prAuthor} is a member of @${orgSlug}. No CLA signature required.`,
       },
     })
+    await createAuditEvent({
+      eventType: "webhook.pr_check",
+      orgId: org.id,
+      actorGithubId: prAuthorId ? String(prAuthorId) : null,
+      actorGithubUsername: prAuthor,
+      payload: {
+        owner: orgSlug,
+        repo: repoName,
+        prNumber,
+        decision: "org_member",
+        checkConclusion: check.conclusion,
+      },
+    })
     return NextResponse.json({
       message: `@${prAuthor} is an org member of ${orgSlug}. Check passed.`,
       check: { id: check.id, status: "success", conclusion: check.conclusion },
@@ -320,7 +341,10 @@ async function handlePrCheck(params: {
     })
   }
 
-  const sigStatus = await getSignatureStatusByUsername(orgSlug, prAuthor)
+  const sigStatus =
+    typeof prAuthorId === "number"
+      ? await getSignatureStatusByGithubId(orgSlug, String(prAuthorId))
+      : await getSignatureStatusByUsername(orgSlug, prAuthor)
   const isSigned = sigStatus.signed && sigStatus.currentVersion
   const needsResign = sigStatus.signed && !sigStatus.currentVersion
   const versionLabel = org.claTextSha256 ? org.claTextSha256.slice(0, 7) : "unknown"
@@ -338,6 +362,21 @@ async function handlePrCheck(params: {
         summary: `@${prAuthor} has signed the current CLA (version \`${versionLabel}\`).`,
       },
     })
+    await createAuditEvent({
+      eventType: "webhook.pr_check",
+      orgId: org.id,
+      actorGithubId: prAuthorId ? String(prAuthorId) : null,
+      actorGithubUsername: prAuthor,
+      payload: {
+        owner: orgSlug,
+        repo: repoName,
+        prNumber,
+        decision: "signed",
+        checkConclusion: check.conclusion,
+        needsResign,
+      },
+    })
+
     return NextResponse.json({
       message: `@${prAuthor} has signed the current CLA. Check passed.`,
       check: { id: check.id, status: "success", conclusion: check.conclusion },
@@ -395,6 +434,21 @@ async function handlePrCheck(params: {
     comment = { id: created.id, commentMarkdown: created.body }
   }
 
+  await createAuditEvent({
+    eventType: "webhook.pr_check",
+    orgId: org.id,
+    actorGithubId: prAuthorId ? String(prAuthorId) : null,
+    actorGithubUsername: prAuthor,
+    payload: {
+      owner: orgSlug,
+      repo: repoName,
+      prNumber,
+      decision: needsResign ? "resign_required" : "signature_required",
+      checkConclusion: check.conclusion,
+      commentId: comment.id,
+    },
+  })
+
   return NextResponse.json({
     message: needsResign
       ? `@${prAuthor} needs to re-sign the CLA (version ${versionLabel}). Check failed, comment posted.`
@@ -418,7 +472,7 @@ async function handleInstallation(payload: InstallationPayload) {
     let adminUserId = "user_1"
     if (payload.sender?.login && payload.sender?.id) {
       const senderUser = await upsertUser({
-        githubId: payload.sender.id,
+        githubId: String(payload.sender.id),
         githubUsername: payload.sender.login,
         avatarUrl: payload.sender.avatar_url || "https://avatars.githubusercontent.com/u/1",
         name: payload.sender.login,
@@ -546,23 +600,4 @@ function verifyWebhookRequest(rawPayload: string, signatureHeader: string | null
 function getBaseUrl(request: NextRequest): string {
   const url = new URL(request.url)
   return `${url.protocol}//${url.host}`
-}
-
-function isDuplicateDelivery(deliveryId: string): boolean {
-  pruneDeliveryCache()
-  return deliveryCache.has(deliveryId)
-}
-
-function markDelivery(deliveryId: string) {
-  deliveryCache.set(deliveryId, Date.now())
-  pruneDeliveryCache()
-}
-
-function pruneDeliveryCache() {
-  const now = Date.now()
-  for (const [id, seenAt] of deliveryCache.entries()) {
-    if (now - seenAt > DELIVERY_TTL_MS) {
-      deliveryCache.delete(id)
-    }
-  }
 }

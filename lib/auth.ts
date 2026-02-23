@@ -4,9 +4,9 @@
  * In production:
  *   - GitHub OAuth callback sets a secure HTTP-only cookie with a JWT
  *   - getSession() reads the cookie and verifies the JWT
- *   - The JWT payload contains { userId, githubUsername, role }
+ *   - The JWT payload contains { userId, githubUsername, role, jti }
  *
- * In dev/test without SESSION_SECRET, falls back to mock behaviour.
+ * In dev/test, use a configured SESSION_SECRET to simulate signed-in users.
  */
 
 import { SignJWT, jwtVerify } from "jose"
@@ -25,6 +25,7 @@ export interface SessionPayload {
   userId: string
   githubUsername: string
   role: string
+  jti: string
 }
 
 /**
@@ -37,6 +38,7 @@ export async function createSessionToken(payload: SessionPayload): Promise<strin
   return new SignJWT({ ...payload })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
+    .setJti(payload.jti)
     .setExpirationTime("30d")
     .sign(secret)
 }
@@ -54,10 +56,22 @@ export async function verifySessionToken(token: string): Promise<SessionPayload 
       userId: payload.userId as string,
       githubUsername: payload.githubUsername as string,
       role: payload.role as string,
+      jti: payload.jti as string,
     }
   } catch {
     return null
   }
+}
+
+export async function getSessionPayload() {
+  const secret = getJwtSecret()
+  if (!secret) return null
+
+  const cookieStore = await cookies()
+  const token = cookieStore.get(COOKIE_NAME)?.value
+  if (!token) return null
+
+  return verifySessionToken(token)
 }
 
 /**
@@ -65,44 +79,15 @@ export async function verifySessionToken(token: string): Promise<SessionPayload 
  * Returns the full user record from the DB, or null if not authenticated.
  */
 export async function getSessionUser() {
-  const secret = getJwtSecret()
-
-  // If no SESSION_SECRET, no session is available
-  if (!secret) {
-    if (process.env.NODE_ENV !== "production") {
-      const { getSessionUser: getMockSessionUser } = await import("./mock-db")
-      return getMockSessionUser()
-    }
-    return null
-  }
-
-  const cookieStore = await cookies()
-  const token = cookieStore.get(COOKIE_NAME)?.value
-  if (!token) {
-    if (process.env.NODE_ENV !== "production") {
-      const { getSessionUser: getMockSessionUser } = await import("./mock-db")
-      return getMockSessionUser()
-    }
-    return null
-  }
-
-  const payload = await verifySessionToken(token)
-  if (!payload) {
-    if (process.env.NODE_ENV !== "production") {
-      const { getSessionUser: getMockSessionUser } = await import("./mock-db")
-      return getMockSessionUser()
-    }
-    return null
-  }
+  const payload = await getSessionPayload()
+  if (!payload) return null
 
   // Fetch the full user record from the DB
   const user = await getUserById(payload.userId)
-  if (user) return user
-
-  if (process.env.NODE_ENV !== "production") {
-    const { getSessionUser: getMockSessionUser } = await import("./mock-db")
-    return getMockSessionUser()
+  if (user) {
+    return { ...user, sessionJti: payload.jti }
   }
+
   return null
 }
 

@@ -4,7 +4,7 @@
  * GitHub users are a superset of our app users. Many GitHub users exist who
  * have never used our CLA app. The mock simulates this with a pool of
  * GitHub users, org memberships, check runs, and PR comments — all stored
- * in-memory and completely separate from the app's mock-db.
+ * in-memory and completely separate from app database state.
  */
 
 import type { GitHubClient } from "./client"
@@ -20,6 +20,7 @@ import type {
   UpdateCommentParams,
   ListCommentsParams,
   PullRequestRef,
+  OpenOrganizationPullRequestRef,
 } from "./types"
 
 // ==============================
@@ -302,6 +303,7 @@ export class MockGitHubClient implements GitHubClient {
       number: pullRequest.number,
       headSha: pullRequest.headSha,
       authorLogin: pullRequest.authorLogin,
+      authorId: pullRequest.authorId,
     }
   }
 
@@ -316,6 +318,21 @@ export class MockGitHubClient implements GitHubClient {
         number: pr.number,
         headSha: pr.headSha,
         authorLogin: pr.authorLogin,
+        authorId: pr.authorId,
+      }))
+  }
+
+  async listOpenPullRequestsForOrganization(
+    owner: string
+  ): Promise<OpenOrganizationPullRequestRef[]> {
+    return pullRequests
+      .filter((pr) => pr.owner === owner)
+      .map((pr) => ({
+        repoName: pr.repo,
+        number: pr.number,
+        headSha: pr.headSha,
+        authorLogin: pr.authorLogin,
+        authorId: pr.authorId,
       }))
   }
 }
@@ -328,6 +345,7 @@ let pullRequests: {
   number: number
   headSha: string
   authorLogin: string
+  authorId?: number
 }[] = []
 
 // ==============================
@@ -371,16 +389,20 @@ export function upsertMockPullRequest(data: {
   number: number
   headSha: string
   authorLogin: string
+  authorId?: number
 }) {
+  const authorId =
+    data.authorId ?? githubUsers.find((user) => user.login === data.authorLogin)?.id ?? undefined
+  const normalized = { ...data, authorId }
   const idx = pullRequests.findIndex(
     (pr) => pr.owner === data.owner && pr.repo === data.repo && pr.number === data.number
   )
 
   if (idx >= 0) {
-    pullRequests[idx] = { ...data }
+    pullRequests[idx] = normalized
     return
   }
-  pullRequests.push({ ...data })
+  pullRequests.push(normalized)
 }
 
 /** Get the singleton instance. */

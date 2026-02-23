@@ -18,6 +18,7 @@ import type {
   UpdateCommentParams,
   ListCommentsParams,
   PullRequestRef,
+  OpenOrganizationPullRequestRef,
 } from "./types"
 
 export class OctokitGitHubClient implements GitHubClient {
@@ -224,6 +225,7 @@ export class OctokitGitHubClient implements GitHubClient {
         number: data.number,
         headSha: data.head.sha,
         authorLogin: data.user?.login ?? "",
+        authorId: data.user?.id,
       }
     } catch (err: unknown) {
       if (err && typeof err === "object" && "status" in err && err.status === 404) return null
@@ -249,7 +251,50 @@ export class OctokitGitHubClient implements GitHubClient {
         number: pr.number,
         headSha: pr.head.sha,
         authorLogin: pr.user?.login ?? "",
+        authorId: pr.user?.id,
       }))
+  }
+
+  async listOpenPullRequestsForOrganization(
+    owner: string
+  ): Promise<OpenOrganizationPullRequestRef[]> {
+    const installationRepos = await this.octokit.paginate(
+      this.octokit.rest.apps.listReposAccessibleToInstallation,
+      {
+        per_page: 100,
+      }
+    )
+
+    const ownerLower = owner.toLowerCase()
+    const repos = installationRepos.filter((repo) => {
+      const repoOwner = repo.owner?.login?.toLowerCase()
+      return repoOwner === ownerLower
+    })
+
+    const openPulls: OpenOrganizationPullRequestRef[] = []
+    for (const repo of repos) {
+      const repoPulls = await this.octokit.paginate(this.octokit.rest.pulls.list, {
+        owner,
+        repo: repo.name,
+        state: "open",
+        per_page: 100,
+      })
+
+      for (const pr of repoPulls) {
+        const headSha = pr.head?.sha
+        const authorLogin = pr.user?.login
+        if (!headSha || !authorLogin) continue
+        openPulls.push({
+          repoName: repo.name,
+          number: pr.number,
+          headSha,
+          authorLogin,
+          authorId: pr.user?.id,
+        })
+      }
+    }
+
+    return openPulls
   }
 
   // --- Helpers ---

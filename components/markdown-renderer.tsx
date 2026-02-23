@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils"
 
 /**
  * A simple markdown-to-HTML renderer for CLA display.
- * In production, use a proper markdown parser like `marked` or `react-markdown`.
+ * HTML is escaped before markdown transforms to avoid script injection.
  */
 export function MarkdownRenderer({ content, className }: { content: string; className?: string }) {
   const html = simpleMarkdownToHtml(content)
@@ -17,8 +17,10 @@ export function MarkdownRenderer({ content, className }: { content: string; clas
   )
 }
 
-function simpleMarkdownToHtml(md: string): string {
-  const html = md
+export function simpleMarkdownToHtml(md: string): string {
+  const escaped = escapeHtml(md)
+
+  const html = escaped
     // Headers
     .replace(/^### (.+)$/gm, "<h3>$1</h3>")
     .replace(/^## (.+)$/gm, "<h2>$1</h2>")
@@ -30,10 +32,13 @@ function simpleMarkdownToHtml(md: string): string {
     // Inline code
     .replace(/`(.+?)`/g, "<code>$1</code>")
     // Links: [text](url)
-    .replace(
-      /\[([^\]]+)\]\(([^)]+)\)/g,
-      '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>'
-    )
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_match, text, rawUrl) => {
+      const safeUrl = sanitizeLinkUrl(rawUrl)
+      return `<a href="${safeUrl}" target="_blank" rel="noopener noreferrer">$1</a>`.replace(
+        "$1",
+        text
+      )
+    })
     // Horizontal rules
     .replace(/^---$/gm, "<hr>")
 
@@ -107,10 +112,7 @@ function simpleMarkdownToHtml(md: string): string {
         result.push("</blockquote>")
         inBlockquote = false
       }
-      // <sub> tags (for footer branding)
-      if (line.trim().startsWith("<sub>")) {
-        result.push(line)
-      } else if (
+      if (
         line.trim() &&
         !line.startsWith("<h") &&
         !line.startsWith("<ol") &&
@@ -131,4 +133,25 @@ function simpleMarkdownToHtml(md: string): string {
   if (inBlockquote) result.push("</blockquote>")
 
   return result.join("\n")
+}
+
+function escapeHtml(input: string) {
+  return input
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;")
+}
+
+function sanitizeLinkUrl(rawUrl: string) {
+  const trimmed = rawUrl.trim()
+  if (
+    trimmed.startsWith("http://") ||
+    trimmed.startsWith("https://") ||
+    trimmed.startsWith("mailto:")
+  ) {
+    return trimmed.replaceAll('"', "&quot;")
+  }
+  return "#"
 }

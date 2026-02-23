@@ -107,4 +107,9 @@ export type PullRequestRef = {
   number: number
   headSha: string
   authorLogin: string
+  authorId?: number
+}
+
+export type OpenOrganizationPullRequestRef = PullRequestRef & {
+  repoName: string
 }

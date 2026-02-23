@@ -5,9 +5,11 @@ import {
   updateOrganizationCla,
   getArchivesByOrg,
   setOrganizationActive,
+  createAuditEvent,
 } from "@/lib/db/queries"
 import { getSessionUser } from "@/lib/auth"
 import { isGitHubOrgAdmin } from "@/lib/github/admin-authorization"
+import { recheckOpenPullRequestsAfterClaUpdate } from "@/lib/cla/recheck-open-prs"
 
 export async function GET(
   _request: NextRequest,
@@ -46,6 +48,14 @@ export async function PATCH(
     if (!org) {
       return NextResponse.json({ error: "Organization not found" }, { status: 404 })
     }
+    await createAuditEvent({
+      eventType: "organization.activation_changed",
+      orgId: org.id,
+      userId: auth.user.id,
+      actorGithubId: auth.user.githubId ?? null,
+      actorGithubUsername: auth.user.githubUsername,
+      payload: { isActive: body.isActive },
+    })
     return NextResponse.json({ org })
   }
 
@@ -60,7 +70,26 @@ export async function PATCH(
     return NextResponse.json({ error: "Organization not found" }, { status: 404 })
   }
 
-  return NextResponse.json({ org })
+  const appBaseUrl = getBaseUrl(request)
+  const recheckSummary = await recheckOpenPullRequestsAfterClaUpdate({
+    orgSlug,
+    appBaseUrl,
+    installationId: org.installationId ?? undefined,
+  })
+
+  await createAuditEvent({
+    eventType: "cla.updated",
+    orgId: org.id,
+    userId: auth.user.id,
+    actorGithubId: auth.user.githubId ?? null,
+    actorGithubUsername: auth.user.githubUsername,
+    payload: {
+      claSha256: org.claTextSha256,
+      recheckSummary,
+    },
+  })
+
+  return NextResponse.json({ org, recheckSummary })
 }
 
 async function authorizeOrgAccess(orgSlug: string) {
@@ -103,4 +132,9 @@ async function authorizeOrgAccess(orgSlug: string) {
   }
 
   return { org, user }
+}
+
+function getBaseUrl(request: NextRequest): string {
+  const url = new URL(request.url)
+  return `${url.protocol}//${url.host}`
 }

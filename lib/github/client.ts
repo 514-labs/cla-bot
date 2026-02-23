@@ -20,6 +20,7 @@ import type {
   UpdateCommentParams,
   ListCommentsParams,
   PullRequestRef,
+  OpenOrganizationPullRequestRef,
 } from "./types"
 
 export interface GitHubClient {
@@ -82,4 +83,7 @@ export interface GitHubClient {
     repo: string,
     author: string
   ): Promise<PullRequestRef[]>
+
+  /** List open pull requests across repositories for an organization installation. */
+  listOpenPullRequestsForOrganization(owner: string): Promise<OpenOrganizationPullRequestRef[]>
 }

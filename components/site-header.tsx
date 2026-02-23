@@ -29,18 +29,10 @@ export function SiteHeader() {
     window.location.href = "/"
   }
 
-  // Fetch feature flags
-  const { data: flags } = useSWR<{ showPrPreview: boolean; showTests: boolean }>(
-    "/api/flags",
-    fetcher
-  )
-
   const navItems = [
     { href: "/dashboard", label: "Dashboard" },
     { href: "/admin", label: "Admin" },
     { href: "/contributor", label: "Contributor" },
-    ...(flags?.showPrPreview ? [{ href: "/pr-preview", label: "PR Preview" }] : []),
-    ...(flags?.showTests ? [{ href: "/test", label: "Tests" }] : []),
   ]
 
   return (

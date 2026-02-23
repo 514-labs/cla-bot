@@ -55,11 +55,20 @@ export default function SignClaPage() {
   }, [])
 
   async function handleSign() {
+    if (!currentSha256) return
+
     setSigning(true)
     const res = await fetch("/api/sign", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ orgSlug, repoName, prNumber }),
+      body: JSON.stringify({
+        orgSlug,
+        repoName,
+        prNumber,
+        acceptedSha256: currentSha256,
+        assented: true,
+        consentTextVersion: "v1",
+      }),
     })
     if (res.ok) {
       setJustSigned(true)
@@ -261,10 +270,27 @@ export default function SignClaPage() {
                       ? "The agreement has been updated. By clicking below, you agree to the terms of the new version."
                       : "By clicking below, you acknowledge that you have read and agree to the terms of this Contributor License Agreement."}
                   </p>
+                  <p className="text-xs text-muted-foreground">
+                    By signing, you agree to our{" "}
+                    <Link
+                      href="/terms"
+                      className="underline underline-offset-2 hover:text-foreground"
+                    >
+                      Terms
+                    </Link>{" "}
+                    and{" "}
+                    <Link
+                      href="/privacy"
+                      className="underline underline-offset-2 hover:text-foreground"
+                    >
+                      Privacy Policy
+                    </Link>
+                    .
+                  </p>
                   <Button
                     size="lg"
                     className="gap-2"
-                    disabled={!scrolledToBottom || signing}
+                    disabled={!scrolledToBottom || signing || !currentSha256}
                     onClick={handleSign}
                     data-testid="sign-btn"
                   >

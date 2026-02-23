@@ -260,6 +260,11 @@ export default function OrgManagePage() {
             </Card>
           </div>
 
+          <div className="mb-8 rounded-lg border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-sm text-amber-600">
+            Enforcement note: configure GitHub branch protection or rulesets to require the status
+            check <code>CLA Bot / Contributor License Agreement</code> on protected branches.
+          </div>
+
           {/* Tabs */}
           <div className="mb-6 flex gap-1 rounded-lg border bg-secondary p-1">
             <button

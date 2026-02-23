@@ -11,6 +11,12 @@ type OAuthStateCookie = {
   returnTo: string
 }
 
+type ResolvedGitHubEmail = {
+  email: string
+  verified: boolean
+  source: "profile" | "primary_verified" | "verified" | "any" | "none"
+}
+
 /**
  * GitHub OAuth Callback
  *
@@ -42,7 +48,7 @@ export async function GET(request: NextRequest) {
     const githubAuthUrl = new URL("https://github.com/login/oauth/authorize")
     githubAuthUrl.searchParams.set("client_id", clientId)
     githubAuthUrl.searchParams.set("redirect_uri", redirectUri)
-    githubAuthUrl.searchParams.set("scope", "read:user,read:org")
+    githubAuthUrl.searchParams.set("scope", "read:user,read:org,user:email")
     githubAuthUrl.searchParams.set("state", nonce)
 
     const response = NextResponse.redirect(githubAuthUrl.toString())
@@ -114,6 +120,7 @@ export async function GET(request: NextRequest) {
   }
 
   const githubUser = await userRes.json()
+  const githubEmail = await resolveGitHubEmail(accessToken, githubUser.email)
 
   // Step 4: Upsert user in DB
   const user = await upsertUser({
@@ -121,6 +128,9 @@ export async function GET(request: NextRequest) {
     githubUsername: githubUser.login,
     avatarUrl: githubUser.avatar_url,
     name: githubUser.name || githubUser.login,
+    email: githubEmail.email,
+    emailVerified: githubEmail.verified,
+    emailSource: githubEmail.source,
   })
 
   const encryptedAccessToken = encryptSecret(accessToken)
@@ -145,6 +155,7 @@ export async function GET(request: NextRequest) {
     userId: user.id,
     githubUsername: user.githubUsername,
     role,
+    jti: crypto.randomUUID(),
   })
 
   const response = NextResponse.redirect(new URL(returnTo, request.url))
@@ -198,4 +209,78 @@ function clearOAuthStateCookie(response: NextResponse) {
     path: "/",
     maxAge: 0,
   })
+}
+
+async function resolveGitHubEmail(
+  accessToken: string,
+  profileEmail: unknown
+): Promise<ResolvedGitHubEmail> {
+  if (typeof profileEmail === "string" && profileEmail.trim()) {
+    return {
+      email: profileEmail.trim(),
+      verified: false,
+      source: "profile",
+    }
+  }
+
+  try {
+    const emailsRes = await fetch("https://api.github.com/user/emails", {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Accept: "application/vnd.github+json",
+      },
+    })
+
+    if (!emailsRes.ok) {
+      return {
+        email: "",
+        verified: false,
+        source: "none",
+      }
+    }
+
+    const emails = (await emailsRes.json()) as Array<{
+      email?: string
+      primary?: boolean
+      verified?: boolean
+    }>
+
+    const primaryVerified = emails.find((entry) => entry.primary && entry.verified && entry.email)
+    if (primaryVerified?.email) {
+      return {
+        email: primaryVerified.email,
+        verified: true,
+        source: "primary_verified",
+      }
+    }
+
+    const verified = emails.find((entry) => entry.verified && entry.email)
+    if (verified?.email) {
+      return {
+        email: verified.email,
+        verified: true,
+        source: "verified",
+      }
+    }
+
+    const any = emails.find((entry) => entry.email)
+    if (any?.email) {
+      return {
+        email: any.email,
+        verified: Boolean(any.verified),
+        source: "any",
+      }
+    }
+    return {
+      email: "",
+      verified: false,
+      source: "none",
+    }
+  } catch {
+    return {
+      email: "",
+      verified: false,
+      source: "none",
+    }
+  }
 }

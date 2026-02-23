@@ -1,21 +1,27 @@
 /**
- * Database query layer — replaces lib/mock-db.ts
+ * Database query layer.
  *
  * All functions use Drizzle ORM and hit the Neon Postgres database.
- * Session/role management stays in-memory (not a DB concern).
+ * Session management lives in the auth layer.
  *
  * Data model:
  *  - organizations.claText + organizations.claTextSha256 = the live CLA
  *  - cla_archives = snapshot created lazily when someone signs a given sha256
  *  - cla_signatures.claSha256 = the sha256 the user signed
- *
- * The GitHub-specific stores (check runs, bot comments, org membership) are NOT here.
- * They live in lib/github/ (mock client in dev, Octokit in prod).
+ *  - webhook_deliveries = persistent webhook delivery dedupe
+ *  - audit_events = append-only audit trail
  */
 
-import { eq, and, desc } from "drizzle-orm"
+import { and, desc, eq } from "drizzle-orm"
 import { ensureDbReady, resetDb } from "./index"
-import { users, organizations, claArchives, claSignatures } from "./schema"
+import {
+  auditEvents,
+  claArchives,
+  claSignatures,
+  organizations,
+  users,
+  webhookDeliveries,
+} from "./schema"
 import { sha256Hex } from "./sha256"
 
 // ---------- Users ----------
@@ -26,9 +32,21 @@ export async function getUserById(id: string) {
   return rows[0] ?? undefined
 }
 
+export async function getUserByGithubId(githubId: string | number) {
+  const db = await ensureDbReady()
+  const normalizedGithubId = String(githubId)
+  const rows = await db.select().from(users).where(eq(users.githubId, normalizedGithubId))
+  return rows[0] ?? undefined
+}
+
 export async function getUserByUsername(username: string) {
   const db = await ensureDbReady()
-  const rows = await db.select().from(users).where(eq(users.githubUsername, username))
+  const rows = await db
+    .select()
+    .from(users)
+    .where(eq(users.githubUsername, username))
+    .orderBy(desc(users.githubTokenUpdatedAt))
+    .limit(1)
   return rows[0] ?? undefined
 }
 
@@ -37,25 +55,31 @@ export async function getUserByUsername(username: string) {
  * Used during the OAuth callback to ensure the user exists in the DB.
  */
 export async function upsertUser(data: {
-  githubId: number
+  githubId: string | number
   githubUsername: string
   avatarUrl: string
   name: string
+  email?: string
+  emailVerified?: boolean
+  emailSource?: string
   role?: "admin" | "contributor"
 }) {
   const db = await ensureDbReady()
+  const normalizedGithubId = String(data.githubId)
 
-  // Check if user exists by GitHub username
-  const existing = await getUserByUsername(data.githubUsername)
+  // Immutable GitHub ID is the source of truth for identity.
+  const existing = await getUserByGithubId(normalizedGithubId)
   if (existing) {
-    // Update avatar/name/githubId if changed
     const nextRole = data.role ?? existing.role
     const rows = await db
       .update(users)
       .set({
+        githubUsername: data.githubUsername,
         avatarUrl: data.avatarUrl,
         name: data.name || existing.name,
-        githubId: data.githubId,
+        email: data.email ?? existing.email ?? "",
+        emailVerified: data.emailVerified ?? existing.emailVerified,
+        emailSource: data.emailSource ?? existing.emailSource,
         role: nextRole,
       })
       .where(eq(users.id, existing.id))
@@ -63,13 +87,38 @@ export async function upsertUser(data: {
     return rows[0]
   }
 
-  // Create new user
+  const existingByUsername = await getUserByUsername(data.githubUsername)
+  if (existingByUsername) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error(
+        `GitHub username collision for "${data.githubUsername}" with different githubId values`
+      )
+    }
+
+    const rows = await db
+      .update(users)
+      .set({
+        avatarUrl: data.avatarUrl,
+        name: data.name || existingByUsername.name,
+        email: data.email ?? existingByUsername.email ?? "",
+        emailVerified: data.emailVerified ?? existingByUsername.emailVerified,
+        emailSource: data.emailSource ?? existingByUsername.emailSource,
+        role: data.role ?? existingByUsername.role,
+      })
+      .where(eq(users.id, existingByUsername.id))
+      .returning()
+    return rows[0]
+  }
+
   const rows = await db
     .insert(users)
     .values({
       id: `user_${Date.now()}`,
       githubUsername: data.githubUsername,
-      githubId: data.githubId,
+      githubId: normalizedGithubId,
+      email: data.email ?? "",
+      emailVerified: data.emailVerified ?? false,
+      emailSource: data.emailSource ?? "none",
       avatarUrl: data.avatarUrl,
       name: data.name || data.githubUsername,
       role: data.role ?? "contributor",
@@ -217,9 +266,19 @@ export async function getOrCreateArchive(orgId: string, hash: string, claText: s
       claText,
       createdAt: new Date().toISOString(),
     })
+    .onConflictDoNothing({
+      target: [claArchives.orgId, claArchives.sha256],
+    })
     .returning()
 
-  return rows[0]
+  if (rows.length > 0) return rows[0]
+
+  const fallback = await db
+    .select()
+    .from(claArchives)
+    .where(and(eq(claArchives.orgId, orgId), eq(claArchives.sha256, hash)))
+    .limit(1)
+  return fallback[0]
 }
 
 export async function getArchivesByOrg(orgId: string) {
@@ -250,6 +309,26 @@ export async function getSignature(orgId: string, userId: string) {
     .from(claSignatures)
     .where(and(eq(claSignatures.orgId, orgId), eq(claSignatures.userId, userId)))
     .orderBy(desc(claSignatures.signedAt))
+    .limit(1)
+  return rows[0] ?? undefined
+}
+
+export async function getSignatureForExactVersion(
+  orgId: string,
+  userId: string,
+  claSha256: string
+) {
+  const db = await ensureDbReady()
+  const rows = await db
+    .select()
+    .from(claSignatures)
+    .where(
+      and(
+        eq(claSignatures.orgId, orgId),
+        eq(claSignatures.userId, userId),
+        eq(claSignatures.claSha256, claSha256)
+      )
+    )
     .limit(1)
   return rows[0] ?? undefined
 }
@@ -286,8 +365,25 @@ export async function getSignatureStatus(orgSlug: string, userId: string) {
 }
 
 /**
- * Same as getSignatureStatus but looks up the user by GitHub username first.
- * Used by the webhook handler which only knows the PR author's username.
+ * Resolve signature status using immutable GitHub user ID.
+ * Used by webhook handlers when checking PR authorship.
+ */
+export async function getSignatureStatusByGithubId(orgSlug: string, githubId: string | number) {
+  const user = await getUserByGithubId(githubId)
+  if (!user) {
+    const org = await getOrganizationBySlug(orgSlug)
+    return {
+      signed: false,
+      currentVersion: false,
+      signature: null,
+      currentSha256: org?.claTextSha256 ?? null,
+    }
+  }
+  return getSignatureStatus(orgSlug, user.id)
+}
+
+/**
+ * Compatibility fallback for legacy payloads with no GitHub numeric ID.
  */
 export async function getSignatureStatusByUsername(orgSlug: string, githubUsername: string) {
   const user = await getUserByUsername(githubUsername)
@@ -306,19 +402,29 @@ export async function getSignatureStatusByUsername(orgSlug: string, githubUserna
 /**
  * Create a signature for a user on an org's current CLA.
  * Lazily creates an archive if one doesn't exist for the current sha256.
+ * Idempotent per (orgId, userId, claSha256).
  */
 export async function createSignature(data: {
   orgId: string
   userId: string
   claSha256: string
+  acceptedSha256: string
+  consentTextVersion: string
+  assented: boolean
   claText: string
+  githubUserIdAtSignature: string
   githubUsername: string
+  emailAtSignature: string
+  emailVerifiedAtSignature: boolean
+  emailSource: string
+  sessionJti: string
+  ipHash?: string | null
+  userAgent?: string | null
   name: string
   avatarUrl: string
 }) {
   const db = await ensureDbReady()
 
-  // Ensure an archive snapshot exists for the text being signed
   await getOrCreateArchive(data.orgId, data.claSha256, data.claText)
 
   const rows = await db
@@ -328,32 +434,107 @@ export async function createSignature(data: {
       orgId: data.orgId,
       userId: data.userId,
       claSha256: data.claSha256,
+      acceptedSha256: data.acceptedSha256,
+      consentTextVersion: data.consentTextVersion,
+      assented: data.assented,
       signedAt: new Date().toISOString(),
+      githubUserIdAtSignature: data.githubUserIdAtSignature,
       githubUsername: data.githubUsername,
+      emailAtSignature: data.emailAtSignature,
+      emailVerifiedAtSignature: data.emailVerifiedAtSignature,
+      emailSource: data.emailSource,
+      sessionJti: data.sessionJti,
+      ipHash: data.ipHash ?? null,
+      userAgent: data.userAgent ?? null,
       name: data.name,
       avatarUrl: data.avatarUrl,
     })
+    .onConflictDoNothing({
+      target: [claSignatures.orgId, claSignatures.userId, claSignatures.claSha256],
+    })
     .returning()
 
-  return rows[0]
-}
+  if (rows.length > 0) return rows[0]
 
-export async function clearSignaturesForUser(orgSlug: string, githubUsername: string) {
-  const db = await ensureDbReady()
-  const org = await getOrganizationBySlug(orgSlug)
-  if (!org) return 0
-
-  const result = await db
-    .delete(claSignatures)
-    .where(and(eq(claSignatures.orgId, org.id), eq(claSignatures.githubUsername, githubUsername)))
-    .returning()
-
-  return result.length
+  const existing = await getSignatureForExactVersion(data.orgId, data.userId, data.claSha256)
+  if (!existing) {
+    throw new Error("Failed to create or load signature record")
+  }
+  return existing
 }
 
 export async function hasUserSignedCurrentCla(orgSlug: string, userId: string) {
   const status = await getSignatureStatus(orgSlug, userId)
   return status.signed && status.currentVersion
+}
+
+// ---------- Webhook deliveries ----------
+
+/**
+ * Reserve a delivery ID. Returns false when the delivery was already processed.
+ */
+export async function reserveWebhookDelivery(deliveryId: string, event: string) {
+  try {
+    const db = await ensureDbReady()
+    const rows = await db
+      .insert(webhookDeliveries)
+      .values({
+        deliveryId,
+        event,
+        receivedAt: new Date().toISOString(),
+      })
+      .onConflictDoNothing({
+        target: [webhookDeliveries.deliveryId],
+      })
+      .returning()
+
+    return rows.length > 0
+  } catch (error) {
+    if (process.env.NODE_ENV !== "production" && isMissingRelationError(error)) {
+      return true
+    }
+    throw error
+  }
+}
+
+// ---------- Audit events ----------
+
+export async function createAuditEvent(data: {
+  eventType: string
+  orgId?: string | null
+  userId?: string | null
+  actorGithubId?: string | null
+  actorGithubUsername?: string | null
+  payload?: Record<string, unknown>
+}) {
+  try {
+    const db = await ensureDbReady()
+    const rows = await db
+      .insert(auditEvents)
+      .values({
+        id: `audit_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        eventType: data.eventType,
+        orgId: data.orgId ?? null,
+        userId: data.userId ?? null,
+        actorGithubId: data.actorGithubId ?? null,
+        actorGithubUsername: data.actorGithubUsername ?? null,
+        payload: data.payload ?? {},
+        createdAt: new Date().toISOString(),
+      })
+      .returning()
+
+    return rows[0]
+  } catch (error) {
+    if (process.env.NODE_ENV !== "production" && isMissingRelationError(error)) {
+      return null
+    }
+    throw error
+  }
+}
+
+function isMissingRelationError(error: unknown) {
+  if (!(error instanceof Error)) return false
+  return /relation .* does not exist/i.test(error.message)
 }
 
 // ---------- Reset (dev/testing only) ----------

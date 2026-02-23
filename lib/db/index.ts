@@ -62,6 +62,11 @@ async function assertMigrationsApplied() {
   try {
     if (process.env.NODE_ENV === "production") {
       await sql`SELECT 1 FROM "__drizzle_migrations" LIMIT 1`
+      await sql`SELECT 1 FROM users LIMIT 1`
+      await sql`SELECT 1 FROM cla_signatures LIMIT 1`
+      await sql`SELECT 1 FROM webhook_deliveries LIMIT 1`
+      await sql`SELECT 1 FROM audit_events LIMIT 1`
+      return
     }
     await sql`SELECT 1 FROM users LIMIT 1`
   } catch (error) {
@@ -100,7 +105,7 @@ export async function ensureDbReady(): Promise<Database> {
  */
 export async function resetDb(): Promise<void> {
   const sql = neon(getDatabaseUrl())
-  await sql`TRUNCATE cla_signatures, cla_archives, organizations, users CASCADE`
+  await sql`TRUNCATE audit_events, webhook_deliveries, cla_signatures, cla_archives, organizations, users CASCADE`
   const { seedDatabase } = await import("./seed")
   await seedDatabase(db)
 }
