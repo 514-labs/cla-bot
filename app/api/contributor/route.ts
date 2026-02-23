@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { getSignaturesByUser, getOrganizations } from "@/lib/db/queries"
 import { getSessionUser } from "@/lib/auth"
+import { toSessionUserDto } from "@/lib/session-user"
 
 export async function GET() {
   const user = await getSessionUser()
@@ -27,5 +28,5 @@ export async function GET() {
     }
   })
 
-  return NextResponse.json({ user, signatures: enriched })
+  return NextResponse.json({ user: toSessionUserDto(user), signatures: enriched })
 }

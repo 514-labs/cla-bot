@@ -3,6 +3,14 @@ import { upsertUser, updateUserGithubAuth } from "@/lib/db/queries"
 import { createSessionToken, getSessionCookieOptions } from "@/lib/auth"
 import { encryptSecret } from "@/lib/security/encryption"
 
+const OAUTH_STATE_COOKIE = "cla-github-oauth-state"
+const OAUTH_STATE_TTL_SECONDS = 60 * 10
+
+type OAuthStateCookie = {
+  nonce: string
+  returnTo: string
+}
+
 /**
  * GitHub OAuth Callback
  *
@@ -19,7 +27,7 @@ import { encryptSecret } from "@/lib/security/encryption"
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const code = searchParams.get("code")
-  const state = searchParams.get("state") // used to carry the return URL
+  const state = searchParams.get("state")
 
   if (!code) {
     // Step 1: Redirect to GitHub authorize
@@ -29,16 +37,36 @@ export async function GET(request: NextRequest) {
     }
 
     const redirectUri = `${new URL(request.url).origin}/api/auth/github`
-    // Encode the return URL in state so we can redirect back after login
     const returnTo = sanitizeReturnTo(searchParams.get("returnTo"), "/dashboard")
+    const nonce = crypto.randomUUID()
     const githubAuthUrl = new URL("https://github.com/login/oauth/authorize")
     githubAuthUrl.searchParams.set("client_id", clientId)
     githubAuthUrl.searchParams.set("redirect_uri", redirectUri)
     githubAuthUrl.searchParams.set("scope", "read:user,read:org")
-    githubAuthUrl.searchParams.set("state", returnTo)
+    githubAuthUrl.searchParams.set("state", nonce)
 
-    return NextResponse.redirect(githubAuthUrl.toString())
+    const response = NextResponse.redirect(githubAuthUrl.toString())
+    response.cookies.set(OAUTH_STATE_COOKIE, encodeOAuthStateCookie({ nonce, returnTo }), {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: OAUTH_STATE_TTL_SECONDS,
+    })
+    return response
   }
+
+  const makeAuthErrorRedirect = (reason: string) => {
+    const response = NextResponse.redirect(new URL(`/auth/signin?error=${reason}`, request.url))
+    clearOAuthStateCookie(response)
+    return response
+  }
+
+  const oauthState = parseOAuthStateCookie(request.cookies.get(OAUTH_STATE_COOKIE)?.value ?? null)
+  if (!state || !oauthState || oauthState.nonce !== state) {
+    return makeAuthErrorRedirect("github_state")
+  }
+  const returnTo = sanitizeReturnTo(oauthState.returnTo, "/dashboard")
 
   // Step 2: Exchange code for access token
   const clientId = process.env.GITHUB_CLIENT_ID
@@ -63,13 +91,13 @@ export async function GET(request: NextRequest) {
   const tokenData = await tokenRes.json()
   if (tokenData.error) {
     console.error("GitHub OAuth token error:", tokenData)
-    return NextResponse.redirect(new URL("/auth/signin?error=github_token", request.url))
+    return makeAuthErrorRedirect("github_token")
   }
 
   const accessToken = tokenData.access_token
   if (!accessToken) {
     console.error("GitHub OAuth token error: missing access token", tokenData)
-    return NextResponse.redirect(new URL("/auth/signin?error=github_token", request.url))
+    return makeAuthErrorRedirect("github_token")
   }
 
   // Step 3: Fetch user profile from GitHub API
@@ -82,7 +110,7 @@ export async function GET(request: NextRequest) {
 
   if (!userRes.ok) {
     console.error("GitHub user fetch error:", userRes.status)
-    return NextResponse.redirect(new URL("/auth/signin?error=github_user", request.url))
+    return makeAuthErrorRedirect("github_user")
   }
 
   const githubUser = await userRes.json()
@@ -100,7 +128,7 @@ export async function GET(request: NextRequest) {
     console.error(
       "Failed to encrypt GitHub OAuth token: ENCRYPTION_KEY or SESSION_SECRET is missing"
     )
-    return NextResponse.redirect(new URL("/auth/signin?error=server_config", request.url))
+    return makeAuthErrorRedirect("server_config")
   }
 
   await updateUserGithubAuth(user.id, {
@@ -119,8 +147,8 @@ export async function GET(request: NextRequest) {
     role,
   })
 
-  const returnTo = sanitizeReturnTo(state, "/dashboard")
   const response = NextResponse.redirect(new URL(returnTo, request.url))
+  clearOAuthStateCookie(response)
   const cookieOpts = getSessionCookieOptions()
   response.cookies.set(cookieOpts.name, token, {
     httpOnly: cookieOpts.httpOnly,
@@ -137,4 +165,37 @@ function sanitizeReturnTo(raw: string | null, fallback: string): string {
   if (!raw) return fallback
   if (!raw.startsWith("/") || raw.startsWith("//")) return fallback
   return raw
+}
+
+function encodeOAuthStateCookie(value: OAuthStateCookie): string {
+  return `${value.nonce}:${encodeURIComponent(value.returnTo)}`
+}
+
+function parseOAuthStateCookie(raw: string | null): OAuthStateCookie | null {
+  if (!raw) return null
+  const separatorIndex = raw.indexOf(":")
+  if (separatorIndex <= 0) return null
+
+  const nonce = raw.slice(0, separatorIndex)
+  const encodedReturnTo = raw.slice(separatorIndex + 1)
+  if (!nonce || !encodedReturnTo) return null
+
+  try {
+    return {
+      nonce,
+      returnTo: decodeURIComponent(encodedReturnTo),
+    }
+  } catch {
+    return null
+  }
+}
+
+function clearOAuthStateCookie(response: NextResponse) {
+  response.cookies.set(OAUTH_STATE_COOKIE, "", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: 0,
+  })
 }

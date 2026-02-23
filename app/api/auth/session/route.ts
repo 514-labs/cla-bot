@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { getSessionUser } from "@/lib/auth"
+import { toSessionUserDto } from "@/lib/session-user"
 
 /**
  * GET /api/auth/session
@@ -7,5 +8,5 @@ import { getSessionUser } from "@/lib/auth"
  */
 export async function GET() {
   const user = await getSessionUser()
-  return NextResponse.json({ user: user ?? null })
+  return NextResponse.json({ user: toSessionUserDto(user) })
 }

@@ -57,7 +57,10 @@ type PullRequestPayload = {
 type IssueCommentPayload = {
   action?: string
   installation?: { id?: number }
-  comment?: { body?: string }
+  comment?: {
+    body?: string
+    user?: { login?: string }
+  }
   issue?: {
     number?: number
     user?: { login?: string }
@@ -163,14 +166,18 @@ export async function POST(request: NextRequest) {
     if (!body.trim().toLowerCase().startsWith("/recheck")) {
       return NextResponse.json({ message: "Not a /recheck command" })
     }
+    if (!commentPayload.issue?.pull_request) {
+      return NextResponse.json({ message: "Ignored /recheck on non-PR issue" })
+    }
 
     const orgSlug = commentPayload.repository?.owner?.login
     const repoName = commentPayload.repository?.name
     const prNumber = commentPayload.issue?.number
     const prAuthor = commentPayload.issue?.user?.login
+    const requester = commentPayload.comment?.user?.login
     const installationId = commentPayload.installation?.id
 
-    if (!orgSlug || !repoName || !prNumber || !prAuthor) {
+    if (!orgSlug || !repoName || !prNumber || !prAuthor || !requester) {
       return NextResponse.json(
         { error: "Missing required issue_comment payload fields" },
         { status: 400 }
@@ -183,9 +190,47 @@ export async function POST(request: NextRequest) {
     }
     const resolvedInstallationId = installationId ?? org.installationId ?? undefined
 
+    let github: ReturnType<typeof getGitHubClient>
+    try {
+      github = getGitHubClient(resolvedInstallationId)
+    } catch (err) {
+      console.error("Failed to initialize GitHub client for /recheck:", err)
+      return NextResponse.json({ error: "GitHub client is not configured" }, { status: 500 })
+    }
+
+    const requesterIsPrAuthor = requester === prAuthor
+    let requesterIsOrgMember = false
+    let requesterCanMaintain = false
+    if (!requesterIsPrAuthor) {
+      try {
+        const membership = await github.checkOrgMembership(orgSlug, requester)
+        requesterIsOrgMember = membership === "active"
+        if (!requesterIsOrgMember) {
+          const permission = await github.getRepositoryPermissionLevel(orgSlug, repoName, requester)
+          requesterCanMaintain =
+            permission === "admin" || permission === "maintain" || permission === "write"
+        }
+      } catch (err) {
+        console.error("Failed to authorize /recheck requester:", err)
+        return NextResponse.json(
+          { error: "Failed to authorize /recheck requester" },
+          { status: 502 }
+        )
+      }
+    }
+
+    if (!requesterIsPrAuthor && !requesterIsOrgMember && !requesterCanMaintain) {
+      return NextResponse.json(
+        {
+          error:
+            "Forbidden: /recheck requires org membership, PR author access, or maintainer permissions",
+        },
+        { status: 403 }
+      )
+    }
+
     let headSha: string
     try {
-      const github = getGitHubClient(resolvedInstallationId)
       headSha = await github.getPullRequestHeadSha(orgSlug, repoName, prNumber)
     } catch (err) {
       if (process.env.NODE_ENV === "production") {
@@ -416,7 +461,10 @@ async function handleInstallation(payload: InstallationPayload) {
     await setOrganizationActive(orgSlug, false)
     await updateOrganizationInstallationId(orgSlug, null)
     return NextResponse.json({
-      message: `App inactive on org: ${orgSlug}`,
+      message:
+        payload.action === "deleted"
+          ? `App uninstalled from org: ${orgSlug}`
+          : `App suspended on org: ${orgSlug}`,
     })
   }
 

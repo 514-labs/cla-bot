@@ -72,49 +72,60 @@ export async function POST(request: NextRequest) {
 
   const updatedChecks: CheckRun[] = []
   let updatedCommentId: number | null = null
+  let autoUpdateSkippedReason: string | null = null
 
   // Preferred path: update the check/comment for the specific PR context
   // that sent the contributor to the signing page.
   if (repoName && parsedPrNumber && org.installationId) {
     try {
       const github = getGitHubClient(org.installationId)
-      const headSha = await github.getPullRequestHeadSha(orgSlug, repoName, parsedPrNumber)
+      const pullRequest = await github.getPullRequest(orgSlug, repoName, parsedPrNumber)
+      if (!pullRequest) {
+        autoUpdateSkippedReason = "pull_request_not_found"
+      } else if (pullRequest.authorLogin !== user.githubUsername) {
+        autoUpdateSkippedReason = "signer_not_pr_author"
+      } else {
+        const existingCheck = await github.getCheckRunForPr(
+          orgSlug,
+          repoName,
+          pullRequest.headSha,
+          CHECK_NAME
+        )
 
-      const existingCheck = await github.getCheckRunForPr(orgSlug, repoName, headSha, CHECK_NAME)
+        if (existingCheck && existingCheck.conclusion === "failure") {
+          const updated = await github.updateCheckRun({
+            owner: orgSlug,
+            repo: repoName,
+            check_run_id: existingCheck.id,
+            status: "completed",
+            conclusion: "success",
+            output: {
+              title: "CLA: Signed",
+              summary: `@${user.githubUsername} has signed the CLA. Check updated automatically.`,
+            },
+          })
+          updatedChecks.push(updated)
+        }
 
-      if (existingCheck && existingCheck.conclusion === "failure") {
-        const updated = await github.updateCheckRun({
-          owner: orgSlug,
-          repo: repoName,
-          check_run_id: existingCheck.id,
-          status: "completed",
-          conclusion: "success",
-          output: {
-            title: "CLA: Signed",
-            summary: `@${user.githubUsername} has signed the CLA. Check updated automatically.`,
-          },
-        })
-        updatedChecks.push(updated)
-      }
-
-      const existingComment = await github.findBotComment(orgSlug, repoName, parsedPrNumber)
-      if (
-        existingComment &&
-        (existingComment.body.includes("Contributor License Agreement Required") ||
-          existingComment.body.includes("Re-signing Required"))
-      ) {
-        await github.updateComment({
-          owner: orgSlug,
-          repo: repoName,
-          comment_id: existingComment.id,
-          body: generateSignedComment({
-            prAuthor: user.githubUsername,
-            orgName: org.name,
-            claVersionLabel: versionLabel,
-            appBaseUrl: getAppBaseUrl(),
-          }),
-        })
-        updatedCommentId = existingComment.id
+        const existingComment = await github.findBotComment(orgSlug, repoName, parsedPrNumber)
+        if (
+          existingComment &&
+          (existingComment.body.includes("Contributor License Agreement Required") ||
+            existingComment.body.includes("Re-signing Required"))
+        ) {
+          await github.updateComment({
+            owner: orgSlug,
+            repo: repoName,
+            comment_id: existingComment.id,
+            body: generateSignedComment({
+              prAuthor: user.githubUsername,
+              orgName: org.name,
+              claVersionLabel: versionLabel,
+              appBaseUrl: getAppBaseUrl(),
+            }),
+          })
+          updatedCommentId = existingComment.id
+        }
       }
     } catch (err) {
       console.error("Failed to auto-update GitHub PR status after signing:", err)
@@ -165,7 +176,7 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  return NextResponse.json({ signature, updatedChecks, updatedCommentId })
+  return NextResponse.json({ signature, updatedChecks, updatedCommentId, autoUpdateSkippedReason })
 }
 
 function normalizePrNumber(value: number | string | undefined): number | null {

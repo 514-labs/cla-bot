@@ -14,6 +14,7 @@ export type { GitHubClient }
 export type {
   GitHubUser,
   OrgMembershipStatus,
+  RepositoryPermissionLevel,
   CheckRun,
   CheckRunConclusion,
   CheckRunStatus,
@@ -41,6 +42,7 @@ export {
  */
 export function getGitHubClient(installationId?: number): GitHubClient {
   const hasAppCredentials = Boolean(process.env.GITHUB_APP_ID && process.env.GITHUB_PRIVATE_KEY)
+  const useRealGitHubInDev = process.env.USE_REAL_GITHUB_APP === "true"
 
   if (process.env.NODE_ENV === "production") {
     if (!hasAppCredentials) {
@@ -52,7 +54,7 @@ export function getGitHubClient(installationId?: number): GitHubClient {
     return new OctokitGitHubClient(installationId)
   }
 
-  if (hasAppCredentials && installationId) {
+  if (useRealGitHubInDev && hasAppCredentials && installationId) {
     return new OctokitGitHubClient(installationId)
   }
 

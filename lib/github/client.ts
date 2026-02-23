@@ -11,6 +11,7 @@
 import type {
   GitHubUser,
   OrgMembershipStatus,
+  RepositoryPermissionLevel,
   CheckRun,
   CreateCheckRunParams,
   UpdateCheckRunParams,
@@ -29,6 +30,13 @@ export interface GitHubClient {
   // --- Org Membership ---
   /** Check if a GitHub user is a member of an organization. */
   checkOrgMembership(org: string, username: string): Promise<OrgMembershipStatus>
+
+  /** Get the caller-visible collaborator permission level for a repo user. */
+  getRepositoryPermissionLevel(
+    owner: string,
+    repo: string,
+    username: string
+  ): Promise<RepositoryPermissionLevel>
 
   // --- Check Runs ---
   /** Create a new check run on a commit. */
@@ -64,6 +72,9 @@ export interface GitHubClient {
   // --- Pull Requests ---
   /** Get the current head SHA for a pull request. */
   getPullRequestHeadSha(owner: string, repo: string, pullNumber: number): Promise<string>
+
+  /** Get open or closed pull request metadata by number. */
+  getPullRequest(owner: string, repo: string, pullNumber: number): Promise<PullRequestRef | null>
 
   /** List open pull requests created by a specific author. */
   listOpenPullRequestsByAuthor(

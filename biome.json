@@ -81,6 +81,16 @@
       "assist": {
         "enabled": false
       }
+    },
+    {
+      "includes": ["lib/e2e-tests.ts"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noExportsInTest": "off"
+          }
+        }
+      }
     }
   ]
 }

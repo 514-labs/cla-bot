@@ -9,6 +9,7 @@ import type { GitHubClient } from "./client"
 import type {
   GitHubUser,
   OrgMembershipStatus,
+  RepositoryPermissionLevel,
   CheckRun,
   CreateCheckRunParams,
   UpdateCheckRunParams,
@@ -23,11 +24,13 @@ export class OctokitGitHubClient implements GitHubClient {
   private octokit: Octokit
 
   constructor(installationId: number) {
+    const appId = getRequiredEnv("GITHUB_APP_ID")
+    const privateKey = getRequiredEnv("GITHUB_PRIVATE_KEY")
     this.octokit = new Octokit({
       authStrategy: createAppAuth,
       auth: {
-        appId: process.env.GITHUB_APP_ID!,
-        privateKey: process.env.GITHUB_PRIVATE_KEY!,
+        appId,
+        privateKey,
         installationId,
       },
     })
@@ -61,6 +64,38 @@ export class OctokitGitHubClient implements GitHubClient {
       if (err && typeof err === "object" && "status" in err) {
         const status = (err as { status: number }).status
         if (status === 404 || status === 302) return "not_member"
+      }
+      throw err
+    }
+  }
+
+  async getRepositoryPermissionLevel(
+    owner: string,
+    repo: string,
+    username: string
+  ): Promise<RepositoryPermissionLevel> {
+    try {
+      const { data } = await this.octokit.rest.repos.getCollaboratorPermissionLevel({
+        owner,
+        repo,
+        username,
+      })
+      const permission = data.permission
+      if (
+        permission === "admin" ||
+        permission === "maintain" ||
+        permission === "write" ||
+        permission === "triage" ||
+        permission === "read" ||
+        permission === "none"
+      ) {
+        return permission
+      }
+      return "none"
+    } catch (err: unknown) {
+      if (err && typeof err === "object" && "status" in err) {
+        const status = (err as { status: number }).status
+        if (status === 404) return "none"
       }
       throw err
     }
@@ -174,6 +209,28 @@ export class OctokitGitHubClient implements GitHubClient {
     return data.head.sha
   }
 
+  async getPullRequest(
+    owner: string,
+    repo: string,
+    pullNumber: number
+  ): Promise<PullRequestRef | null> {
+    try {
+      const { data } = await this.octokit.rest.pulls.get({
+        owner,
+        repo,
+        pull_number: pullNumber,
+      })
+      return {
+        number: data.number,
+        headSha: data.head.sha,
+        authorLogin: data.user?.login ?? "",
+      }
+    } catch (err: unknown) {
+      if (err && typeof err === "object" && "status" in err && err.status === 404) return null
+      throw err
+    }
+  }
+
   async listOpenPullRequestsByAuthor(
     owner: string,
     repo: string,
@@ -197,8 +254,17 @@ export class OctokitGitHubClient implements GitHubClient {
 
   // --- Helpers ---
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private mapCheckRun(data: any): CheckRun {
+  private mapCheckRun(data: {
+    id: number
+    head_sha: string
+    name: string
+    status: string
+    conclusion: string | null
+    started_at: string | null
+    completed_at: string | null
+    output?: { title?: string | null; summary?: string | null } | null
+    html_url: string | null
+  }): CheckRun {
     return {
       id: data.id,
       head_sha: data.head_sha,
@@ -211,12 +277,25 @@ export class OctokitGitHubClient implements GitHubClient {
         title: data.output?.title ?? "",
         summary: data.output?.summary ?? "",
       },
-      html_url: data.html_url,
+      html_url: data.html_url ?? "",
     }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private mapComment(data: any): IssueComment {
+  private mapComment(data: {
+    id: number
+    body?: string | null
+    user?: {
+      login?: string | null
+      id?: number | null
+      avatar_url?: string | null
+      html_url?: string | null
+      type?: string | null
+    } | null
+    created_at?: string
+    updated_at?: string
+    html_url?: string
+  }): IssueComment {
+    const now = new Date().toISOString()
     return {
       id: data.id,
       body: data.body ?? "",
@@ -227,9 +306,17 @@ export class OctokitGitHubClient implements GitHubClient {
         html_url: data.user?.html_url ?? "",
         type: (data.user?.type as GitHubUser["type"]) ?? "User",
       },
-      created_at: data.created_at,
-      updated_at: data.updated_at,
-      html_url: data.html_url,
+      created_at: data.created_at ?? now,
+      updated_at: data.updated_at ?? now,
+      html_url: data.html_url ?? "",
     }
   }
+}
+
+function getRequiredEnv(name: string): string {
+  const value = process.env[name]
+  if (!value) {
+    throw new Error(`${name} is not configured`)
+  }
+  return value
 }

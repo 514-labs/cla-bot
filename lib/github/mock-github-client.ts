@@ -11,6 +11,7 @@ import type { GitHubClient } from "./client"
 import type {
   GitHubUser,
   OrgMembershipStatus,
+  RepositoryPermissionLevel,
   CheckRun,
   CreateCheckRunParams,
   UpdateCheckRunParams,
@@ -90,12 +91,26 @@ const INITIAL_ORG_MEMBERSHIPS: OrgMembership[] = [
   { org: "moose-stack", username: "orgadmin" },
 ]
 
+type RepoPermission = {
+  owner: string
+  repo: string
+  username: string
+  permission: RepositoryPermissionLevel
+}
+
+const INITIAL_REPO_PERMISSIONS: RepoPermission[] = [
+  { owner: "fiveonefour", repo: "sdk", username: "orgadmin", permission: "admin" },
+  { owner: "fiveonefour", repo: "sdk", username: "dev-sarah", permission: "maintain" },
+  { owner: "moose-stack", repo: "sdk", username: "orgadmin", permission: "admin" },
+]
+
 // ==============================
 // In-memory stores for GitHub API state
 // ==============================
 
 let githubUsers: GitHubUser[] = [...GITHUB_USERS]
 let orgMemberships: OrgMembership[] = [...INITIAL_ORG_MEMBERSHIPS]
+let repoPermissions: RepoPermission[] = [...INITIAL_REPO_PERMISSIONS]
 let checkRuns: CheckRun[] = []
 let comments: (IssueComment & { owner: string; repo: string; issue_number: number })[] = []
 let nextCheckRunId = 1
@@ -117,6 +132,17 @@ export class MockGitHubClient implements GitHubClient {
   async checkOrgMembership(org: string, username: string): Promise<OrgMembershipStatus> {
     const isMember = orgMemberships.some((m) => m.org === org && m.username === username)
     return isMember ? "active" : "not_member"
+  }
+
+  async getRepositoryPermissionLevel(
+    owner: string,
+    repo: string,
+    username: string
+  ): Promise<RepositoryPermissionLevel> {
+    const match = repoPermissions.find(
+      (entry) => entry.owner === owner && entry.repo === repo && entry.username === username
+    )
+    return match?.permission ?? "none"
   }
 
   // --- Check Runs ---
@@ -262,6 +288,23 @@ export class MockGitHubClient implements GitHubClient {
     throw new Error(`Pull request #${pullNumber} not found in mock state`)
   }
 
+  async getPullRequest(
+    owner: string,
+    repo: string,
+    pullNumber: number
+  ): Promise<PullRequestRef | null> {
+    const pullRequest = pullRequests.find(
+      (pr) => pr.owner === owner && pr.repo === repo && pr.number === pullNumber
+    )
+    if (!pullRequest) return null
+
+    return {
+      number: pullRequest.number,
+      headSha: pullRequest.headSha,
+      authorLogin: pullRequest.authorLogin,
+    }
+  }
+
   async listOpenPullRequestsByAuthor(
     owner: string,
     repo: string,
@@ -295,6 +338,7 @@ let pullRequests: {
 export function resetMockGitHub() {
   githubUsers = [...GITHUB_USERS]
   orgMemberships = [...INITIAL_ORG_MEMBERSHIPS]
+  repoPermissions = [...INITIAL_REPO_PERMISSIONS]
   checkRuns = []
   checkRunMeta = []
   comments = []

@@ -15,6 +15,7 @@ export type GitHubUser = {
 
 // --- Org Membership ---
 export type OrgMembershipStatus = "active" | "pending" | "not_member"
+export type RepositoryPermissionLevel = "admin" | "maintain" | "write" | "triage" | "read" | "none"
 
 // --- Check Runs (GitHub Checks API) ---
 export type CheckRunConclusion =

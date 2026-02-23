@@ -399,7 +399,7 @@ test("Contributor can re-sign after CLA update", async (baseUrl) => {
   const signRes = await fetch(`${baseUrl}/api/sign`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ orgSlug: "fiveonefour" }),
+    body: JSON.stringify({ orgSlug: "fiveonefour", repoName: "sdk", prNumber: 20 }),
   })
   assertEqual(signRes.status, 200, "re-sign succeeded")
   const signData = await signRes.json()
@@ -789,7 +789,7 @@ test("Webhook: after signing, check auto-updates to success (no /recheck needed)
   const signRes = await fetch(`${baseUrl}/api/sign`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ orgSlug: "fiveonefour" }),
+    body: JSON.stringify({ orgSlug: "fiveonefour", repoName: "sdk", prNumber: 20 }),
   })
   const signData = await signRes.json()
   assertEqual(signRes.status, 200, "sign succeeded")
@@ -871,7 +871,7 @@ test("Webhook: re-sign flow -- sign auto-updates check + comment", async (baseUr
   const signRes = await fetch(`${baseUrl}/api/sign`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ orgSlug: "fiveonefour" }),
+    body: JSON.stringify({ orgSlug: "fiveonefour", repoName: "sdk", prNumber: 30 }),
   })
   const signData = await signRes.json()
   assertEqual(signRes.status, 200, "re-sign succeeded")
@@ -946,17 +946,67 @@ test("Webhook: unknown org returns 404", async (baseUrl) => {
   assertEqual(res.status, 404, "404 for unknown org")
 })
 
-test("Webhook: /recheck for org member -> auto-pass", async (baseUrl) => {
+test("Webhook: /recheck allows org member requester", async (baseUrl) => {
   await resetDb(baseUrl)
-  const { data } = await sendWebhook(baseUrl, "issue_comment", {
+  const { res, data } = await sendWebhook(baseUrl, "issue_comment", {
     action: "created",
-    comment: { body: "/recheck" },
-    issue: { number: 7, user: { login: "orgadmin" } },
+    comment: { body: "/recheck", user: { login: "orgadmin" } },
+    issue: {
+      number: 7,
+      user: { login: "new-contributor" },
+      pull_request: { url: "https://api.github.com/repos/fiveonefour/sdk/pulls/7" },
+    },
     repository: { name: "sdk", owner: { login: "fiveonefour" } },
   })
-  assertEqual(data.check.status, "success", "org member recheck passes")
-  assertEqual(data.orgMember, true, "flagged as org member")
-  assertEqual(data.comment, null, "no comment for org member")
+  assertEqual(res.status, 200, "request accepted")
+  assert(data.check !== undefined, "check was evaluated")
+})
+
+test("Webhook: /recheck allows PR author requester", async (baseUrl) => {
+  await resetDb(baseUrl)
+  const { res, data } = await sendWebhook(baseUrl, "issue_comment", {
+    action: "created",
+    comment: { body: "/recheck", user: { login: "new-contributor" } },
+    issue: {
+      number: 8,
+      user: { login: "new-contributor" },
+      pull_request: { url: "https://api.github.com/repos/fiveonefour/sdk/pulls/8" },
+    },
+    repository: { name: "sdk", owner: { login: "fiveonefour" } },
+  })
+  assertEqual(res.status, 200, "request accepted")
+  assert(data.check !== undefined, "check was evaluated")
+})
+
+test("Webhook: /recheck allows maintainer requester", async (baseUrl) => {
+  await resetDb(baseUrl)
+  const { res, data } = await sendWebhook(baseUrl, "issue_comment", {
+    action: "created",
+    comment: { body: "/recheck", user: { login: "dev-sarah" } },
+    issue: {
+      number: 9,
+      user: { login: "new-contributor" },
+      pull_request: { url: "https://api.github.com/repos/fiveonefour/sdk/pulls/9" },
+    },
+    repository: { name: "sdk", owner: { login: "fiveonefour" } },
+  })
+  assertEqual(res.status, 200, "request accepted")
+  assert(data.check !== undefined, "check was evaluated")
+})
+
+test("Webhook: /recheck rejects unauthorized requester", async (baseUrl) => {
+  await resetDb(baseUrl)
+  const { res } = await sendWebhook(baseUrl, "issue_comment", {
+    action: "created",
+    comment: { body: "/recheck", user: { login: "random-dev" } },
+    issue: {
+      number: 10,
+      user: { login: "new-contributor" },
+      pull_request: { url: "https://api.github.com/repos/fiveonefour/sdk/pulls/10" },
+    },
+    repository: { name: "sdk", owner: { login: "fiveonefour" } },
+  })
+  assertEqual(res.status, 403, "unauthorized requester is blocked")
 })
 
 test("Webhook: installation created registers new org", async (baseUrl) => {

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { resetDatabase } from "@/lib/db/queries"
 import { resetMockGitHub } from "@/lib/github"
+import { setCurrentRole } from "@/lib/mock-db"
 
 /**
  * POST /api/reset
@@ -14,5 +15,6 @@ export async function POST() {
 
   await resetDatabase()
   resetMockGitHub()
+  setCurrentRole("admin")
   return NextResponse.json({ message: "Database and mock GitHub state reset" })
 }

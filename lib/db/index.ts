@@ -45,6 +45,10 @@ function getDb(): Database {
 }
 
 async function initDb(db: Database) {
+  if (isNextBuildPhase()) {
+    return
+  }
+
   await assertMigrationsApplied()
 
   if (shouldSeedDatabase()) {
@@ -56,11 +60,14 @@ async function initDb(db: Database) {
 async function assertMigrationsApplied() {
   const sql = neon(getDatabaseUrl())
   try {
+    if (process.env.NODE_ENV === "production") {
+      await sql`SELECT 1 FROM "__drizzle_migrations" LIMIT 1`
+    }
     await sql`SELECT 1 FROM users LIMIT 1`
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     throw new Error(
-      `[db] Database schema is not initialized. Run "pnpm db:migrate" before starting the app. Underlying error: ${message}`
+      `[db] Drizzle migrations are not fully applied. Run "pnpm db:migrate" before starting the app (Vercel build command should run migrations before build). Underlying error: ${message}`
     )
   }
 }
@@ -100,6 +107,9 @@ export async function resetDb(): Promise<void> {
 
 function shouldSeedDatabase() {
   if (process.env.SEED_DATABASE === "true") return true
-  if (process.env.SEED_DATABASE === "false") return false
-  return process.env.NODE_ENV !== "production"
+  return false
+}
+
+function isNextBuildPhase() {
+  return process.env.NEXT_PHASE === "phase-production-build"
 }
