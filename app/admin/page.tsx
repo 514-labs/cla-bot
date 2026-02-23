@@ -17,6 +17,9 @@ export default function AdminPage() {
 
   const user = data?.user
   const orgs = data?.orgs ?? []
+  const installedOrgsCount =
+    typeof data?.installedOrgsCount === "number" ? data.installedOrgsCount : 0
+  const hasInstalledOrgs = installedOrgsCount > 0
   const hasApiError = Boolean(data?.error)
   const isUnauthorized = data?.error === "Unauthorized"
 
@@ -26,6 +29,7 @@ export default function AdminPage() {
     if (!data) return
     if (hasApiError || !Array.isArray(data.orgs)) return
     if (data.orgs.length > 0) return
+    if (typeof data.installedOrgsCount === "number" && data.installedOrgsCount > 0) return
 
     installRedirectedRef.current = true
     window.location.href = "/api/github/install?returnTo=%2Fadmin"
@@ -120,10 +124,14 @@ export default function AdminPage() {
                           <Building2 className="h-8 w-8 text-muted-foreground" />
                         </div>
                         <h3 className="mb-1 text-lg font-semibold text-foreground">
-                          No organizations yet
+                          {hasInstalledOrgs
+                            ? "No accessible organizations"
+                            : "No organizations yet"}
                         </h3>
                         <p className="mb-6 max-w-sm text-sm text-muted-foreground">
-                          Install the CLA Bot GitHub App on your organization to get started.
+                          {hasInstalledOrgs
+                            ? "We found an installation, but your account is not recognized as an admin for any installed organization."
+                            : "Install the CLA Bot GitHub App on your organization to get started."}
                         </p>
                         <Button className="gap-2" onClick={handleInstall}>
                           <Github className="h-4 w-4" />

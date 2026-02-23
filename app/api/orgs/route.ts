@@ -11,9 +11,30 @@ export async function GET() {
   }
 
   try {
+    console.info("[api/orgs] Listing organizations for user", {
+      userId: user.id,
+      githubUsername: user.githubUsername,
+    })
     const allOrgs = await getOrganizations()
+    const installedOrgs = allOrgs.filter((org) => org.installationId !== null)
+    console.info("[api/orgs] Retrieved organizations from DB", {
+      userId: user.id,
+      totalOrgs: allOrgs.length,
+      installedCount: installedOrgs.length,
+      installedOrgSlugs: installedOrgs.map((org) => org.githubOrgSlug),
+    })
+
     const orgs = await filterInstalledOrganizationsForAdmin(user, allOrgs)
-    return NextResponse.json({ orgs, user: toSessionUserDto(user) })
+    console.info("[api/orgs] Authorized organizations resolved", {
+      userId: user.id,
+      authorizedCount: orgs.length,
+      authorizedOrgSlugs: orgs.map((org) => org.githubOrgSlug),
+    })
+    return NextResponse.json({
+      orgs,
+      user: toSessionUserDto(user),
+      installedOrgsCount: installedOrgs.length,
+    })
   } catch (err) {
     console.error("Failed to list authorized organizations:", err)
     return NextResponse.json(
