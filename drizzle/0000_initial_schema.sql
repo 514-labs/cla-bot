@@ -1,9 +1,10 @@
--- CLA Bot Database Schema for Neon Postgres
--- This matches the Drizzle schema in lib/db/schema.ts
-
 CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY,
   github_username TEXT NOT NULL UNIQUE,
+  github_id INTEGER,
+  github_access_token_encrypted TEXT,
+  github_token_scopes TEXT,
+  github_token_updated_at TEXT,
   avatar_url TEXT NOT NULL,
   name TEXT NOT NULL,
   role TEXT NOT NULL DEFAULT 'contributor'
@@ -17,6 +18,7 @@ CREATE TABLE IF NOT EXISTS organizations (
   installed_at TEXT NOT NULL,
   admin_user_id TEXT NOT NULL REFERENCES users(id),
   is_active BOOLEAN NOT NULL DEFAULT true,
+  installation_id INTEGER,
   cla_text TEXT NOT NULL DEFAULT '',
   cla_text_sha256 TEXT
 );
@@ -27,7 +29,7 @@ CREATE TABLE IF NOT EXISTS cla_archives (
   sha256 TEXT NOT NULL,
   cla_text TEXT NOT NULL,
   created_at TEXT NOT NULL,
-  UNIQUE(org_id, sha256)
+  CONSTRAINT cla_archives_org_sha256_idx UNIQUE(org_id, sha256)
 );
 
 CREATE TABLE IF NOT EXISTS cla_signatures (
@@ -40,8 +42,3 @@ CREATE TABLE IF NOT EXISTS cla_signatures (
   name TEXT NOT NULL,
   avatar_url TEXT NOT NULL
 );
-
--- Indexes
-CREATE INDEX IF NOT EXISTS idx_signatures_org ON cla_signatures(org_id);
-CREATE INDEX IF NOT EXISTS idx_signatures_user ON cla_signatures(user_id);
-CREATE INDEX IF NOT EXISTS idx_orgs_slug ON organizations(github_org_slug);

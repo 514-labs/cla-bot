@@ -23,10 +23,16 @@ export type {
   CreateCommentParams,
   UpdateCommentParams,
   ListCommentsParams,
+  PullRequestRef,
 } from "./types"
 
 // Test-only exports — only import these from test/dev code paths
-export { resetMockGitHub, getAllCheckRuns, getAllComments } from "./mock-github-client"
+export {
+  resetMockGitHub,
+  getAllCheckRuns,
+  getAllComments,
+  upsertMockPullRequest,
+} from "./mock-github-client"
 
 /**
  * Get the GitHub client for the given installation.
@@ -34,8 +40,21 @@ export { resetMockGitHub, getAllCheckRuns, getAllComments } from "./mock-github-
  * otherwise falls back to the mock client for dev/test.
  */
 export function getGitHubClient(installationId?: number): GitHubClient {
-  if (process.env.GITHUB_APP_ID && process.env.GITHUB_PRIVATE_KEY && installationId) {
+  const hasAppCredentials = Boolean(process.env.GITHUB_APP_ID && process.env.GITHUB_PRIVATE_KEY)
+
+  if (process.env.NODE_ENV === "production") {
+    if (!hasAppCredentials) {
+      throw new Error("GitHub App credentials are not configured in production")
+    }
+    if (!installationId) {
+      throw new Error("GitHub App installation ID is required in production")
+    }
     return new OctokitGitHubClient(installationId)
   }
+
+  if (hasAppCredentials && installationId) {
+    return new OctokitGitHubClient(installationId)
+  }
+
   return getMockGitHubClient()
 }

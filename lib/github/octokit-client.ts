@@ -16,6 +16,7 @@ import type {
   CreateCommentParams,
   UpdateCommentParams,
   ListCommentsParams,
+  PullRequestRef,
 } from "./types"
 
 export class OctokitGitHubClient implements GitHubClient {
@@ -54,9 +55,8 @@ export class OctokitGitHubClient implements GitHubClient {
 
   async checkOrgMembership(org: string, username: string): Promise<OrgMembershipStatus> {
     try {
-      const { status } = await this.octokit.rest.orgs.checkMembershipForUser({ org, username })
-      // 204 = member, 302 = not member (redirects to 404 with Octokit)
-      return status === 204 ? "active" : "not_member"
+      await this.octokit.rest.orgs.checkMembershipForUser({ org, username })
+      return "active"
     } catch (err: unknown) {
       if (err && typeof err === "object" && "status" in err) {
         const status = (err as { status: number }).status
@@ -161,6 +161,38 @@ export class OctokitGitHubClient implements GitHubClient {
     const allComments = await this.listComments({ owner, repo, issue_number: issueNumber })
     const botComment = allComments.find((c) => c.user.type === "Bot")
     return botComment ?? null
+  }
+
+  // --- Pull Requests ---
+
+  async getPullRequestHeadSha(owner: string, repo: string, pullNumber: number): Promise<string> {
+    const { data } = await this.octokit.rest.pulls.get({
+      owner,
+      repo,
+      pull_number: pullNumber,
+    })
+    return data.head.sha
+  }
+
+  async listOpenPullRequestsByAuthor(
+    owner: string,
+    repo: string,
+    author: string
+  ): Promise<PullRequestRef[]> {
+    const { data } = await this.octokit.rest.pulls.list({
+      owner,
+      repo,
+      state: "open",
+      per_page: 100,
+    })
+
+    return data
+      .filter((pr) => pr.user?.login === author)
+      .map((pr) => ({
+        number: pr.number,
+        headSha: pr.head.sha,
+        authorLogin: pr.user?.login ?? "",
+      }))
   }
 
   // --- Helpers ---

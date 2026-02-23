@@ -7,12 +7,13 @@ import { clearSignaturesForUser } from "@/lib/db/queries"
  * Only used in preview/testing.
  */
 export async function POST(request: Request) {
+  if (process.env.NODE_ENV === "production") {
+    return NextResponse.json({ error: "Not found" }, { status: 404 })
+  }
+
   const { orgSlug, githubUsername } = await request.json()
   if (!orgSlug || !githubUsername) {
-    return NextResponse.json(
-      { error: "orgSlug and githubUsername are required" },
-      { status: 400 }
-    )
+    return NextResponse.json({ error: "orgSlug and githubUsername are required" }, { status: 400 })
   }
   const removed = await clearSignaturesForUser(orgSlug, githubUsername)
   return NextResponse.json({ removed, orgSlug, githubUsername })

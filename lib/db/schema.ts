@@ -6,6 +6,12 @@ export const users = pgTable("users", {
   githubUsername: text("github_username").notNull().unique(),
   /** Numeric GitHub user ID — used to match OAuth sessions */
   githubId: integer("github_id"),
+  /** OAuth token encrypted at rest; used for org-admin authorization checks */
+  githubAccessTokenEncrypted: text("github_access_token_encrypted"),
+  /** Comma-separated scopes granted to the OAuth token */
+  githubTokenScopes: text("github_token_scopes"),
+  /** ISO timestamp for when the OAuth token was last updated */
+  githubTokenUpdatedAt: text("github_token_updated_at"),
   avatarUrl: text("avatar_url").notNull(),
   name: text("name").notNull(),
   role: text("role").notNull().default("contributor"),
@@ -48,9 +54,7 @@ export const claArchives = pgTable(
     claText: text("cla_text").notNull(),
     createdAt: text("created_at").notNull(),
   },
-  (table) => [
-    uniqueIndex("cla_archives_org_sha256_idx").on(table.orgId, table.sha256),
-  ],
+  (table) => [uniqueIndex("cla_archives_org_sha256_idx").on(table.orgId, table.sha256)]
 )
 
 // ── CLA Signatures ─────────────────────────────────────────────────

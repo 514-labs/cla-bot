@@ -13,12 +13,8 @@ export default function DashboardPage() {
       <main className="flex-1">
         <div className="mx-auto max-w-4xl px-4 py-12">
           <div className="mb-8">
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">
-              Dashboard
-            </h1>
-            <p className="mt-1 text-muted-foreground">
-              Choose how you want to use CLA Bot.
-            </p>
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">Dashboard</h1>
+            <p className="mt-1 text-muted-foreground">Choose how you want to use CLA Bot.</p>
           </div>
 
           <div className="grid gap-6 md:grid-cols-2">
@@ -29,7 +25,8 @@ export default function DashboardPage() {
                 </div>
                 <CardTitle>Org Admin</CardTitle>
                 <CardDescription>
-                  Set up CLAs for your GitHub organization. Manage agreements and view who has signed.
+                  Set up CLAs for your GitHub organization. Manage agreements and view who has
+                  signed.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -49,7 +46,8 @@ export default function DashboardPage() {
                 </div>
                 <CardTitle>Contributor</CardTitle>
                 <CardDescription>
-                  View and sign CLAs for organizations you contribute to. See all your signed agreements.
+                  View and sign CLAs for organizations you contribute to. See all your signed
+                  agreements.
                 </CardDescription>
               </CardHeader>
               <CardContent>

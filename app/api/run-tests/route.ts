@@ -4,6 +4,10 @@ import { runAllTests, getTestCount } from "@/lib/e2e-tests"
 export const maxDuration = 30
 
 export async function GET(request: NextRequest) {
+  if (process.env.NODE_ENV === "production") {
+    return NextResponse.json({ error: "Not found" }, { status: 404 })
+  }
+
   const { origin } = new URL(request.url)
   const results = await runAllTests(origin)
 

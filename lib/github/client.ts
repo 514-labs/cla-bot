@@ -18,6 +18,7 @@ import type {
   CreateCommentParams,
   UpdateCommentParams,
   ListCommentsParams,
+  PullRequestRef,
 } from "./types"
 
 export interface GitHubClient {
@@ -37,7 +38,12 @@ export interface GitHubClient {
   updateCheckRun(params: UpdateCheckRunParams): Promise<CheckRun>
 
   /** Find a check run by name on a specific PR (commit SHA). */
-  getCheckRunForPr(owner: string, repo: string, headSha: string, checkName: string): Promise<CheckRun | null>
+  getCheckRunForPr(
+    owner: string,
+    repo: string,
+    headSha: string,
+    checkName: string
+  ): Promise<CheckRun | null>
 
   /** List all check runs we created for a repo + PR number combo. */
   listCheckRunsForRef(owner: string, repo: string, ref: string): Promise<CheckRun[]>
@@ -54,4 +60,15 @@ export interface GitHubClient {
 
   /** Find the bot's existing comment on a PR (to update instead of creating a new one). */
   findBotComment(owner: string, repo: string, issueNumber: number): Promise<IssueComment | null>
+
+  // --- Pull Requests ---
+  /** Get the current head SHA for a pull request. */
+  getPullRequestHeadSha(owner: string, repo: string, pullNumber: number): Promise<string>
+
+  /** List open pull requests created by a specific author. */
+  listOpenPullRequestsByAuthor(
+    owner: string,
+    repo: string,
+    author: string
+  ): Promise<PullRequestRef[]>
 }

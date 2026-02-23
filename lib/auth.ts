@@ -69,19 +69,41 @@ export async function getSessionUser() {
 
   // If no SESSION_SECRET, no session is available
   if (!secret) {
+    if (process.env.NODE_ENV !== "production") {
+      const { getSessionUser: getMockSessionUser } = await import("./mock-db")
+      return getMockSessionUser()
+    }
     return null
   }
 
   const cookieStore = await cookies()
   const token = cookieStore.get(COOKIE_NAME)?.value
-  if (!token) return null
+  if (!token) {
+    if (process.env.NODE_ENV !== "production") {
+      const { getSessionUser: getMockSessionUser } = await import("./mock-db")
+      return getMockSessionUser()
+    }
+    return null
+  }
 
   const payload = await verifySessionToken(token)
-  if (!payload) return null
+  if (!payload) {
+    if (process.env.NODE_ENV !== "production") {
+      const { getSessionUser: getMockSessionUser } = await import("./mock-db")
+      return getMockSessionUser()
+    }
+    return null
+  }
 
   // Fetch the full user record from the DB
   const user = await getUserById(payload.userId)
-  return user ?? null
+  if (user) return user
+
+  if (process.env.NODE_ENV !== "production") {
+    const { getSessionUser: getMockSessionUser } = await import("./mock-db")
+    return getMockSessionUser()
+  }
+  return null
 }
 
 /**

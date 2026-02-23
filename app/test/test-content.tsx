@@ -103,9 +103,7 @@ export default function TestContent() {
               </Card>
               <Card>
                 <CardContent className="py-4 text-center">
-                  <p className="text-2xl font-bold text-foreground">
-                    {summary.duration}ms
-                  </p>
+                  <p className="text-2xl font-bold text-foreground">{summary.duration}ms</p>
                   <p className="text-xs text-muted-foreground">Duration</p>
                 </CardContent>
               </Card>
@@ -135,13 +133,9 @@ export default function TestContent() {
                         <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
                       )}
                       <div className="flex-1">
-                        <p className="text-sm font-medium text-foreground">
-                          {result.name}
-                        </p>
+                        <p className="text-sm font-medium text-foreground">{result.name}</p>
                         {result.error && (
-                          <p className="mt-1 font-mono text-xs text-destructive">
-                            {result.error}
-                          </p>
+                          <p className="mt-1 font-mono text-xs text-destructive">{result.error}</p>
                         )}
                       </div>
                       <div className="flex items-center gap-2">
@@ -170,12 +164,10 @@ export default function TestContent() {
                 <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-secondary">
                   <Play className="h-8 w-8 text-muted-foreground" />
                 </div>
-                <h3 className="mb-1 text-lg font-semibold text-foreground">
-                  No tests run yet
-                </h3>
+                <h3 className="mb-1 text-lg font-semibold text-foreground">No tests run yet</h3>
                 <p className="max-w-sm text-sm text-muted-foreground">
-                  Click &quot;Run All Tests&quot; to execute the full end-to-end test suite
-                  against the mock database API routes.
+                  Click &quot;Run All Tests&quot; to execute the full end-to-end test suite against
+                  the mock database API routes.
                 </p>
               </CardContent>
             </Card>

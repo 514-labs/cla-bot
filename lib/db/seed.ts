@@ -18,32 +18,28 @@ export async function seedDatabase(db: Database) {
       {
         id: "user_1",
         githubUsername: "orgadmin",
-        avatarUrl:
-          "https://api.dicebear.com/7.x/initials/svg?seed=OA&backgroundColor=059669",
+        avatarUrl: "https://api.dicebear.com/7.x/initials/svg?seed=OA&backgroundColor=059669",
         name: "Org Admin",
         role: "admin",
       },
       {
         id: "user_2",
         githubUsername: "contributor1",
-        avatarUrl:
-          "https://api.dicebear.com/7.x/initials/svg?seed=C1&backgroundColor=0891b2",
+        avatarUrl: "https://api.dicebear.com/7.x/initials/svg?seed=C1&backgroundColor=0891b2",
         name: "Jane Contributor",
         role: "contributor",
       },
       {
         id: "user_3",
         githubUsername: "dev-sarah",
-        avatarUrl:
-          "https://api.dicebear.com/7.x/initials/svg?seed=SC&backgroundColor=7c3aed",
+        avatarUrl: "https://api.dicebear.com/7.x/initials/svg?seed=SC&backgroundColor=7c3aed",
         name: "Sarah Chen",
         role: "contributor",
       },
       {
         id: "user_4",
         githubUsername: "alex-codes",
-        avatarUrl:
-          "https://api.dicebear.com/7.x/initials/svg?seed=AJ&backgroundColor=dc2626",
+        avatarUrl: "https://api.dicebear.com/7.x/initials/svg?seed=AJ&backgroundColor=dc2626",
         name: "Alex Johnson",
         role: "contributor",
       },
@@ -58,8 +54,7 @@ export async function seedDatabase(db: Database) {
         id: "org_1",
         githubOrgSlug: "fiveonefour",
         name: "Fiveonefour",
-        avatarUrl:
-          "https://api.dicebear.com/7.x/initials/svg?seed=514&backgroundColor=059669",
+        avatarUrl: "https://api.dicebear.com/7.x/initials/svg?seed=514&backgroundColor=059669",
         installedAt: "2025-08-15T10:00:00Z",
         adminUserId: "user_1",
         isActive: true,
@@ -70,8 +65,7 @@ export async function seedDatabase(db: Database) {
         id: "org_2",
         githubOrgSlug: "moose-stack",
         name: "MooseStack",
-        avatarUrl:
-          "https://api.dicebear.com/7.x/initials/svg?seed=MS&backgroundColor=059669",
+        avatarUrl: "https://api.dicebear.com/7.x/initials/svg?seed=MS&backgroundColor=059669",
         installedAt: "2025-09-01T14:30:00Z",
         adminUserId: "user_1",
         isActive: true,
@@ -114,8 +108,7 @@ export async function seedDatabase(db: Database) {
         signedAt: "2025-10-05T09:15:00Z",
         githubUsername: "contributor1",
         name: "Jane Contributor",
-        avatarUrl:
-          "https://api.dicebear.com/7.x/initials/svg?seed=C1&backgroundColor=0891b2",
+        avatarUrl: "https://api.dicebear.com/7.x/initials/svg?seed=C1&backgroundColor=0891b2",
       },
       {
         id: "sig_2",
@@ -125,8 +118,7 @@ export async function seedDatabase(db: Database) {
         signedAt: "2025-10-12T16:45:00Z",
         githubUsername: "dev-sarah",
         name: "Sarah Chen",
-        avatarUrl:
-          "https://api.dicebear.com/7.x/initials/svg?seed=SC&backgroundColor=7c3aed",
+        avatarUrl: "https://api.dicebear.com/7.x/initials/svg?seed=SC&backgroundColor=7c3aed",
       },
       {
         id: "sig_3",
@@ -136,8 +128,7 @@ export async function seedDatabase(db: Database) {
         signedAt: "2025-11-01T11:30:00Z",
         githubUsername: "alex-codes",
         name: "Alex Johnson",
-        avatarUrl:
-          "https://api.dicebear.com/7.x/initials/svg?seed=AJ&backgroundColor=dc2626",
+        avatarUrl: "https://api.dicebear.com/7.x/initials/svg?seed=AJ&backgroundColor=dc2626",
       },
       {
         id: "sig_4",
@@ -147,8 +138,7 @@ export async function seedDatabase(db: Database) {
         signedAt: "2025-11-10T08:00:00Z",
         githubUsername: "contributor1",
         name: "Jane Contributor",
-        avatarUrl:
-          "https://api.dicebear.com/7.x/initials/svg?seed=C1&backgroundColor=0891b2",
+        avatarUrl: "https://api.dicebear.com/7.x/initials/svg?seed=C1&backgroundColor=0891b2",
       },
     ])
     .onConflictDoNothing()

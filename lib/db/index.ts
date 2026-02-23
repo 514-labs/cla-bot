@@ -9,8 +9,16 @@ export type Database = ReturnType<typeof createNeonDb>
 
 // ── Neon client ────────────────────────────────────────────────────
 
+function getDatabaseUrl() {
+  const databaseUrl = process.env.DATABASE_URL
+  if (!databaseUrl) {
+    throw new Error("DATABASE_URL is required")
+  }
+  return databaseUrl
+}
+
 function createNeonDb() {
-  const sql = neon(process.env.DATABASE_URL!)
+  const sql = neon(getDatabaseUrl())
   return drizzle({ client: sql, schema })
 }
 
@@ -26,7 +34,7 @@ const globalForDb = globalThis as unknown as {
 function getDb(): Database {
   if (!globalForDb.__db) {
     globalForDb.__db = createNeonDb()
-    // Kick off schema creation + seed immediately.
+    // Kick off migration verification + optional seed immediately.
     globalForDb.__dbReady = initDb(globalForDb.__db).catch((err) => {
       console.error("[db] Init failed, will retry on next request:", err)
       globalForDb.__dbReady = undefined
@@ -37,58 +45,24 @@ function getDb(): Database {
 }
 
 async function initDb(db: Database) {
-  // Create tables using raw SQL via the Neon HTTP driver.
-  const sql = neon(process.env.DATABASE_URL!)
-  await sql`
-    CREATE TABLE IF NOT EXISTS users (
-      id TEXT PRIMARY KEY,
-      github_username TEXT NOT NULL UNIQUE,
-      github_id INTEGER,
-      avatar_url TEXT NOT NULL,
-      name TEXT NOT NULL,
-      role TEXT NOT NULL DEFAULT 'contributor'
-    )
-  `
-  await sql`
-    CREATE TABLE IF NOT EXISTS organizations (
-      id TEXT PRIMARY KEY,
-      github_org_slug TEXT NOT NULL UNIQUE,
-      name TEXT NOT NULL,
-      avatar_url TEXT NOT NULL,
-      installed_at TEXT NOT NULL,
-      admin_user_id TEXT NOT NULL REFERENCES users(id),
-      is_active BOOLEAN NOT NULL DEFAULT true,
-      installation_id INTEGER,
-      cla_text TEXT NOT NULL DEFAULT '',
-      cla_text_sha256 TEXT
-    )
-  `
-  await sql`
-    CREATE TABLE IF NOT EXISTS cla_archives (
-      id TEXT PRIMARY KEY,
-      org_id TEXT NOT NULL REFERENCES organizations(id),
-      sha256 TEXT NOT NULL,
-      cla_text TEXT NOT NULL,
-      created_at TEXT NOT NULL,
-      UNIQUE(org_id, sha256)
-    )
-  `
-  await sql`
-    CREATE TABLE IF NOT EXISTS cla_signatures (
-      id TEXT PRIMARY KEY,
-      org_id TEXT NOT NULL REFERENCES organizations(id),
-      user_id TEXT NOT NULL REFERENCES users(id),
-      cla_sha256 TEXT NOT NULL,
-      signed_at TEXT NOT NULL,
-      github_username TEXT NOT NULL,
-      name TEXT NOT NULL,
-      avatar_url TEXT NOT NULL
-    )
-  `
+  await assertMigrationsApplied()
 
-  // Seed with initial data
-  const { seedDatabase } = await import("./seed")
-  await seedDatabase(db)
+  if (shouldSeedDatabase()) {
+    const { seedDatabase } = await import("./seed")
+    await seedDatabase(db)
+  }
+}
+
+async function assertMigrationsApplied() {
+  const sql = neon(getDatabaseUrl())
+  try {
+    await sql`SELECT 1 FROM users LIMIT 1`
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    throw new Error(
+      `[db] Database schema is not initialized. Run "pnpm db:migrate" before starting the app. Underlying error: ${message}`
+    )
+  }
 }
 
 // ── Export ──────────────────────────────────────────────────────────
@@ -96,7 +70,7 @@ async function initDb(db: Database) {
 export const db = getDb()
 
 /**
- * Ensure the DB is fully initialized (schema created + seeded).
+ * Ensure the DB is fully initialized (migrations applied + optional seed).
  * Call this at the top of any API route that reads/writes data.
  */
 export async function ensureDbReady(): Promise<Database> {
@@ -118,8 +92,14 @@ export async function ensureDbReady(): Promise<Database> {
  * Full reset -- truncate all data and re-seed.
  */
 export async function resetDb(): Promise<void> {
-  const sql = neon(process.env.DATABASE_URL!)
+  const sql = neon(getDatabaseUrl())
   await sql`TRUNCATE cla_signatures, cla_archives, organizations, users CASCADE`
   const { seedDatabase } = await import("./seed")
   await seedDatabase(db)
+}
+
+function shouldSeedDatabase() {
+  if (process.env.SEED_DATABASE === "true") return true
+  if (process.env.SEED_DATABASE === "false") return false
+  return process.env.NODE_ENV !== "production"
 }

@@ -100,3 +100,10 @@ export type ListCommentsParams = {
   repo: string
   issue_number: number
 }
+
+// --- Pull Requests ---
+export type PullRequestRef = {
+  number: number
+  headSha: string
+  authorLogin: string
+}

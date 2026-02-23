@@ -118,7 +118,10 @@ test("GET /api/orgs/fiveonefour returns org details, signers, and archives", asy
   assertEqual(res.status, 200, "status")
   assertEqual(data.org.name, "Fiveonefour", "org name")
   assertEqual(data.org.isActive, true, "org is active")
-  assert(data.currentClaMarkdown.includes("Contributor License Agreement"), "CLA content via currentClaMarkdown")
+  assert(
+    data.currentClaMarkdown.includes("Contributor License Agreement"),
+    "CLA content via currentClaMarkdown"
+  )
   assertEqual(data.signers.length, 3, "fiveonefour signers count")
   assert(typeof data.currentClaSha256 === "string", "currentClaSha256 is a string")
   assert(data.currentClaSha256.length === 64, "sha256 is 64 hex chars")
@@ -416,7 +419,9 @@ test("Admin signers list shows outdated badges after CLA update", async (baseUrl
   const res1 = await fetch(`${baseUrl}/api/orgs/fiveonefour`)
   const data1 = await res1.json()
   assertEqual(data1.signers.length, 3, "3 signers initially")
-  const allOnCurrent = data1.signers.every((s: { claSha256: string }) => s.claSha256 === data1.currentClaSha256)
+  const allOnCurrent = data1.signers.every(
+    (s: { claSha256: string }) => s.claSha256 === data1.currentClaSha256
+  )
   assert(allOnCurrent, "all signers on current version initially")
 
   // Step 2: Admin updates CLA
@@ -430,7 +435,9 @@ test("Admin signers list shows outdated badges after CLA update", async (baseUrl
   const res2 = await fetch(`${baseUrl}/api/orgs/fiveonefour`)
   const data2 = await res2.json()
   assertEqual(data2.signers.length, 3, "still 3 signers")
-  const noneOnCurrent = data2.signers.every((s: { claSha256: string }) => s.claSha256 !== data2.currentClaSha256)
+  const noneOnCurrent = data2.signers.every(
+    (s: { claSha256: string }) => s.claSha256 !== data2.currentClaSha256
+  )
   assert(noneOnCurrent, "all signers now on outdated version")
 })
 
@@ -449,11 +456,17 @@ test("Contributor dashboard shows re-sign required after CLA update", async (bas
   await switchRole(baseUrl, "contributor")
   const res = await fetch(`${baseUrl}/api/contributor`)
   const data = await res.json()
-  const fiveOneFourSig = data.signatures.find((s: { orgSlug: string }) => s.orgSlug === "fiveonefour")
+  const fiveOneFourSig = data.signatures.find(
+    (s: { orgSlug: string }) => s.orgSlug === "fiveonefour"
+  )
   assert(fiveOneFourSig !== undefined, "fiveonefour signature exists")
   assertEqual(fiveOneFourSig.isCurrentVersion, false, "signature is outdated")
   assert(typeof fiveOneFourSig.signedVersionLabel === "string", "signedVersionLabel is a string")
-  assertEqual(fiveOneFourSig.signedVersionLabel.length, 7, "signedVersionLabel is 7-char sha256 prefix")
+  assertEqual(
+    fiveOneFourSig.signedVersionLabel.length,
+    7,
+    "signedVersionLabel is 7-char sha256 prefix"
+  )
 })
 
 // ==========================================
@@ -660,11 +673,7 @@ test("POST /api/reset restores initial state", async (baseUrl) => {
 // 11. WEBHOOK / PR CHECK TESTS
 // ==========================================
 
-async function sendWebhook(
-  baseUrl: string,
-  event: string,
-  payload: Record<string, unknown>
-) {
+async function sendWebhook(baseUrl: string, event: string, payload: Record<string, unknown>) {
   const res = await fetch(`${baseUrl}/api/webhook/github`, {
     method: "POST",
     headers: {
@@ -688,7 +697,7 @@ function makePrPayload(opts: {
     number: opts.prNumber,
     pull_request: {
       user: { login: opts.prAuthor },
-      head: { sha: "test-sha-" + Date.now() },
+      head: { sha: `test-sha-${Date.now()}` },
     },
     repository: {
       name: opts.repoName,

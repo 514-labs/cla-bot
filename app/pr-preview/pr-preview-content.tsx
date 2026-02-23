@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useCallback } from "react"
+import { useState, useCallback } from "react"
 import { SiteHeader } from "@/components/site-header"
 import { MarkdownRenderer } from "@/components/markdown-renderer"
 import { Button } from "@/components/ui/button"
@@ -32,10 +32,7 @@ export default function PrPreviewContent() {
   const [prNumber] = useState(42)
   const [stepLog, setStepLog] = useState<string[]>([])
 
-  const prAuthorForScenario =
-    scenario === "orgMember"
-      ? "orgadmin"
-      : "contributor1"
+  const prAuthorForScenario = scenario === "orgMember" ? "orgadmin" : "contributor1"
 
   const addLog = useCallback((msg: string) => {
     setStepLog((prev) => [...prev, `[${new Date().toLocaleTimeString()}] ${msg}`])
@@ -70,7 +67,10 @@ export default function PrPreviewContent() {
       await fetch("/api/orgs/fiveonefour", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ claMarkdown: "# Updated Contributor License Agreement v2\n\nNew terms and conditions apply. Please review and re-sign." }),
+        body: JSON.stringify({
+          claMarkdown:
+            "# Updated Contributor License Agreement v2\n\nNew terms and conditions apply. Please review and re-sign.",
+        }),
       })
       addLog("CLA updated to v2 -- contributor1's v1 signature is now outdated")
     }
@@ -233,9 +233,7 @@ export default function PrPreviewContent() {
       <main className="flex-1">
         <div className="mx-auto max-w-5xl px-4 py-12">
           <div className="mb-8">
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">
-              PR Bot Preview
-            </h1>
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">PR Bot Preview</h1>
             <p className="mt-1 text-muted-foreground">
               Simulate what happens when a pull request is opened on a repo with CLA Bot installed.
             </p>
@@ -252,13 +250,13 @@ export default function PrPreviewContent() {
             <CardContent>
               <div className="flex flex-col gap-4">
                 <div className="flex flex-wrap gap-2">
-                  {([
+                  {[
                     { id: "orgMember" as const, label: "Org Member" },
                     { id: "unsigned" as const, label: "New Contributor (unsigned)" },
                     { id: "resign" as const, label: "CLA Updated (re-sign)" },
                     { id: "signed" as const, label: "Already Signed (current)" },
                     { id: "inactive" as const, label: "Bot Deactivated" },
-                  ]).map((s) => (
+                  ].map((s) => (
                     <Button
                       key={s.id}
                       variant={scenario === s.id ? "default" : "outline"}
@@ -272,11 +270,7 @@ export default function PrPreviewContent() {
                   ))}
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <Button
-                    className="gap-2"
-                    onClick={simulatePrOpened}
-                    disabled={running}
-                  >
+                  <Button className="gap-2" onClick={simulatePrOpened} disabled={running}>
                     {running ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
@@ -284,17 +278,18 @@ export default function PrPreviewContent() {
                     )}
                     Simulate PR Opened
                   </Button>
-                  {(scenario === "unsigned" || scenario === "resign") && checkStatus === "failure" && (
-                    <Button
-                      variant="outline"
-                      className="gap-2 bg-transparent"
-                      onClick={simulateSignAndRecheck}
-                      disabled={running}
-                    >
-                      <RefreshCw className="h-4 w-4" />
-                      Sign CLA + Update Check
-                    </Button>
-                  )}
+                  {(scenario === "unsigned" || scenario === "resign") &&
+                    checkStatus === "failure" && (
+                      <Button
+                        variant="outline"
+                        className="gap-2 bg-transparent"
+                        onClick={simulateSignAndRecheck}
+                        disabled={running}
+                      >
+                        <RefreshCw className="h-4 w-4" />
+                        Sign CLA + Update Check
+                      </Button>
+                    )}
                   <Button
                     variant="outline"
                     className="gap-2 bg-transparent"
@@ -323,10 +318,11 @@ export default function PrPreviewContent() {
                       </span>
                       <span className="block text-xs text-muted-foreground">
                         #{prNumber} opened by{" "}
-                        <span className="font-medium text-foreground">
-                          {prAuthorForScenario}
-                        </span>{" "}
-                        into <Badge variant="outline" className="ml-1 text-xs">main</Badge>
+                        <span className="font-medium text-foreground">{prAuthorForScenario}</span>{" "}
+                        into{" "}
+                        <Badge variant="outline" className="ml-1 text-xs">
+                          main
+                        </Badge>
                       </span>
                     </div>
                   </div>
@@ -352,13 +348,15 @@ export default function PrPreviewContent() {
 
               {/* Check Status */}
               {checkStatus && (
-                <Card className={`mb-4 ${
-                  checkStatus === "failure"
-                    ? "border-red-500/30"
-                    : checkStatus === "success"
-                      ? "border-emerald-500/30"
-                      : "border-amber-500/30"
-                }`}>
+                <Card
+                  className={`mb-4 ${
+                    checkStatus === "failure"
+                      ? "border-red-500/30"
+                      : checkStatus === "success"
+                        ? "border-emerald-500/30"
+                        : "border-amber-500/30"
+                  }`}
+                >
                   <CardContent className="py-4">
                     <div className="flex items-center gap-3">
                       {checkIcon}
@@ -369,11 +367,14 @@ export default function PrPreviewContent() {
                         <span className="block text-xs text-muted-foreground">
                           {checkStatus === "failure" ? (
                             <>
-                              1 failing check -- <span className="font-medium text-red-400">license/cla</span> -- CLA not signed
+                              1 failing check --{" "}
+                              <span className="font-medium text-red-400">license/cla</span> -- CLA
+                              not signed
                             </>
                           ) : checkStatus === "success" ? (
                             <>
-                              1 passing check -- <span className="font-medium text-emerald-400">license/cla</span>
+                              1 passing check --{" "}
+                              <span className="font-medium text-emerald-400">license/cla</span>
                             </>
                           ) : (
                             "Waiting for checks to complete..."
@@ -401,9 +402,7 @@ export default function PrPreviewContent() {
                   <CardHeader className="pb-2">
                     <div className="flex items-center gap-3">
                       <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/20">
-                        <span className="text-xs font-bold text-primary">
-                          CLA
-                        </span>
+                        <span className="text-xs font-bold text-primary">CLA</span>
                       </div>
                       <div>
                         <span className="block text-sm font-medium text-foreground">
@@ -412,9 +411,7 @@ export default function PrPreviewContent() {
                             bot
                           </Badge>
                         </span>
-                        <p className="text-xs text-muted-foreground">
-                          commented just now
-                        </p>
+                        <p className="text-xs text-muted-foreground">commented just now</p>
                       </div>
                     </div>
                   </CardHeader>
@@ -456,7 +453,8 @@ export default function PrPreviewContent() {
                       No simulation running
                     </h3>
                     <p className="max-w-sm text-sm text-muted-foreground">
-                      Choose a scenario above and click &quot;Simulate PR Opened&quot; to see what the bot does on a pull request.
+                      Choose a scenario above and click &quot;Simulate PR Opened&quot; to see what
+                      the bot does on a pull request.
                     </p>
                   </CardContent>
                 </Card>
@@ -468,9 +466,7 @@ export default function PrPreviewContent() {
               <Card>
                 <CardHeader>
                   <CardTitle className="text-base">Event Log</CardTitle>
-                  <CardDescription>
-                    Step-by-step log of the simulation.
-                  </CardDescription>
+                  <CardDescription>Step-by-step log of the simulation.</CardDescription>
                 </CardHeader>
                 <CardContent>
                   {stepLog.length === 0 ? (
@@ -496,27 +492,37 @@ export default function PrPreviewContent() {
                 <CardContent>
                   {scenario === "orgMember" && (
                     <p className="text-sm text-muted-foreground">
-                      PR author (orgadmin) is a member of the fiveonefour org. CLA check auto-passes with no comment posted. Org members never need to sign.
+                      PR author (orgadmin) is a member of the fiveonefour org. CLA check auto-passes
+                      with no comment posted. Org members never need to sign.
                     </p>
                   )}
                   {scenario === "unsigned" && (
                     <p className="text-sm text-muted-foreground">
-                      An external contributor (contributor1) opens a PR but has never signed the CLA. The check fails and the bot posts a comment explaining what&apos;s needed with a direct link to sign. After signing, the check auto-updates to green and the comment updates to confirm -- no need to push a commit or comment /recheck.
+                      An external contributor (contributor1) opens a PR but has never signed the
+                      CLA. The check fails and the bot posts a comment explaining what&apos;s needed
+                      with a direct link to sign. After signing, the check auto-updates to green and
+                      the comment updates to confirm -- no need to push a commit or comment
+                      /recheck.
                     </p>
                   )}
                   {scenario === "signed" && (
                     <p className="text-sm text-muted-foreground">
-                      contributor1 has already signed the current CLA version (v1). The check passes immediately and no comment is posted -- zero friction for returning contributors.
+                      contributor1 has already signed the current CLA version (v1). The check passes
+                      immediately and no comment is posted -- zero friction for returning
+                      contributors.
                     </p>
                   )}
                   {scenario === "resign" && (
                     <p className="text-sm text-muted-foreground">
-                      The admin updated the CLA to v2 since contributor1 last signed (v1). The check fails and the bot tells the contributor they need to re-sign the updated agreement. After re-signing, the check auto-updates.
+                      The admin updated the CLA to v2 since contributor1 last signed (v1). The check
+                      fails and the bot tells the contributor they need to re-sign the updated
+                      agreement. After re-signing, the check auto-updates.
                     </p>
                   )}
                   {scenario === "inactive" && (
                     <p className="text-sm text-muted-foreground">
-                      The CLA bot has been deactivated for this org. Nothing happens -- no check run is created and no comment is posted. The PR is completely unaffected.
+                      The CLA bot has been deactivated for this org. Nothing happens -- no check run
+                      is created and no comment is posted. The PR is completely unaffected.
                     </p>
                   )}
                 </CardContent>

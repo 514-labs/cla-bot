@@ -2,7 +2,7 @@
 
 import React from "react"
 import { useState, useCallback } from "react"
-import { useParams } from "next/navigation"
+import { useParams, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import useSWR from "swr"
 import { SiteHeader } from "@/components/site-header"
@@ -10,13 +10,25 @@ import { MarkdownRenderer } from "@/components/markdown-renderer"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, AlertTriangle, Check, FileCheck2, Github, Loader2, ScrollText } from "lucide-react"
+import {
+  ArrowLeft,
+  AlertTriangle,
+  Check,
+  FileCheck2,
+  Github,
+  Loader2,
+  ScrollText,
+} from "lucide-react"
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
 export default function SignClaPage() {
   const params = useParams()
+  const searchParams = useSearchParams()
   const orgSlug = params.orgSlug as string
+  const repoName = searchParams.get("repo")
+  const prNumber = searchParams.get("pr")
+  const returnTo = `/sign/${orgSlug}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`
 
   const { data, isLoading, mutate } = useSWR(`/api/sign/${orgSlug}`, fetcher)
 
@@ -47,7 +59,7 @@ export default function SignClaPage() {
     const res = await fetch("/api/sign", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ orgSlug }),
+      body: JSON.stringify({ orgSlug, repoName, prNumber }),
     })
     if (res.ok) {
       setJustSigned(true)
@@ -68,6 +80,25 @@ export default function SignClaPage() {
   }
 
   if (!org) {
+    if (data?.error === "Unauthorized") {
+      return (
+        <div className="flex min-h-screen flex-col">
+          <SiteHeader />
+          <main className="flex flex-1 items-center justify-center">
+            <div className="text-center">
+              <h1 className="text-2xl font-bold text-foreground">Sign in required</h1>
+              <p className="mt-2 text-muted-foreground">
+                Please sign in with GitHub before signing this CLA.
+              </p>
+              <a href={`/api/auth/github?returnTo=${encodeURIComponent(returnTo)}`}>
+                <Button className="mt-4">Sign in with GitHub</Button>
+              </a>
+            </div>
+          </main>
+        </div>
+      )
+    }
+
     return (
       <div className="flex min-h-screen flex-col">
         <SiteHeader />
@@ -110,9 +141,7 @@ export default function SignClaPage() {
               <Github className="h-4 w-4" />
               {org.githubOrgSlug}
               {currentSha256 && (
-                <code className="text-xs text-muted-foreground">
-                  ({currentSha256.slice(0, 7)})
-                </code>
+                <code className="text-xs text-muted-foreground">({currentSha256.slice(0, 7)})</code>
               )}
             </p>
           </div>
@@ -124,7 +153,8 @@ export default function SignClaPage() {
               <div>
                 <p className="text-sm font-medium text-foreground">CLA Bot is inactive</p>
                 <p className="text-xs text-muted-foreground">
-                  The CLA bot has been deactivated for this organization. Signing is currently disabled.
+                  The CLA bot has been deactivated for this organization. Signing is currently
+                  disabled.
                 </p>
               </div>
             </div>
@@ -132,16 +162,17 @@ export default function SignClaPage() {
 
           {/* Re-sign required banner */}
           {needsResign && !justSigned && (
-            <div className="mb-6 flex items-center gap-3 rounded-xl border border-amber-500/30 bg-amber-500/5 px-5 py-4" data-testid="resign-banner">
+            <div
+              className="mb-6 flex items-center gap-3 rounded-xl border border-amber-500/30 bg-amber-500/5 px-5 py-4"
+              data-testid="resign-banner"
+            >
               <AlertTriangle className="h-5 w-5 shrink-0 text-amber-500" />
               <div>
-                <p className="text-sm font-medium text-foreground">
-                  Re-signing required
-                </p>
+                <p className="text-sm font-medium text-foreground">Re-signing required</p>
                 <p className="text-xs text-muted-foreground">
                   The CLA has been updated since you last signed
-                  {signedSha256 ? ` (you signed version ${signedSha256.slice(0, 7)})` : ""}.
-                  Please review and sign the latest version
+                  {signedSha256 ? ` (you signed version ${signedSha256.slice(0, 7)})` : ""}. Please
+                  review and sign the latest version
                   {currentSha256 ? ` (${currentSha256.slice(0, 7)})` : ""}.
                 </p>
               </div>
@@ -150,29 +181,31 @@ export default function SignClaPage() {
 
           {/* Already signed (current version) banner */}
           {signed && (
-            <div className="mb-6 flex items-center gap-3 rounded-xl border border-primary/30 bg-primary/5 px-5 py-4" data-testid="signed-banner">
+            <div
+              className="mb-6 flex items-center gap-3 rounded-xl border border-primary/30 bg-primary/5 px-5 py-4"
+              data-testid="signed-banner"
+            >
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10">
                 <Check className="h-5 w-5 text-primary" />
               </div>
               <div>
-                <p className="text-sm font-medium text-foreground">
-                  You have signed this CLA
-                </p>
+                <p className="text-sm font-medium text-foreground">You have signed this CLA</p>
                 <p className="text-xs text-muted-foreground">
                   {existingSignature && !justSigned
-                    ? `Signed on ${new Date(existingSignature.signedAt).toLocaleDateString("en-US", {
-                        year: "numeric",
-                        month: "long",
-                        day: "numeric",
-                      })}`
+                    ? `Signed on ${new Date(existingSignature.signedAt).toLocaleDateString(
+                        "en-US",
+                        {
+                          year: "numeric",
+                          month: "long",
+                          day: "numeric",
+                        }
+                      )}`
                     : "Signed just now"}
                   {user ? ` as @${user.githubUsername}` : ""}
                   {currentSha256 ? ` (version ${currentSha256.slice(0, 7)})` : ""}
                 </p>
               </div>
-              <Badge className="ml-auto border-primary/30 bg-primary/10 text-primary">
-                Signed
-              </Badge>
+              <Badge className="ml-auto border-primary/30 bg-primary/10 text-primary">Signed</Badge>
             </div>
           )}
 

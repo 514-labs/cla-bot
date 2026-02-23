@@ -18,6 +18,7 @@ import type {
   CreateCommentParams,
   UpdateCommentParams,
   ListCommentsParams,
+  PullRequestRef,
 } from "./types"
 
 // ==============================
@@ -114,9 +115,7 @@ export class MockGitHubClient implements GitHubClient {
   // --- Org Membership ---
 
   async checkOrgMembership(org: string, username: string): Promise<OrgMembershipStatus> {
-    const isMember = orgMemberships.some(
-      (m) => m.org === org && m.username === username
-    )
+    const isMember = orgMemberships.some((m) => m.org === org && m.username === username)
     return isMember ? "active" : "not_member"
   }
 
@@ -177,9 +176,7 @@ export class MockGitHubClient implements GitHubClient {
   async listCheckRunsForRef(owner: string, repo: string, ref: string): Promise<CheckRun[]> {
     const meta = checkRunMeta.filter((m) => m.owner === owner && m.repo === repo)
     const ids = new Set(meta.map((m) => m.id))
-    return checkRuns
-      .filter((c) => ids.has(c.id) && c.head_sha === ref)
-      .map((c) => ({ ...c }))
+    return checkRuns.filter((c) => ids.has(c.id) && c.head_sha === ref).map((c) => ({ ...c }))
   }
 
   // --- PR Comments ---
@@ -198,7 +195,12 @@ export class MockGitHubClient implements GitHubClient {
       issue_number: params.issue_number,
     }
     comments.push(comment)
-    return { ...comment, owner: undefined, repo: undefined, issue_number: undefined } as IssueComment
+    return {
+      ...comment,
+      owner: undefined,
+      repo: undefined,
+      issue_number: undefined,
+    } as IssueComment
   }
 
   async updateComment(params: UpdateCommentParams): Promise<IssueComment> {
@@ -238,10 +240,52 @@ export class MockGitHubClient implements GitHubClient {
     const { owner: _o, repo: _r, issue_number: _i, ...rest } = latest
     return { ...rest }
   }
+
+  // --- Pull Requests ---
+
+  async getPullRequestHeadSha(owner: string, repo: string, pullNumber: number): Promise<string> {
+    const fromKnownPr = pullRequests.find(
+      (pr) => pr.owner === owner && pr.repo === repo && pr.number === pullNumber
+    )
+    if (fromKnownPr) return fromKnownPr.headSha
+
+    // Fallback: derive from latest check run for this repo in mock preview mode.
+    const meta = checkRunMeta
+      .filter((m) => m.owner === owner && m.repo === repo)
+      .slice()
+      .reverse()
+    for (const m of meta) {
+      const match = checkRuns.find((c) => c.id === m.id)
+      if (match) return match.head_sha
+    }
+
+    throw new Error(`Pull request #${pullNumber} not found in mock state`)
+  }
+
+  async listOpenPullRequestsByAuthor(
+    owner: string,
+    repo: string,
+    author: string
+  ): Promise<PullRequestRef[]> {
+    return pullRequests
+      .filter((pr) => pr.owner === owner && pr.repo === repo && pr.authorLogin === author)
+      .map((pr) => ({
+        number: pr.number,
+        headSha: pr.headSha,
+        authorLogin: pr.authorLogin,
+      }))
+  }
 }
 
 // Internal metadata to associate check runs with repos
 let checkRunMeta: { id: number; owner: string; repo: string }[] = []
+let pullRequests: {
+  owner: string
+  repo: string
+  number: number
+  headSha: string
+  authorLogin: string
+}[] = []
 
 // ==============================
 // State management for testing
@@ -254,6 +298,7 @@ export function resetMockGitHub() {
   checkRuns = []
   checkRunMeta = []
   comments = []
+  pullRequests = []
   nextCheckRunId = 1
   nextCommentId = 1
 }
@@ -271,6 +316,27 @@ export function getAllComments() {
     repo,
     issue_number,
   }))
+}
+
+/**
+ * Track PR metadata in mock mode so /recheck and sign flows can resolve head SHAs.
+ */
+export function upsertMockPullRequest(data: {
+  owner: string
+  repo: string
+  number: number
+  headSha: string
+  authorLogin: string
+}) {
+  const idx = pullRequests.findIndex(
+    (pr) => pr.owner === data.owner && pr.repo === data.repo && pr.number === data.number
+  )
+
+  if (idx >= 0) {
+    pullRequests[idx] = { ...data }
+    return
+  }
+  pullRequests.push({ ...data })
 }
 
 /** Get the singleton instance. */

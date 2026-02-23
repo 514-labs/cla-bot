@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
-import { upsertUser } from "@/lib/db/queries"
+import { upsertUser, updateUserGithubAuth } from "@/lib/db/queries"
 import { createSessionToken, getSessionCookieOptions } from "@/lib/auth"
+import { encryptSecret } from "@/lib/security/encryption"
 
 /**
  * GitHub OAuth Callback
@@ -29,7 +30,7 @@ export async function GET(request: NextRequest) {
 
     const redirectUri = `${new URL(request.url).origin}/api/auth/github`
     // Encode the return URL in state so we can redirect back after login
-    const returnTo = searchParams.get("returnTo") || "/dashboard"
+    const returnTo = sanitizeReturnTo(searchParams.get("returnTo"), "/dashboard")
     const githubAuthUrl = new URL("https://github.com/login/oauth/authorize")
     githubAuthUrl.searchParams.set("client_id", clientId)
     githubAuthUrl.searchParams.set("redirect_uri", redirectUri)
@@ -66,6 +67,10 @@ export async function GET(request: NextRequest) {
   }
 
   const accessToken = tokenData.access_token
+  if (!accessToken) {
+    console.error("GitHub OAuth token error: missing access token", tokenData)
+    return NextResponse.redirect(new URL("/auth/signin?error=github_token", request.url))
+  }
 
   // Step 3: Fetch user profile from GitHub API
   const userRes = await fetch("https://api.github.com/user", {
@@ -90,6 +95,19 @@ export async function GET(request: NextRequest) {
     name: githubUser.name || githubUser.login,
   })
 
+  const encryptedAccessToken = encryptSecret(accessToken)
+  if (!encryptedAccessToken) {
+    console.error(
+      "Failed to encrypt GitHub OAuth token: ENCRYPTION_KEY or SESSION_SECRET is missing"
+    )
+    return NextResponse.redirect(new URL("/auth/signin?error=server_config", request.url))
+  }
+
+  await updateUserGithubAuth(user.id, {
+    accessTokenEncrypted: encryptedAccessToken,
+    tokenScopes: tokenData.scope ?? "",
+  })
+
   // Step 5: Determine role — check if user is admin of any org
   // For now, use the role from the DB (set during org creation or default "contributor")
   const role = user.role as "admin" | "contributor"
@@ -101,7 +119,7 @@ export async function GET(request: NextRequest) {
     role,
   })
 
-  const returnTo = state || "/dashboard"
+  const returnTo = sanitizeReturnTo(state, "/dashboard")
   const response = NextResponse.redirect(new URL(returnTo, request.url))
   const cookieOpts = getSessionCookieOptions()
   response.cookies.set(cookieOpts.name, token, {
@@ -113,4 +131,10 @@ export async function GET(request: NextRequest) {
   })
 
   return response
+}
+
+function sanitizeReturnTo(raw: string | null, fallback: string): string {
+  if (!raw) return fallback
+  if (!raw.startsWith("/") || raw.startsWith("//")) return fallback
+  return raw
 }

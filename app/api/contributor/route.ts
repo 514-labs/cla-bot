@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server"
-import {
-  getSessionUser,
-  getSignaturesByUser,
-  getOrganizations,
-} from "@/lib/db/queries"
+import { getSignaturesByUser, getOrganizations } from "@/lib/db/queries"
+import { getSessionUser } from "@/lib/auth"
 
 export async function GET() {
-  const user = getSessionUser()
+  const user = await getSessionUser()
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
   const mySignatures = await getSignaturesByUser(user.id)
   const allOrgs = await getOrganizations()
 

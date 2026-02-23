@@ -10,6 +10,8 @@ export function generateUnsignedComment({
   prAuthor,
   orgName,
   orgSlug,
+  repoName,
+  prNumber,
   claVersionLabel,
   appBaseUrl,
   isResign,
@@ -17,12 +19,14 @@ export function generateUnsignedComment({
   prAuthor: string
   orgName: string
   orgSlug: string
+  repoName: string
+  prNumber: number
   /** Short sha256 prefix (7 chars) identifying the CLA version, e.g. "a3f8c1e" */
   claVersionLabel: string
   appBaseUrl: string
   isResign: boolean
 }): string {
-  const signUrl = `${appBaseUrl}/sign/${orgSlug}?utm_source=github&utm_medium=pr_comment&utm_campaign=cla_bot`
+  const signUrl = `${appBaseUrl}/sign/${orgSlug}?repo=${encodeURIComponent(repoName)}&pr=${prNumber}&utm_source=github&utm_medium=pr_comment&utm_campaign=cla_bot`
 
   const header = isResign
     ? `### CLA Re-signing Required`

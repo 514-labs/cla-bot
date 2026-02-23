@@ -16,12 +16,24 @@ export function SiteHeader() {
   const [mobileOpen, setMobileOpen] = useState(false)
 
   // Fetch current session state
-  const { data: session } = useSWR("/api/mock-role", fetcher)
+  const { data: session } = useSWR("/api/auth/session", fetcher)
   const user = session?.user
   const isSignedIn = !!user
 
+  async function handleSignOut() {
+    const res = await fetch("/api/auth/logout", { method: "POST" })
+    if (res.redirected) {
+      window.location.href = res.url
+      return
+    }
+    window.location.href = "/"
+  }
+
   // Fetch feature flags
-  const { data: flags } = useSWR<{ showPrPreview: boolean; showTests: boolean }>("/api/flags", fetcher)
+  const { data: flags } = useSWR<{ showPrPreview: boolean; showTests: boolean }>(
+    "/api/flags",
+    fetcher
+  )
 
   const navItems = [
     { href: "/dashboard", label: "Dashboard" },
@@ -38,12 +50,8 @@ export function SiteHeader() {
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
             <FileCheck2 className="h-4 w-4 text-primary-foreground" />
           </div>
-          <span className="text-lg font-bold tracking-tight text-foreground">
-            CLA Bot
-          </span>
-          <span className="hidden text-xs text-muted-foreground sm:inline">
-            by fiveonefour
-          </span>
+          <span className="text-lg font-bold tracking-tight text-foreground">CLA Bot</span>
+          <span className="hidden text-xs text-muted-foreground sm:inline">by fiveonefour</span>
         </Link>
 
         {/* Desktop nav */}
@@ -77,16 +85,17 @@ export function SiteHeader() {
                   className="h-7 w-7 rounded-full"
                   crossOrigin="anonymous"
                 />
-                <span className="text-sm font-medium text-foreground">
-                  {user.name}
-                </span>
+                <span className="text-sm font-medium text-foreground">{user.name}</span>
               </div>
-              <Link href="/">
-                <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground hover:text-foreground">
-                  <LogOut className="h-3.5 w-3.5" />
-                  <span className="sr-only">Sign out</span>
-                </Button>
-              </Link>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="gap-1.5 text-muted-foreground hover:text-foreground"
+                onClick={handleSignOut}
+              >
+                <LogOut className="h-3.5 w-3.5" />
+                <span className="sr-only">Sign out</span>
+              </Button>
             </div>
           ) : (
             <Link href="/auth/signin">

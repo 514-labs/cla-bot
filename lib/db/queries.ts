@@ -15,12 +15,7 @@
 
 import { eq, and, desc } from "drizzle-orm"
 import { ensureDbReady, resetDb } from "./index"
-import {
-  users,
-  organizations,
-  claArchives,
-  claSignatures,
-} from "./schema"
+import { users, organizations, claArchives, claSignatures } from "./schema"
 import { sha256Hex } from "./sha256"
 
 // ---------- Users ----------
@@ -33,10 +28,7 @@ export async function getUserById(id: string) {
 
 export async function getUserByUsername(username: string) {
   const db = await ensureDbReady()
-  const rows = await db
-    .select()
-    .from(users)
-    .where(eq(users.githubUsername, username))
+  const rows = await db.select().from(users).where(eq(users.githubUsername, username))
   return rows[0] ?? undefined
 }
 
@@ -57,12 +49,14 @@ export async function upsertUser(data: {
   const existing = await getUserByUsername(data.githubUsername)
   if (existing) {
     // Update avatar/name/githubId if changed
+    const nextRole = data.role ?? existing.role
     const rows = await db
       .update(users)
       .set({
         avatarUrl: data.avatarUrl,
         name: data.name || existing.name,
         githubId: data.githubId,
+        role: nextRole,
       })
       .where(eq(users.id, existing.id))
       .returning()
@@ -84,6 +78,30 @@ export async function upsertUser(data: {
   return rows[0]
 }
 
+/**
+ * Store encrypted GitHub OAuth token metadata for a user.
+ * Used for org-admin authorization checks against GitHub.
+ */
+export async function updateUserGithubAuth(
+  userId: string,
+  data: {
+    accessTokenEncrypted: string
+    tokenScopes?: string
+  }
+) {
+  const db = await ensureDbReady()
+  const rows = await db
+    .update(users)
+    .set({
+      githubAccessTokenEncrypted: data.accessTokenEncrypted,
+      githubTokenScopes: data.tokenScopes ?? null,
+      githubTokenUpdatedAt: new Date().toISOString(),
+    })
+    .where(eq(users.id, userId))
+    .returning()
+  return rows[0] ?? undefined
+}
+
 // ---------- Organizations ----------
 
 export async function getOrganizations() {
@@ -93,18 +111,12 @@ export async function getOrganizations() {
 
 export async function getOrganizationsByAdmin(adminUserId: string) {
   const db = await ensureDbReady()
-  return db
-    .select()
-    .from(organizations)
-    .where(eq(organizations.adminUserId, adminUserId))
+  return db.select().from(organizations).where(eq(organizations.adminUserId, adminUserId))
 }
 
 export async function getOrganizationBySlug(slug: string) {
   const db = await ensureDbReady()
-  const rows = await db
-    .select()
-    .from(organizations)
-    .where(eq(organizations.githubOrgSlug, slug))
+  const rows = await db.select().from(organizations).where(eq(organizations.githubOrgSlug, slug))
   return rows[0] ?? undefined
 }
 
@@ -148,7 +160,10 @@ export async function createOrganization(data: {
   return rows[0]
 }
 
-export async function updateOrganizationInstallationId(slug: string, installationId: number) {
+export async function updateOrganizationInstallationId(
+  slug: string,
+  installationId: number | null
+) {
   const db = await ensureDbReady()
   const rows = await db
     .update(organizations)
@@ -220,18 +235,12 @@ export async function getArchivesByOrg(orgId: string) {
 
 export async function getSignaturesByOrg(orgId: string) {
   const db = await ensureDbReady()
-  return db
-    .select()
-    .from(claSignatures)
-    .where(eq(claSignatures.orgId, orgId))
+  return db.select().from(claSignatures).where(eq(claSignatures.orgId, orgId))
 }
 
 export async function getSignaturesByUser(userId: string) {
   const db = await ensureDbReady()
-  return db
-    .select()
-    .from(claSignatures)
-    .where(eq(claSignatures.userId, userId))
+  return db.select().from(claSignatures).where(eq(claSignatures.userId, userId))
 }
 
 export async function getSignature(orgId: string, userId: string) {
@@ -336,12 +345,7 @@ export async function clearSignaturesForUser(orgSlug: string, githubUsername: st
 
   const result = await db
     .delete(claSignatures)
-    .where(
-      and(
-        eq(claSignatures.orgId, org.id),
-        eq(claSignatures.githubUsername, githubUsername)
-      )
-    )
+    .where(and(eq(claSignatures.orgId, org.id), eq(claSignatures.githubUsername, githubUsername)))
     .returning()
 
   return result.length
