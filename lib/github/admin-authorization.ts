@@ -17,6 +17,8 @@ type OrgMembershipResponse = {
   role?: string
 }
 
+const ORG_LOG_LIMIT = 25
+
 function getGitHubAccessToken(user: UserWithToken): string | null {
   const encryptedToken = user.githubAccessTokenEncrypted ?? null
   if (!encryptedToken) return null
@@ -59,22 +61,82 @@ export async function filterInstalledOrganizationsForAdmin<T extends InstalledOr
   orgs: T[]
 ): Promise<T[]> {
   const installedOrgs = orgs.filter((org) => org.installationId !== null)
+  console.info("[admin-auth] Installed org candidates", {
+    userId: user.id,
+    count: installedOrgs.length,
+    orgSlugs: summarizeOrgSlugs(installedOrgs),
+  })
   if (installedOrgs.length === 0) return []
 
   const hasGitHubToken = Boolean(getGitHubAccessToken(user))
   if (!hasGitHubToken) {
+    console.warn("[admin-auth] Missing GitHub OAuth token for org-admin checks", {
+      userId: user.id,
+      nodeEnv: process.env.NODE_ENV,
+    })
     if (process.env.NODE_ENV !== "production") {
-      return installedOrgs.filter((org) => org.adminUserId === user.id)
+      const fallbackOrgs = installedOrgs.filter((org) => org.adminUserId === user.id)
+      console.info("[admin-auth] Non-production DB fallback applied", {
+        userId: user.id,
+        authorizedCount: fallbackOrgs.length,
+        authorizedOrgSlugs: summarizeOrgSlugs(fallbackOrgs),
+      })
+      return fallbackOrgs
     }
     return []
   }
 
-  const checks = await Promise.all(
-    installedOrgs.map(async (org) => ({
-      org,
-      isAdmin: await isGitHubOrgAdmin(user, org.githubOrgSlug),
-    }))
+  const checks = await Promise.allSettled(
+    installedOrgs.map((org) => isGitHubOrgAdmin(user, org.githubOrgSlug))
   )
 
-  return checks.filter((entry) => entry.isAdmin).map((entry) => entry.org)
+  const results = checks.map((check, index) => {
+    const org = installedOrgs[index]
+    if (check.status === "fulfilled") {
+      return {
+        org,
+        isAdmin: check.value,
+        error: null as string | null,
+      }
+    }
+
+    const message = check.reason instanceof Error ? check.reason.message : String(check.reason)
+    return {
+      org,
+      isAdmin: false,
+      error: message,
+    }
+  })
+
+  console.info("[admin-auth] GitHub org-admin check results", {
+    userId: user.id,
+    checks: results.map((result) => ({
+      orgSlug: result.org.githubOrgSlug,
+      installationId: result.org.installationId,
+      isAdmin: result.isAdmin,
+      error: result.error,
+    })),
+  })
+
+  const failedChecks = results.filter((result) => result.error !== null)
+  if (failedChecks.length > 0) {
+    const failedOrgSlugs = failedChecks.map((result) => result.org.githubOrgSlug)
+    throw new Error(
+      `GitHub org-admin checks failed for ${failedChecks.length} org(s): ${failedOrgSlugs.join(", ")}`
+    )
+  }
+
+  const authorizedOrgs = results.filter((result) => result.isAdmin).map((result) => result.org)
+  console.info("[admin-auth] Authorized orgs after checks", {
+    userId: user.id,
+    authorizedCount: authorizedOrgs.length,
+    authorizedOrgSlugs: summarizeOrgSlugs(authorizedOrgs),
+  })
+  return authorizedOrgs
+}
+
+function summarizeOrgSlugs<T extends InstalledOrganization>(orgs: T[]) {
+  const slugs = orgs.map((org) => org.githubOrgSlug)
+  if (slugs.length <= ORG_LOG_LIMIT) return slugs
+  return [...slugs.slice(0, ORG_LOG_LIMIT), `...(+${slugs.length - ORG_LOG_LIMIT} more)`]
 }

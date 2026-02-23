@@ -84,6 +84,32 @@ test("admin page does not auto-redirect when org verification fails", async ({ p
   await expect(page).toHaveURL(/\/admin$/)
 })
 
+test("admin page does not auto-redirect when install exists but org access is empty", async ({
+  page,
+}) => {
+  await page.route("**/api/orgs", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        orgs: [],
+        installedOrgsCount: 1,
+        user: {
+          id: "user_1",
+          githubUsername: "callicles",
+          avatarUrl: "https://avatars.githubusercontent.com/u/1",
+          name: "callicles",
+          role: "admin",
+        },
+      }),
+    })
+  })
+
+  await page.goto("/admin")
+  await expect(page.getByRole("heading", { name: "No accessible organizations" })).toBeVisible()
+  await expect(page).toHaveURL(/\/admin$/)
+})
+
 test("admin list and org detail pages render for signed-in admin", async ({
   page,
   baseURL,
