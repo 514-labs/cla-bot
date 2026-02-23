@@ -23,38 +23,6 @@ import {
 } from "./schema"
 import { sha256Hex } from "./sha256"
 
-// ---------- Session / Auth (in-memory, not DB) ----------
-
-const ADMIN_USER = {
-  id: "user_1",
-  githubUsername: "orgadmin",
-  avatarUrl: "https://api.dicebear.com/7.x/initials/svg?seed=OA&backgroundColor=059669",
-  name: "Org Admin",
-  role: "admin" as const,
-}
-
-const CONTRIBUTOR_USER = {
-  id: "user_2",
-  githubUsername: "contributor1",
-  avatarUrl: "https://api.dicebear.com/7.x/initials/svg?seed=C1&backgroundColor=0891b2",
-  name: "Jane Contributor",
-  role: "contributor" as const,
-}
-
-let currentRole: "admin" | "contributor" = "admin"
-
-export function getSessionUser() {
-  return currentRole === "admin" ? { ...ADMIN_USER } : { ...CONTRIBUTOR_USER }
-}
-
-export function setCurrentRole(role: "admin" | "contributor") {
-  currentRole = role
-}
-
-export function getCurrentRole() {
-  return currentRole
-}
-
 // ---------- Users ----------
 
 export async function getUserById(id: string) {
@@ -388,5 +356,4 @@ export async function hasUserSignedCurrentCla(orgSlug: string, userId: string) {
 
 export async function resetDatabase() {
   await resetDb()
-  currentRole = "admin"
 }

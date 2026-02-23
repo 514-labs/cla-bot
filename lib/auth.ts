@@ -67,10 +67,9 @@ export async function verifySessionToken(token: string): Promise<SessionPayload 
 export async function getSessionUser() {
   const secret = getJwtSecret()
 
-  // If no SESSION_SECRET, fall back to mock session for dev/test
+  // If no SESSION_SECRET, no session is available
   if (!secret) {
-    const { getSessionUser: getMockSessionUser } = await import("./db/queries")
-    return getMockSessionUser()
+    return null
   }
 
   const cookieStore = await cookies()
