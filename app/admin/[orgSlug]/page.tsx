@@ -227,7 +227,7 @@ export default function OrgManagePage() {
             <Card>
               <CardContent className="py-4 text-center">
                 <p className="text-2xl font-bold text-primary" data-testid="current-signer-count">{currentVersionSigners.length}</p>
-                <p className="text-xs text-muted-foreground">Current Version</p>
+                <p className="text-xs text-muted-foreground">Signed Current CLA</p>
               </CardContent>
             </Card>
             <Card>
