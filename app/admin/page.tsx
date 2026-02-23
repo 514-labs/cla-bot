@@ -17,16 +17,19 @@ export default function AdminPage() {
 
   const user = data?.user
   const orgs = data?.orgs ?? []
+  const hasApiError = Boolean(data?.error)
+  const isUnauthorized = data?.error === "Unauthorized"
 
   useEffect(() => {
     if (isLoading) return
     if (installRedirectedRef.current) return
-    if (!data || data.error === "Unauthorized") return
-    if (orgs.length > 0) return
+    if (!data) return
+    if (hasApiError || !Array.isArray(data.orgs)) return
+    if (data.orgs.length > 0) return
 
     installRedirectedRef.current = true
     window.location.href = "/api/github/install?returnTo=%2Fadmin"
-  }, [data, isLoading, orgs.length])
+  }, [data, hasApiError, isLoading])
 
   function handleInstall() {
     window.location.href = "/api/github/install?returnTo=%2Fadmin"
@@ -57,7 +60,7 @@ export default function AdminPage() {
             </div>
           ) : (
             <>
-              {data?.error === "Unauthorized" && (
+              {isUnauthorized && (
                 <Card>
                   <CardContent className="py-12 text-center">
                     <h3 className="text-lg font-semibold text-foreground">Sign in required</h3>
@@ -74,7 +77,21 @@ export default function AdminPage() {
                 </Card>
               )}
 
-              {data?.error !== "Unauthorized" && (
+              {hasApiError && !isUnauthorized && (
+                <Card>
+                  <CardContent className="py-12 text-center">
+                    <h3 className="text-lg font-semibold text-foreground">
+                      Unable to verify organization access
+                    </h3>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      We could not verify your GitHub organization admin access. Try refreshing or
+                      signing out and back in.
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+
+              {!hasApiError && (
                 <>
                   {/* Signed in as */}
                   {user && (

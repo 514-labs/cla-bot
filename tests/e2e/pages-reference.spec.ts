@@ -68,6 +68,22 @@ test("admin page shows auth-gated state when signed out", async ({ page }) => {
   ).toBeVisible()
 })
 
+test("admin page does not auto-redirect when org verification fails", async ({ page }) => {
+  await page.route("**/api/orgs", async (route) => {
+    await route.fulfill({
+      status: 502,
+      contentType: "application/json",
+      body: JSON.stringify({ error: "Failed to verify GitHub organization admin access" }),
+    })
+  })
+
+  await page.goto("/admin")
+  await expect(
+    page.getByRole("heading", { name: "Unable to verify organization access" })
+  ).toBeVisible()
+  await expect(page).toHaveURL(/\/admin$/)
+})
+
 test("admin list and org detail pages render for signed-in admin", async ({
   page,
   baseURL,
