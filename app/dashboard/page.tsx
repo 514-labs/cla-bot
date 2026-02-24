@@ -1,9 +1,7 @@
-"use client"
-
 import Link from "next/link"
+import { SiteHeader } from "@/components/site-header"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { SiteHeader } from "@/components/site-header"
 import { ShieldCheck, Users, ArrowRight } from "lucide-react"
 
 export default function DashboardPage() {

@@ -1,27 +1,31 @@
 import { NextRequest, NextResponse } from "next/server"
+import { headers } from "next/headers"
 import {
-  getOrganizationBySlug,
-  getSignaturesByOrg,
-  updateOrganizationCla,
-  getArchivesByOrg,
-  setOrganizationActive,
   createAuditEvent,
+  getArchivesByOrg,
+  getSignaturesByOrg,
+  setOrganizationActive,
+  updateOrganizationCla,
 } from "@/lib/db/queries"
-import { getSessionUser } from "@/lib/auth"
-import { isGitHubInstallationAccountAdmin } from "@/lib/github/admin-authorization"
 import { recheckOpenPullRequestsAfterClaUpdate } from "@/lib/cla/recheck-open-prs"
+import { getBaseUrlFromHeaders } from "@/lib/cla/signing"
+import { authorizeOrgAccess } from "@/lib/server/org-access"
 
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ orgSlug: string }> }
 ) {
   const { orgSlug } = await params
-  const auth = await authorizeOrgAccess(orgSlug)
-  if ("error" in auth) return auth.error
-  const { org } = auth
+  const access = await authorizeOrgAccess(orgSlug)
+  if (!access.ok) {
+    return NextResponse.json({ error: access.message }, { status: access.status })
+  }
 
-  const signers = await getSignaturesByOrg(org.id)
-  const archives = await getArchivesByOrg(org.id)
+  const { org } = access
+  const [signers, archives] = await Promise.all([
+    getSignaturesByOrg(org.id),
+    getArchivesByOrg(org.id),
+  ])
 
   return NextResponse.json({
     org,
@@ -37,29 +41,31 @@ export async function PATCH(
   { params }: { params: Promise<{ orgSlug: string }> }
 ) {
   const { orgSlug } = await params
-  const auth = await authorizeOrgAccess(orgSlug)
-  if ("error" in auth) return auth.error
+  const access = await authorizeOrgAccess(orgSlug)
+  if (!access.ok) {
+    return NextResponse.json({ error: access.message }, { status: access.status })
+  }
 
   const body = await request.json()
 
-  // Handle active toggle
   if (typeof body.isActive === "boolean") {
     const org = await setOrganizationActive(orgSlug, body.isActive)
     if (!org) {
       return NextResponse.json({ error: "Organization not found" }, { status: 404 })
     }
+
     await createAuditEvent({
       eventType: "organization.activation_changed",
       orgId: org.id,
-      userId: auth.user.id,
-      actorGithubId: auth.user.githubId ?? null,
-      actorGithubUsername: auth.user.githubUsername,
+      userId: access.user.id,
+      actorGithubId: access.user.githubId ?? null,
+      actorGithubUsername: access.user.githubUsername,
       payload: { isActive: body.isActive },
     })
+
     return NextResponse.json({ org })
   }
 
-  // Handle CLA text update -- just overwrites text + sha256, no archive created
   const { claMarkdown } = body
   if (typeof claMarkdown !== "string") {
     return NextResponse.json({ error: "claMarkdown or isActive is required" }, { status: 400 })
@@ -70,19 +76,19 @@ export async function PATCH(
     return NextResponse.json({ error: "Organization not found" }, { status: 404 })
   }
 
-  const appBaseUrl = getBaseUrl(request)
+  const headerStore = await headers()
   const recheckSummary = await recheckOpenPullRequestsAfterClaUpdate({
     orgSlug,
-    appBaseUrl,
+    appBaseUrl: getBaseUrlFromHeaders(headerStore),
     installationId: org.installationId ?? undefined,
   })
 
   await createAuditEvent({
     eventType: "cla.updated",
     orgId: org.id,
-    userId: auth.user.id,
-    actorGithubId: auth.user.githubId ?? null,
-    actorGithubUsername: auth.user.githubUsername,
+    userId: access.user.id,
+    actorGithubId: access.user.githubId ?? null,
+    actorGithubUsername: access.user.githubUsername,
     payload: {
       claSha256: org.claTextSha256,
       recheckSummary,
@@ -90,51 +96,4 @@ export async function PATCH(
   })
 
   return NextResponse.json({ org, recheckSummary })
-}
-
-async function authorizeOrgAccess(orgSlug: string) {
-  const org = await getOrganizationBySlug(orgSlug)
-  if (!org) {
-    return {
-      error: NextResponse.json({ error: "Organization not found" }, { status: 404 }),
-    }
-  }
-
-  const user = await getSessionUser()
-  if (!user) {
-    return {
-      error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
-    }
-  }
-
-  if (process.env.NODE_ENV !== "production") {
-    return { org, user }
-  }
-
-  try {
-    const isAdmin = await isGitHubInstallationAccountAdmin(user, org)
-    if (!isAdmin) {
-      return {
-        error: NextResponse.json(
-          { error: "Forbidden: GitHub installation admin access required" },
-          { status: 403 }
-        ),
-      }
-    }
-  } catch (err) {
-    console.error("GitHub installation-admin verification failed:", err)
-    return {
-      error: NextResponse.json(
-        { error: "Failed to verify GitHub installation admin access" },
-        { status: 502 }
-      ),
-    }
-  }
-
-  return { org, user }
-}
-
-function getBaseUrl(request: NextRequest): string {
-  const url = new URL(request.url)
-  return `${url.protocol}//${url.host}`
 }

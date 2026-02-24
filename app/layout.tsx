@@ -1,8 +1,21 @@
 import React from "react"
-import type { Metadata } from "next"
+import type { Metadata, Viewport } from "next"
+import { Fraunces, IBM_Plex_Sans } from "next/font/google"
 import { VercelToolbar } from "@vercel/toolbar/next"
 
 import "./globals.css"
+
+const displayFont = Fraunces({
+  subsets: ["latin"],
+  variable: "--font-display",
+  style: ["normal", "italic"],
+})
+
+const bodyFont = IBM_Plex_Sans({
+  subsets: ["latin"],
+  variable: "--font-body",
+  weight: ["400", "500", "600", "700"],
+})
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://cla.fiveonefour.com"),
@@ -47,7 +60,7 @@ export const metadata: Metadata = {
       "Install the GitHub App on your organization, upload your CLA, and automatically check every pull request. Contributors sign once and contribute freely.",
     images: [
       {
-        url: "/og-image.jpg",
+        url: "/opengraph-image",
         width: 1200,
         height: 630,
         alt: "CLA Bot by fiveonefour — Automate your Contributor License Agreements",
@@ -59,7 +72,7 @@ export const metadata: Metadata = {
     title: "CLA Bot — Automated CLAs for GitHub",
     description:
       "Install the GitHub App, upload your CLA in Markdown, and automatically check every pull request. Free and open source.",
-    images: ["/og-image.jpg"],
+    images: ["/twitter-image"],
     creator: "@fiveonefour",
   },
   alternates: {
@@ -67,10 +80,10 @@ export const metadata: Metadata = {
   },
 }
 
-export const viewport = {
+export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#059669",
+  themeColor: "#1fbf95",
 }
 
 export default function RootLayout({
@@ -79,10 +92,10 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
-      <body className="font-sans antialiased">
+    <html lang="en" className={`${displayFont.variable} ${bodyFont.variable}`}>
+      <body className="font-body antialiased">
         {children}
-        <VercelToolbar />
+        {process.env.NODE_ENV !== "production" && <VercelToolbar />}
       </body>
     </html>
   )

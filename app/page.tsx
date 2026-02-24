@@ -1,4 +1,6 @@
+import Script from "next/script"
 import Link from "next/link"
+import { SiteHeader } from "@/components/site-header"
 import { Button } from "@/components/ui/button"
 import { FileCheck2, Github, ShieldCheck, Users, GitPullRequest, ArrowRight } from "lucide-react"
 
@@ -23,233 +25,178 @@ const jsonLd = {
   },
 }
 
+const HOW_IT_WORKS = [
+  {
+    icon: Github,
+    step: "01",
+    title: "Install the GitHub App",
+    description:
+      "Sign in as an org admin, install the CLA Bot on your GitHub organization, and select which repositories to monitor.",
+  },
+  {
+    icon: FileCheck2,
+    step: "02",
+    title: "Publish your CLA",
+    description:
+      "Write or paste your agreement in Markdown. Every signer is tracked by immutable SHA-256 version.",
+  },
+  {
+    icon: GitPullRequest,
+    step: "03",
+    title: "Enforce on pull requests",
+    description:
+      "When non-members open PRs, CLA Bot posts signing guidance and updates checks automatically after signing.",
+  },
+]
+
 export default function HomePage() {
   return (
-    <div className="flex min-h-screen flex-col">
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-      />
-      {/* Navbar */}
-      <header className="border-b bg-background/80 backdrop-blur-md">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
-          <Link href="/" className="flex items-center gap-2">
-            <div
-              className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary"
-              aria-hidden="true"
-            >
-              <FileCheck2 className="h-4 w-4 text-primary-foreground" />
-            </div>
-            <span className="text-lg font-bold tracking-tight text-foreground">CLA Bot</span>
-            <span className="hidden text-xs text-muted-foreground sm:inline">by fiveonefour</span>
-          </Link>
-          <nav aria-label="Primary navigation" className="flex items-center gap-3">
-            <Link href="/dashboard">
-              <Button variant="ghost" size="sm" className="text-muted-foreground">
-                Dashboard
-              </Button>
-            </Link>
-            <Link href="/auth/signin">
-              <Button size="sm" className="gap-2">
-                <Github className="h-4 w-4" aria-hidden="true" />
-                Get Started
-              </Button>
-            </Link>
-          </nav>
-        </div>
-      </header>
+    <div className="relative flex min-h-screen flex-col overflow-hidden">
+      <Script id="cla-bot-jsonld" type="application/ld+json">
+        {JSON.stringify(jsonLd)}
+      </Script>
 
-      {/* Hero */}
-      <main className="flex flex-1 flex-col">
-        <section className="relative overflow-hidden">
-          <div
-            className="pointer-events-none absolute inset-0 opacity-[0.03]"
-            style={{
-              backgroundImage:
-                "linear-gradient(hsl(160 84% 39% / 0.3) 1px, transparent 1px), linear-gradient(90deg, hsl(160 84% 39% / 0.3) 1px, transparent 1px)",
-              backgroundSize: "64px 64px",
-            }}
-          />
-          <div className="mx-auto max-w-4xl px-4 py-24 text-center sm:py-32">
-            <div className="mb-6 inline-flex items-center gap-2 rounded-full border bg-secondary px-4 py-1.5 text-sm text-muted-foreground">
-              <ShieldCheck className="h-4 w-4 text-primary" aria-hidden="true" />
-              Open source CLA management
+      <div className="pointer-events-none absolute inset-0 bg-app-radial" />
+      <div className="pointer-events-none absolute inset-0 bg-grid-overlay opacity-25" />
+      <div className="pointer-events-none absolute inset-0 bg-noise-texture opacity-40" />
+
+      <SiteHeader />
+
+      <main className="relative z-10 flex flex-1 flex-col">
+        <section className="px-4 pb-20 pt-20 sm:pt-28">
+          <div className="mx-auto grid w-full max-w-6xl gap-12 lg:grid-cols-[1.2fr_0.8fr]">
+            <div>
+              <p className="mb-5 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-1.5 text-xs uppercase tracking-[0.18em] text-primary">
+                <ShieldCheck className="h-3.5 w-3.5" />
+                Legal Automation for Open Source
+              </p>
+              <h1 className="font-display text-balance text-4xl leading-[0.95] tracking-tight text-foreground sm:text-6xl lg:text-7xl">
+                Automate your Contributor License Agreements
+              </h1>
+              <p className="mt-6 max-w-xl text-pretty text-lg leading-relaxed text-muted-foreground">
+                Install the GitHub App, publish your CLA once, and keep every pull request compliant
+                with a transparent, auditable signing workflow.
+              </p>
+
+              <div className="mt-10 flex flex-col gap-4 sm:flex-row">
+                <Link href="/auth/signin">
+                  <Button size="lg" className="group gap-2 text-base">
+                    <Github className="h-5 w-5" />
+                    Sign in with GitHub
+                    <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                  </Button>
+                </Link>
+                <Link href="/sign/fiveonefour">
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    className="gap-2 border-white/20 bg-transparent text-base"
+                  >
+                    View example CLA
+                  </Button>
+                </Link>
+              </div>
             </div>
-            <h1 className="text-balance text-4xl font-bold tracking-tight text-foreground sm:text-5xl lg:text-6xl">
-              Automate your Contributor License Agreements
-            </h1>
-            <p className="mx-auto mt-6 max-w-2xl text-pretty text-lg leading-relaxed text-muted-foreground">
-              Install the GitHub App on your organization, upload your CLA, and automatically check
-              every pull request. Contributors sign once and contribute freely.
-            </p>
-            <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
-              <Link href="/auth/signin">
-                <Button size="lg" className="gap-2 text-base">
-                  <Github className="h-5 w-5" aria-hidden="true" />
-                  Sign in with GitHub
-                </Button>
-              </Link>
-              <Link href="/sign/fiveonefour">
-                <Button variant="outline" size="lg" className="gap-2 text-base bg-transparent">
-                  View example CLA
-                  <ArrowRight className="h-4 w-4" aria-hidden="true" />
-                </Button>
-              </Link>
-            </div>
+
+            <aside className="rounded-2xl border border-white/10 bg-card/70 p-6 backdrop-blur-xl">
+              <h2 className="font-display text-xl text-foreground">Launch in minutes</h2>
+              <p className="mt-2 text-sm text-muted-foreground">
+                The same product supports maintainers and contributors without separate tools.
+              </p>
+              <div className="mt-6 space-y-4">
+                {[
+                  "Org members bypass checks automatically",
+                  "Contributors sign once per organization",
+                  "Updated CLA versions trigger re-signing",
+                  "Webhook deliveries are deduplicated",
+                ].map((item) => (
+                  <div
+                    key={item}
+                    className="flex items-start gap-3 rounded-lg border border-white/10 bg-background/40 p-3"
+                  >
+                    <span className="mt-1 h-1.5 w-1.5 rounded-full bg-primary" />
+                    <p className="text-sm text-foreground/90">{item}</p>
+                  </div>
+                ))}
+              </div>
+            </aside>
           </div>
         </section>
 
-        {/* How it works */}
-        <section className="border-t">
-          <div className="mx-auto max-w-6xl px-4 py-20">
-            <h2 className="mb-4 text-center text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+        <section className="border-t border-white/10 px-4 py-20">
+          <div className="mx-auto max-w-6xl">
+            <h2 className="font-display text-center text-3xl text-foreground sm:text-4xl">
               How it works
             </h2>
-            <p className="mx-auto mb-16 max-w-xl text-center text-muted-foreground">
-              Three simple steps to protect your project and welcome contributors.
+            <p className="mx-auto mt-3 max-w-2xl text-center text-muted-foreground">
+              Three deliberate steps to protect your project while keeping contribution flow smooth.
             </p>
-            <div className="grid gap-8 md:grid-cols-3">
-              {[
-                {
-                  icon: Github,
-                  step: "01",
-                  title: "Install the GitHub App",
-                  description:
-                    "Sign in as an org admin, install the CLA Bot on your GitHub organization, and select which repositories to monitor.",
-                },
-                {
-                  icon: FileCheck2,
-                  step: "02",
-                  title: "Upload your CLA",
-                  description:
-                    "Write or paste your CLA in Markdown. The agreement is shown to contributors before they can merge pull requests.",
-                },
-                {
-                  icon: GitPullRequest,
-                  step: "03",
-                  title: "PRs are automatically checked",
-                  description:
-                    "When a non-member opens a PR, the bot posts a comment with a link to sign the CLA. Once signed, the check passes.",
-                },
-              ].map((item) => (
-                <div
+
+            <div className="mt-12 grid gap-6 md:grid-cols-3">
+              {HOW_IT_WORKS.map((item) => (
+                <article
                   key={item.step}
-                  className="group rounded-xl border bg-card p-6 transition-colors hover:border-primary/30"
+                  className="group rounded-xl border border-white/10 bg-card/60 p-6 transition-all hover:-translate-y-1 hover:border-primary/30"
                 >
-                  <div className="mb-4 flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                  <div className="mb-4 flex items-center justify-between">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary/10">
                       <item.icon className="h-5 w-5 text-primary" />
                     </div>
-                    <span className="font-mono text-sm text-muted-foreground">{item.step}</span>
+                    <span className="font-mono text-xs text-muted-foreground">{item.step}</span>
                   </div>
-                  <h3 className="mb-2 text-lg font-semibold text-foreground">{item.title}</h3>
-                  <p className="text-sm leading-relaxed text-muted-foreground">
+                  <h3 className="text-lg font-semibold text-foreground">{item.title}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
                     {item.description}
                   </p>
-                </div>
+                </article>
               ))}
             </div>
           </div>
         </section>
 
-        {/* Two modes */}
-        <section className="border-t">
-          <div className="mx-auto max-w-6xl px-4 py-20">
-            <h2 className="mb-4 text-center text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-              Two modes, one app
-            </h2>
-            <p className="mx-auto mb-16 max-w-xl text-center text-muted-foreground">
-              Whether you maintain a project or contribute to one, CLA Bot has you covered.
-            </p>
-            <div className="grid gap-6 md:grid-cols-2">
-              <div className="rounded-xl border bg-card p-8">
-                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
-                  <ShieldCheck className="h-6 w-6 text-primary" aria-hidden="true" />
-                </div>
-                <h3 className="mb-2 text-xl font-semibold text-foreground">Org Admin</h3>
-                <ul className="space-y-3 text-sm leading-relaxed text-muted-foreground">
-                  <li className="flex items-start gap-2">
-                    <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
-                    Install the bot on your GitHub organization
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
-                    Write and manage your CLA in Markdown
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
-                    View all contributors who have signed
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
-                    Org members bypass the CLA check automatically
-                  </li>
-                </ul>
-                <Link href="/admin" className="mt-6 inline-block">
-                  <Button variant="outline" size="sm" className="gap-2 bg-transparent">
-                    Admin Dashboard
-                    <ArrowRight className="h-3 w-3" aria-hidden="true" />
-                  </Button>
-                </Link>
+        <section className="border-t border-white/10 px-4 py-20">
+          <div className="mx-auto grid max-w-6xl gap-6 md:grid-cols-2">
+            <div className="rounded-xl border border-white/10 bg-card/60 p-8">
+              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
+                <ShieldCheck className="h-6 w-6 text-primary" />
               </div>
-              <div className="rounded-xl border bg-card p-8">
-                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
-                  <Users className="h-6 w-6 text-primary" aria-hidden="true" />
-                </div>
-                <h3 className="mb-2 text-xl font-semibold text-foreground">Contributor</h3>
-                <ul className="space-y-3 text-sm leading-relaxed text-muted-foreground">
-                  <li className="flex items-start gap-2">
-                    <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
-                    Open a PR and get a friendly prompt to sign
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
-                    Read the CLA and sign with one click
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
-                    View all CLAs you have signed
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
-                    Sign once per org, contribute forever
-                  </li>
-                </ul>
-                <Link href="/contributor" className="mt-6 inline-block">
-                  <Button variant="outline" size="sm" className="gap-2 bg-transparent">
-                    Contributor View
-                    <ArrowRight className="h-3 w-3" aria-hidden="true" />
-                  </Button>
-                </Link>
-              </div>
+              <h3 className="font-display text-2xl text-foreground">Org Admin</h3>
+              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                Manage agreements, signer history, active/inactive enforcement, and CLA version
+                transitions in one place.
+              </p>
+              <Link href="/admin" className="mt-6 inline-block">
+                <Button variant="outline" size="sm" className="gap-2 bg-transparent">
+                  Open Admin Dashboard
+                  <ArrowRight className="h-3 w-3" />
+                </Button>
+              </Link>
             </div>
-          </div>
-        </section>
 
-        {/* CTA */}
-        <section className="border-t">
-          <div className="mx-auto max-w-4xl px-4 py-20 text-center">
-            <h2 className="text-balance text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-              Protect your project. Welcome contributors.
-            </h2>
-            <p className="mx-auto mt-4 max-w-lg text-muted-foreground">
-              Get started in under a minute. Free and open source.
-            </p>
-            <Link href="/auth/signin" className="mt-8 inline-block">
-              <Button size="lg" className="gap-2 text-base">
-                <Github className="h-5 w-5" aria-hidden="true" />
-                Sign in with GitHub
-              </Button>
-            </Link>
+            <div className="rounded-xl border border-white/10 bg-card/60 p-8">
+              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
+                <Users className="h-6 w-6 text-primary" />
+              </div>
+              <h3 className="font-display text-2xl text-foreground">Contributor</h3>
+              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                Read, sign, and track agreement versions. Re-sign prompts appear automatically when
+                maintainers publish a newer CLA.
+              </p>
+              <Link href="/contributor" className="mt-6 inline-block">
+                <Button variant="outline" size="sm" className="gap-2 bg-transparent">
+                  Open Contributor View
+                  <ArrowRight className="h-3 w-3" />
+                </Button>
+              </Link>
+            </div>
           </div>
         </section>
       </main>
 
-      {/* Footer */}
-      <footer className="border-t" role="contentinfo">
+      <footer className="relative z-10 border-t border-white/10" role="contentinfo">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-4 py-8 sm:flex-row">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <FileCheck2 className="h-4 w-4" aria-hidden="true" />
+            <FileCheck2 className="h-4 w-4" />
             <span>CLA Bot by fiveonefour</span>
           </div>
           <nav aria-label="Footer navigation" className="flex gap-6 text-sm text-muted-foreground">

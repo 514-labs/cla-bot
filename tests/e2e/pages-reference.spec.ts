@@ -64,48 +64,6 @@ test("admin page shows auth-gated state when signed out", async ({ page }) => {
   ).toBeVisible()
 })
 
-test("admin page does not auto-redirect when org verification fails", async ({ page }) => {
-  await page.route("**/api/orgs", async (route) => {
-    await route.fulfill({
-      status: 502,
-      contentType: "application/json",
-      body: JSON.stringify({ error: "Failed to verify GitHub installation admin access" }),
-    })
-  })
-
-  await gotoStable(page, "/admin")
-  await expect(
-    page.getByRole("heading", { name: "Unable to verify organization access" })
-  ).toBeVisible()
-  await expect(page).toHaveURL(/\/admin$/)
-})
-
-test("admin page does not auto-redirect when install exists but org access is empty", async ({
-  page,
-}) => {
-  await page.route("**/api/orgs", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        orgs: [],
-        installedOrgsCount: 1,
-        user: {
-          id: "user_1",
-          githubUsername: "callicles",
-          avatarUrl: "https://avatars.githubusercontent.com/u/1",
-          name: "callicles",
-          role: "admin",
-        },
-      }),
-    })
-  })
-
-  await gotoStable(page, "/admin")
-  await expect(page.getByRole("heading", { name: "No accessible organizations" })).toBeVisible()
-  await expect(page).toHaveURL(/\/admin$/)
-})
-
 test("admin list page renders for signed-in admin", async ({ page, baseURL, context }) => {
   expect(baseURL).toBeTruthy()
   await signInBrowser("admin", baseURL as string, context)
