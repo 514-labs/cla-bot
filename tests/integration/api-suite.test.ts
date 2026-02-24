@@ -646,6 +646,47 @@ test("Contributor can download their signed CLA history entry", async (baseUrl) 
   assert(markdown.includes("Contributor License Agreement"), "markdown body returned")
 })
 
+test("Contributor can view a historical signed CLA version inline", async (baseUrl) => {
+  await resetDb(baseUrl)
+  await switchRole(baseUrl, "contributor")
+
+  await updateClaForOrg("fiveonefour", "# History View v1")
+  const signV1Res = await fetch(`${baseUrl}/api/sign`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ orgSlug: "fiveonefour" }),
+  })
+  assertEqual(signV1Res.status, 200, "v1 sign succeeds")
+
+  await updateClaForOrg("fiveonefour", "# History View v2")
+  const signV2Res = await fetch(`${baseUrl}/api/sign`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ orgSlug: "fiveonefour" }),
+  })
+  assertEqual(signV2Res.status, 200, "v2 sign succeeds")
+
+  const listRes = await fetch(`${baseUrl}/api/contributor`)
+  const listData = await listRes.json()
+  const historySignature = listData.signatures.find(
+    (signature: { orgSlug: string; isLatestForOrg: boolean }) =>
+      signature.orgSlug === "fiveonefour" && !signature.isLatestForOrg
+  )
+  assert(historySignature !== undefined, "historical signature exists")
+
+  const viewRes = await fetch(
+    `${baseUrl}/api/contributor/signatures/${historySignature.id}/download?disposition=inline`
+  )
+  const markdown = await viewRes.text()
+  assertEqual(viewRes.status, 200, "inline view status")
+  assert(
+    (viewRes.headers.get("content-disposition") ?? "").startsWith("inline"),
+    "inline content disposition"
+  )
+  assert(markdown.includes("History View v1"), "historical CLA text returned")
+  assert(!markdown.includes("History View v2"), "latest CLA text not returned")
+})
+
 test("Contributor CLA download endpoint denies access to another user's signature", async (baseUrl) => {
   await resetDb(baseUrl)
   await switchRole(baseUrl, "contributor")

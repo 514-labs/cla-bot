@@ -3,7 +3,7 @@ import { getSessionUser } from "@/lib/auth"
 import { getArchiveByOrgAndSha, getOrganizationById, getSignatureById } from "@/lib/db/queries"
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ signatureId: string }> }
 ) {
   const user = await getSessionUser()
@@ -34,12 +34,14 @@ export async function GET(
     version: signature.claSha256.slice(0, 7),
     signedAt: signature.signedAt,
   })
+  const dispositionType =
+    new URL(request.url).searchParams.get("disposition") === "inline" ? "inline" : "attachment"
 
   return new NextResponse(markdown, {
     status: 200,
     headers: {
       "Content-Type": "text/markdown; charset=utf-8",
-      "Content-Disposition": `attachment; filename="${fileName}"`,
+      "Content-Disposition": `${dispositionType}; filename="${fileName}"`,
       "Cache-Control": "private, max-age=0, no-cache",
     },
   })

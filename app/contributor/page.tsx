@@ -1,5 +1,4 @@
 import Image from "next/image"
-import Link from "next/link"
 import { SiteHeader } from "@/components/site-header"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -246,7 +245,15 @@ export default async function ContributorPage() {
                                 <Download className="h-3 w-3" />
                               </Button>
                             </a>
-                            <Link href={`/sign/${signature.orgSlug}`}>
+                            <a
+                              href={
+                                signature.orgNeedsResign && signature.isLatestForOrg
+                                  ? `/sign/${signature.orgSlug}`
+                                  : `/api/contributor/signatures/${encodeURIComponent(
+                                      signature.id
+                                    )}/download?disposition=inline`
+                              }
+                            >
                               <Button
                                 variant={
                                   signature.orgNeedsResign && signature.isLatestForOrg
@@ -265,7 +272,7 @@ export default async function ContributorPage() {
                                   : "View CLA"}
                                 <ExternalLink className="h-3 w-3" />
                               </Button>
-                            </Link>
+                            </a>
                           </div>
                         </div>
                       </CardContent>
