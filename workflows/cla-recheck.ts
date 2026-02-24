@@ -12,7 +12,6 @@ export type ClaRecheckWorkflowInput = {
   orgId: string
   claSha256: string | null
   appBaseUrl: string
-  installationId: number | null
   actor: {
     userId: string | null
     githubId: string | null
@@ -70,7 +69,7 @@ export async function runClaRecheckWorkflow(
     const recheckSummary = await runOpenPrRecheck({
       orgSlug: input.orgSlug,
       appBaseUrl: input.appBaseUrl,
-      installationId: latestOrg.installationId ?? input.installationId ?? undefined,
+      installationId: latestOrg.installationId ?? undefined,
     })
 
     const eventType = recheckSummary.error ? "cla.recheck_failed" : "cla.recheck_completed"

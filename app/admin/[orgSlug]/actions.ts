@@ -53,7 +53,6 @@ export async function updateClaAction(input: unknown): Promise<ActionResult> {
         orgId: org.id,
         claSha256: org.claTextSha256,
         appBaseUrl,
-        installationId: org.installationId ?? null,
         actor: {
           userId: access.user.id,
           githubId: access.user.githubId ?? null,

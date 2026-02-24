@@ -231,7 +231,7 @@ Reference API/flow coverage:
 
 - `tests/integration/api-suite.test.ts`
   - Broad integration flow coverage for auth/session APIs, org management, signing/re-signing, webhook checks/comments, install/uninstall/suspend lifecycle, and `/recheck` authorization.
-  - Includes edge cases like stale-signature recheck on open PRs, proactive recheck sweep after CLA update, non-PR `/recheck` handling, malformed webhook payload rejection, and duplicate webhook delivery de-duplication.
+  - Includes edge cases like stale-signature detection after CLA updates, `/recheck` handling/authorization on open PRs, malformed webhook payload rejection, and duplicate webhook delivery de-duplication.
 
 ## Keeping Spec And Tests In Sync
 

@@ -1067,7 +1067,7 @@ test("CLA update + /recheck command fails outdated contributors on open PRs", as
     `${baseUrl}/api/webhook/github?orgSlug=fiveonefour&repoName=sdk&prNumber=66`
   )
   const commentData = await commentRes.json()
-  assert(commentData.comment !== null, "comment exists after proactive sweep")
+  assert(commentData.comment !== null, "comment exists after /recheck")
   assert(
     commentData.comment.commentMarkdown.includes("Re-signing Required"),
     "comment prompts re-signing"
