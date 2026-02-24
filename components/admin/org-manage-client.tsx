@@ -429,8 +429,8 @@ export function OrgManageClient({
                 <p className="text-sm text-muted-foreground">No one has signed the CLA yet.</p>
               </div>
             ) : (
-              <div className="space-y-6" data-testid="signers-list">
-                <section className="space-y-2">
+              <div className="space-y-7" data-testid="signers-list">
+                <section className="space-y-3">
                   <div className="flex items-center justify-between">
                     <h3 className="text-sm font-semibold text-foreground">Current Version</h3>
                     <Badge className="border-primary/30 bg-primary/10 text-primary">
@@ -444,19 +444,18 @@ export function OrgManageClient({
                     </div>
                   ) : (
                     <div className="space-y-1 rounded-lg border">
-                      <div className="grid grid-cols-4 gap-4 border-b px-4 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                      <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-6 border-b px-5 py-2.5 text-xs font-medium uppercase tracking-wider text-muted-foreground">
                         <span>Contributor</span>
-                        <span>GitHub</span>
                         <span>Signed At</span>
-                        <span>Version</span>
+                        <span className="justify-self-end">Version</span>
                       </div>
                       {currentVersionSigners.map((signature) => (
                         <div
                           key={signature.id}
-                          className="grid grid-cols-4 items-center gap-4 rounded-lg px-4 py-3 transition-colors hover:bg-secondary"
+                          className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-6 rounded-lg px-5 py-3.5 transition-colors hover:bg-secondary"
                           data-testid="signer-row"
                         >
-                          <div className="flex items-center gap-3">
+                          <div className="min-w-0 flex items-center gap-3">
                             <Image
                               src={signature.avatarUrl || "/placeholder.svg"}
                               alt={signature.name}
@@ -465,21 +464,23 @@ export function OrgManageClient({
                               className="h-8 w-8 rounded-full"
                               sizes="32px"
                             />
-                            <span className="text-sm font-medium text-foreground">
-                              {signature.name}
-                            </span>
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-medium text-foreground">
+                                {signature.name}
+                              </p>
+                              <p className="truncate text-xs text-muted-foreground">
+                                @{signature.githubUsername}
+                              </p>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                            <Github className="h-3 w-3" />@{signature.githubUsername}
-                          </div>
-                          <div className="text-sm text-muted-foreground">
+                          <div className="whitespace-nowrap text-sm text-muted-foreground">
                             {new Date(signature.signedAt).toLocaleDateString("en-US", {
                               year: "numeric",
                               month: "short",
                               day: "numeric",
                             })}
                           </div>
-                          <div>
+                          <div className="justify-self-end">
                             <Badge
                               variant="outline"
                               className="border-primary/30 font-mono text-primary"
@@ -493,7 +494,7 @@ export function OrgManageClient({
                   )}
                 </section>
 
-                <section className="space-y-2">
+                <section className="space-y-3">
                   <div className="flex items-center justify-between">
                     <h3 className="text-sm font-semibold text-foreground">Outdated Versions</h3>
                     <Badge variant="outline" className="border-amber-500/30 text-amber-500">
@@ -507,20 +508,19 @@ export function OrgManageClient({
                     </div>
                   ) : (
                     <div className="space-y-1 rounded-lg border">
-                      <div className="grid grid-cols-4 gap-4 border-b px-4 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                      <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-6 border-b px-5 py-2.5 text-xs font-medium uppercase tracking-wider text-muted-foreground">
                         <span>Contributor</span>
-                        <span>GitHub</span>
                         <span>Signed At</span>
-                        <span>Version</span>
+                        <span className="justify-self-end">Version</span>
                       </div>
 
                       {outdatedSigners.map((signature) => (
                         <div
                           key={signature.id}
-                          className="grid grid-cols-4 items-center gap-4 rounded-lg px-4 py-3 transition-colors hover:bg-secondary"
+                          className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-6 rounded-lg px-5 py-3.5 transition-colors hover:bg-secondary"
                           data-testid="signer-row"
                         >
-                          <div className="flex items-center gap-3">
+                          <div className="min-w-0 flex items-center gap-3">
                             <Image
                               src={signature.avatarUrl || "/placeholder.svg"}
                               alt={signature.name}
@@ -529,21 +529,23 @@ export function OrgManageClient({
                               className="h-8 w-8 rounded-full"
                               sizes="32px"
                             />
-                            <span className="text-sm font-medium text-foreground">
-                              {signature.name}
-                            </span>
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-medium text-foreground">
+                                {signature.name}
+                              </p>
+                              <p className="truncate text-xs text-muted-foreground">
+                                @{signature.githubUsername}
+                              </p>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                            <Github className="h-3 w-3" />@{signature.githubUsername}
-                          </div>
-                          <div className="text-sm text-muted-foreground">
+                          <div className="whitespace-nowrap text-sm text-muted-foreground">
                             {new Date(signature.signedAt).toLocaleDateString("en-US", {
                               year: "numeric",
                               month: "short",
                               day: "numeric",
                             })}
                           </div>
-                          <div>
+                          <div className="justify-self-end">
                             <Badge
                               variant="outline"
                               className="border-amber-500/30 font-mono text-amber-500"
