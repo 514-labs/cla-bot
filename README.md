@@ -1,6 +1,6 @@
 # CLA Bot
 
-CLA Bot is a Next.js app that automates Contributor License Agreement (CLA) workflows for GitHub organizations.
+CLA Bot is a Next.js app that automates Contributor License Agreement (CLA) workflows for GitHub organizations and personal accounts.
 
 It gives org admins a place to manage CLA text and signing history, and gives contributors a place to review/sign/re-sign agreements. A GitHub webhook handler enforces CLA status on pull requests by creating checks/comments.
 
@@ -15,7 +15,7 @@ It gives org admins a place to manage CLA text and signing history, and gives co
 
 ## What The App Is For
 
-- Keep legal contributor agreements tied to each GitHub organization.
+- Keep legal contributor agreements tied to each installed GitHub account.
 - Automatically block/allow PRs based on CLA status.
 - Reduce maintainer overhead by automating "please sign the CLA" comments/checks.
 - Let contributors re-sign when CLA text changes (versioned by SHA-256 hash).
@@ -46,6 +46,12 @@ Optional:
 - `SEED_DATABASE=true` to auto-seed local data on startup
 - `DRIZZLE_MIGRATIONS_SCHEMA` (default: `drizzle`)
 - `DRIZZLE_MIGRATIONS_TABLE` (default: `__drizzle_migrations`)
+
+For browser UI tests, install Playwright browsers once:
+
+```bash
+pnpm exec playwright install chromium
+```
 
 If you set custom migration metadata location, configure the same values in both build and runtime environments.
 
@@ -79,9 +85,11 @@ pnpm dev
 | `pnpm build` | Production build + TypeScript checks |
 | `pnpm start` | Run built app |
 | `pnpm lint` | Biome checks |
-| `pnpm test` | Run unit + e2e tests |
+| `pnpm test` | Run unit + integration tests (fast default) |
+| `pnpm test:all` | Run unit + integration + browser e2e tests |
 | `pnpm test:unit` | Run Vitest unit tests |
-| `pnpm test:e2e` | Run Playwright end-to-end tests |
+| `pnpm test:integration` | Run Vitest API integration suite |
+| `pnpm test:e2e` | Run Playwright browser/page tests |
 | `pnpm db:generate` | Generate Drizzle migrations |
 | `pnpm db:migrate` | Apply migrations |
 | `pnpm db:studio` | Open Drizzle Studio |
@@ -116,8 +124,8 @@ This section amends your scenario list and adds missing scenarios.
 ### 2) User selects Admin
 
 - If signed out: user sees auth-required state and can start GitHub login.
-- If signed in and authorized on at least one installed org: user sees the org list and install button.
-- If signed in but authorized on zero installed orgs: user is redirected to GitHub App install flow.
+- If signed in and authorized on at least one installed account: user sees the account list and install button.
+- If signed in but authorized on zero installed accounts: user is redirected to GitHub App install flow.
 
 ### 3) User selects Contributor
 
@@ -136,6 +144,7 @@ This section amends your scenario list and adds missing scenarios.
 ### 5) Contributor opens a PR
 
 - Org member: check passes, no CLA comment.
+- Personal-account repository owner: check passes, no CLA comment.
 - Non-member + current signature: check passes, no CLA comment.
 - Non-member + outdated signature: check fails, re-sign comment posted.
 - Non-member + never signed: check fails, sign prompt comment posted.
@@ -179,13 +188,14 @@ This section amends your scenario list and adds missing scenarios.
 
 ### 12) Installation lifecycle scenarios
 
-- Installation `created` or `unsuspend`: org is created/reactivated, installation ID refreshed.
-- Installation `deleted` or `suspend`: org is deactivated and installation ID cleared.
+- Installation `created` or `unsuspend`: account row is created/reactivated, installation ID refreshed, and installation target metadata (`organization` vs `user`) is persisted.
+- Installation `deleted` or `suspend`: account is deactivated and installation ID cleared.
 - Installation repository-change events refresh installation linkage.
 
 ### 13) Access-control scenarios
 
-- In production, org-admin APIs require live GitHub org-admin verification.
+- In production, org installs require live GitHub org-admin verification.
+- In production, personal-account installs are authorized when the signed-in GitHub user matches the installation target account.
 - In local dev/test, org-admin verification is relaxed to keep tests deterministic.
 - `/admin/[orgSlug]` and `/sign/[orgSlug]` handle unknown orgs with explicit not-found states.
 
@@ -217,7 +227,7 @@ Reference UI coverage:
 
 Reference API/flow coverage:
 
-- `tests/e2e/api-suite.spec.ts`
+- `tests/integration/api-suite.test.ts`
   - Broad integration flow coverage for auth/session APIs, org management, signing/re-signing, webhook checks/comments, install/uninstall/suspend lifecycle, and `/recheck` authorization.
   - Includes edge cases like stale-signature recheck on open PRs, proactive recheck sweep after CLA update, non-PR `/recheck` handling, malformed webhook payload rejection, and duplicate webhook delivery de-duplication.
 
@@ -226,5 +236,5 @@ Reference API/flow coverage:
 When behavior changes:
 
 1. Update this README page/spec sections.
-2. Update or add Playwright coverage in `tests/e2e/pages-reference.spec.ts` and/or `tests/e2e/api-suite.spec.ts`.
-3. Run `pnpm test` and `pnpm build` before merging.
+2. Update or add coverage in `tests/integration/api-suite.test.ts` and/or `tests/e2e/pages-reference.spec.ts` as appropriate.
+3. Run `pnpm test` and `pnpm build` before merging. Run `pnpm test:all` when UI/browser behavior changes.

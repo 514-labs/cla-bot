@@ -12,7 +12,7 @@ This repo is a Next.js 16 + TypeScript app-router project.
 - `hooks/`: reusable React hooks.
 - `public/`: static assets.
 - `drizzle/`: generated Drizzle SQL migrations and metadata.
-- `tests/`: test suites (`tests/unit/*` for Vitest, `tests/e2e/*` for Playwright).
+- `tests/`: test suites (`tests/unit/*` for Vitest unit tests, `tests/integration/*` for Vitest API integration tests, `tests/e2e/*` for Playwright UI tests).
 - `styles/` and `app/globals.css`: global styling.
 
 ## Coding Style & Naming Conventions
@@ -25,7 +25,8 @@ This repo is a Next.js 16 + TypeScript app-router project.
 ## Testing Guidelines
 When adding behavior:
 - Add/update unit tests in `tests/unit/` where possible.
-- Add/update integration scenarios in `tests/e2e/api-suite.spec.ts` and supporting helpers in `tests/utils/` when flow-level behavior changes.
+- Add/update API integration scenarios in `tests/integration/api-suite.test.ts` and supporting helpers in `tests/utils/` when flow-level behavior changes.
+- Add/update browser/page checks in `tests/e2e/pages-reference.spec.ts` when UI behavior changes.
 - Validate with `pnpm test` locally (see `README.md` command table).
 
 ## Commit & Pull Request Guidelines

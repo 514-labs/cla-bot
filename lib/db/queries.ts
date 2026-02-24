@@ -181,6 +181,8 @@ export async function setOrganizationActive(slug: string, isActive: boolean) {
 
 export async function createOrganization(data: {
   githubOrgSlug: string
+  githubAccountType?: "organization" | "user"
+  githubAccountId?: string | number | null
   name: string
   avatarUrl: string
   adminUserId: string
@@ -195,6 +197,11 @@ export async function createOrganization(data: {
     .values({
       id: `org_${Date.now()}`,
       githubOrgSlug: data.githubOrgSlug,
+      githubAccountType: data.githubAccountType ?? "organization",
+      githubAccountId:
+        data.githubAccountId === undefined || data.githubAccountId === null
+          ? null
+          : String(data.githubAccountId),
       name: data.name,
       avatarUrl: data.avatarUrl,
       installedAt: new Date().toISOString(),
@@ -211,12 +218,33 @@ export async function createOrganization(data: {
 
 export async function updateOrganizationInstallationId(
   slug: string,
-  installationId: number | null
+  installationId: number | null,
+  options?: {
+    githubAccountType?: "organization" | "user"
+    githubAccountId?: string | number | null
+  }
 ) {
   const db = await ensureDbReady()
+  const updateData: {
+    installationId: number | null
+    githubAccountType?: "organization" | "user"
+    githubAccountId?: string | null
+  } = {
+    installationId,
+  }
+  if (options?.githubAccountType) {
+    updateData.githubAccountType = options.githubAccountType
+  }
+  if (options && "githubAccountId" in options) {
+    updateData.githubAccountId =
+      options.githubAccountId === undefined || options.githubAccountId === null
+        ? null
+        : String(options.githubAccountId)
+  }
+
   const rows = await db
     .update(organizations)
-    .set({ installationId })
+    .set(updateData)
     .where(eq(organizations.githubOrgSlug, slug))
     .returning()
   return rows[0] ?? undefined

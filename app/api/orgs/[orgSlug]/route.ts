@@ -8,7 +8,7 @@ import {
   createAuditEvent,
 } from "@/lib/db/queries"
 import { getSessionUser } from "@/lib/auth"
-import { isGitHubOrgAdmin } from "@/lib/github/admin-authorization"
+import { isGitHubInstallationAccountAdmin } from "@/lib/github/admin-authorization"
 import { recheckOpenPullRequestsAfterClaUpdate } from "@/lib/cla/recheck-open-prs"
 
 export async function GET(
@@ -112,20 +112,20 @@ async function authorizeOrgAccess(orgSlug: string) {
   }
 
   try {
-    const isAdmin = await isGitHubOrgAdmin(user, orgSlug)
+    const isAdmin = await isGitHubInstallationAccountAdmin(user, org)
     if (!isAdmin) {
       return {
         error: NextResponse.json(
-          { error: "Forbidden: GitHub org admin access required" },
+          { error: "Forbidden: GitHub installation admin access required" },
           { status: 403 }
         ),
       }
     }
   } catch (err) {
-    console.error("GitHub org-admin verification failed:", err)
+    console.error("GitHub installation-admin verification failed:", err)
     return {
       error: NextResponse.json(
-        { error: "Failed to verify GitHub org admin access" },
+        { error: "Failed to verify GitHub installation admin access" },
         { status: 502 }
       ),
     }

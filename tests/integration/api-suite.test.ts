@@ -1,7 +1,8 @@
-import { expect, test as pwTest } from "@playwright/test"
+import { afterAll, beforeAll, expect, test as vitestTest } from "vitest"
 import { resetTestDatabase } from "@/tests/utils/db-reset"
 import { TEST_USERS, type TestRole } from "@/tests/utils/fixtures"
 import { clearSessionCookieCache, getSessionCookie } from "@/tests/utils/session"
+import { startIntegrationServer } from "@/tests/utils/integration-server"
 
 type TestResult = {
   name: string
@@ -20,6 +21,18 @@ function test(name: string, fn: TestFn) {
 
 const nativeFetch = globalThis.fetch.bind(globalThis)
 let currentRole: TestRole = "admin"
+let baseUrl = ""
+let stopIntegrationServer: (() => Promise<void>) | null = null
+
+beforeAll(async () => {
+  const server = await startIntegrationServer()
+  baseUrl = server.baseUrl
+  stopIntegrationServer = server.stop
+}, 120_000)
+
+afterAll(async () => {
+  await stopIntegrationServer?.()
+})
 
 async function authedFetch(input: RequestInfo | URL, init?: RequestInit) {
   const headers = new Headers(init?.headers)
@@ -731,6 +744,7 @@ async function sendWebhook(baseUrl: string, event: string, payload: Record<strin
 function makePrPayload(opts: {
   action: string
   prAuthor: string
+  prAuthorId?: number
   orgSlug: string
   repoName: string
   prNumber: number
@@ -739,7 +753,10 @@ function makePrPayload(opts: {
     action: opts.action,
     number: opts.prNumber,
     pull_request: {
-      user: { login: opts.prAuthor },
+      user: {
+        login: opts.prAuthor,
+        ...(typeof opts.prAuthorId === "number" ? { id: opts.prAuthorId } : {}),
+      },
       head: { sha: `test-sha-${Date.now()}` },
     },
     repository: {
@@ -768,6 +785,35 @@ test("Webhook: org member opens PR -> green check, no comment", async (baseUrl) 
   assertEqual(data.check.status, "success", "check passes for org member")
   assertEqual(data.orgMember, true, "flagged as org member")
   assertEqual(data.comment, null, "no comment posted for org member")
+})
+
+test("Webhook: personal account owner opens PR -> green check, no comment", async (baseUrl) => {
+  await resetDb(baseUrl)
+
+  await sendWebhook(baseUrl, "installation", {
+    action: "created",
+    installation: {
+      id: 22001,
+      account: { login: "orgadmin", id: 1001, type: "User" },
+    },
+    sender: { id: 1001, login: "orgadmin" },
+  })
+
+  const { data } = await sendWebhook(
+    baseUrl,
+    "pull_request",
+    makePrPayload({
+      action: "opened",
+      prAuthor: "orgadmin",
+      prAuthorId: 1001,
+      orgSlug: "orgadmin",
+      repoName: "personal-repo",
+      prNumber: 101,
+    })
+  )
+  assertEqual(data.check.status, "success", "check passes for personal account owner")
+  assertEqual(data.accountOwner, true, "flagged as account owner")
+  assertEqual(data.comment, null, "no comment posted for account owner")
 })
 
 // -- Scenario 2: Non-member, never signed ANY version -> red check + unsigned comment --
@@ -1110,6 +1156,33 @@ test("Webhook: /recheck allows PR author requester", async (baseUrl) => {
   assert(data.check !== undefined, "check was evaluated")
 })
 
+test("Webhook: /recheck allows personal account owner requester", async (baseUrl) => {
+  await resetDb(baseUrl)
+
+  await sendWebhook(baseUrl, "installation", {
+    action: "created",
+    installation: {
+      id: 22002,
+      account: { login: "orgadmin", id: 1001, type: "User" },
+    },
+    sender: { id: 1001, login: "orgadmin" },
+  })
+
+  const { res, data } = await sendWebhook(baseUrl, "issue_comment", {
+    action: "created",
+    comment: { body: "/recheck", user: { login: "orgadmin" } },
+    issue: {
+      number: 81,
+      user: { login: "new-contributor", id: 1004 },
+      pull_request: { url: "https://api.github.com/repos/orgadmin/personal-repo/pulls/81" },
+    },
+    repository: { name: "personal-repo", owner: { login: "orgadmin" } },
+    installation: { id: 22002 },
+  })
+  assertEqual(res.status, 200, "request accepted")
+  assert(data.check !== undefined, "check was evaluated")
+})
+
 test("Webhook: /recheck allows maintainer requester", async (baseUrl) => {
   await resetDb(baseUrl)
   const { res, data } = await sendWebhook(baseUrl, "issue_comment", {
@@ -1201,6 +1274,32 @@ test("Webhook: installation created registers new org", async (baseUrl) => {
 
   const orgRes = await fetch(`${baseUrl}/api/orgs/new-org`)
   assertEqual(orgRes.status, 200, "new org accessible")
+})
+
+test("Webhook: personal-account installation stores user target metadata", async (baseUrl) => {
+  await resetDb(baseUrl)
+  const { res } = await sendWebhook(baseUrl, "installation", {
+    action: "created",
+    installation: {
+      id: 22003,
+      account: { login: "orgadmin", id: 1001, type: "User" },
+    },
+    sender: { id: 1001, login: "orgadmin" },
+  })
+  assertEqual(res.status, 200, "installation accepted")
+
+  const orgRes = await fetch(`${baseUrl}/api/orgs/orgadmin`)
+  const orgData = await orgRes.json()
+  assertEqual(orgRes.status, 200, "personal account row is accessible")
+  assertEqual(orgData.org.githubAccountType, "user", "account type persisted")
+  assertEqual(orgData.org.githubAccountId, "1001", "account id persisted")
+
+  const adminOrgsRes = await fetch(`${baseUrl}/api/orgs`)
+  const adminOrgsData = await adminOrgsRes.json()
+  assert(
+    adminOrgsData.orgs.some((org: { githubOrgSlug: string }) => org.githubOrgSlug === "orgadmin"),
+    "personal account appears in authorized admin org list"
+  )
 })
 
 test("Webhook: installation deleted deactivates org", async (baseUrl) => {
@@ -1339,27 +1438,30 @@ function getTestCount(): number {
   return tests.length
 }
 
-pwTest("api end-to-end suite passes", async ({ baseURL }) => {
-  expect(baseURL).toBeTruthy()
+vitestTest(
+  "api end-to-end suite passes",
+  async () => {
+    expect(baseUrl).toBeTruthy()
+    const originalFetch = globalThis.fetch
+    globalThis.fetch = authedFetch as typeof globalThis.fetch
 
-  const originalFetch = globalThis.fetch
-  globalThis.fetch = authedFetch as typeof globalThis.fetch
+    try {
+      const results = await runAllTests(baseUrl)
+      const failed = results.filter((result) => !result.passed)
+      const totalDuration = results.reduce((sum, result) => sum + result.duration, 0)
 
-  try {
-    const results = await runAllTests(baseURL as string)
-    const failed = results.filter((result) => !result.passed)
-    const totalDuration = results.reduce((sum, result) => sum + result.duration, 0)
+      console.log(
+        `[tests] total=${getTestCount()} passed=${results.length - failed.length} failed=${failed.length} duration=${totalDuration}ms`
+      )
 
-    console.log(
-      `[tests] total=${getTestCount()} passed=${results.length - failed.length} failed=${failed.length} duration=${totalDuration}ms`
-    )
+      const details = failed
+        .map((result) => `${result.name}: ${result.error ?? "Unknown error"}`)
+        .join("\n")
 
-    const details = failed
-      .map((result) => `${result.name}: ${result.error ?? "Unknown error"}`)
-      .join("\n")
-
-    expect(failed.length, details || "Expected all API integration checks to pass").toBe(0)
-  } finally {
-    globalThis.fetch = originalFetch
-  }
-})
+      expect(failed.length, details || "Expected all API integration checks to pass").toBe(0)
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  },
+  300_000
+)

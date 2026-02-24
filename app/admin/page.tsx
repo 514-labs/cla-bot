@@ -49,12 +49,12 @@ export default function AdminPage() {
             <div>
               <h1 className="text-2xl font-bold tracking-tight text-foreground">Admin Dashboard</h1>
               <p className="mt-1 text-muted-foreground">
-                Manage CLAs for your GitHub organizations.
+                Manage CLAs for your GitHub organizations and personal accounts.
               </p>
             </div>
             <Button className="gap-2" onClick={handleInstall}>
               <Plus className="h-4 w-4" />
-              Install on Organization
+              Install on GitHub Account
             </Button>
           </div>
 
@@ -69,7 +69,7 @@ export default function AdminPage() {
                   <CardContent className="py-12 text-center">
                     <h3 className="text-lg font-semibold text-foreground">Sign in required</h3>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      Sign in with GitHub to manage organization CLAs.
+                      Sign in with GitHub to manage account CLAs.
                     </p>
                     <a href="/api/auth/github?returnTo=%2Fadmin" className="inline-block">
                       <Button className="mt-4 gap-2">
@@ -130,8 +130,8 @@ export default function AdminPage() {
                         </h3>
                         <p className="mb-6 max-w-sm text-sm text-muted-foreground">
                           {hasInstalledOrgs
-                            ? "We found an installation, but your account is not recognized as an admin for any installed organization."
-                            : "Install the CLA Bot GitHub App on your organization to get started."}
+                            ? "We found an installation, but your account is not recognized as an admin for any installed GitHub account."
+                            : "Install the CLA Bot GitHub App on your organization or personal account to get started."}
                         </p>
                         <Button className="gap-2" onClick={handleInstall}>
                           <Github className="h-4 w-4" />

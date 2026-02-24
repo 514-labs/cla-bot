@@ -30,6 +30,10 @@ export const users = pgTable("users", {
 export const organizations = pgTable("organizations", {
   id: text("id").primaryKey(),
   githubOrgSlug: text("github_org_slug").notNull().unique(),
+  /** GitHub installation target type: organization | user */
+  githubAccountType: text("github_account_type").notNull().default("organization"),
+  /** Immutable GitHub installation target account ID (string form) */
+  githubAccountId: text("github_account_id"),
   name: text("name").notNull(),
   avatarUrl: text("avatar_url").notNull(),
   installedAt: text("installed_at").notNull(),

@@ -31,6 +31,8 @@ type InstallationPayload = {
     id?: number
     account?: {
       login?: string
+      id?: number
+      type?: "Organization" | "User"
       avatar_url?: string
     }
   }
@@ -80,6 +82,8 @@ type PingPayload = {
     id?: number
   }
 }
+
+type GitHubAccountType = "organization" | "user"
 
 export async function POST(request: NextRequest) {
   const event = request.headers.get("x-github-event")
@@ -221,12 +225,15 @@ export async function POST(request: NextRequest) {
     }
 
     const requesterIsPrAuthor = requester === prAuthor
+    const requesterIsAccountOwner = isPersonalAccountOwner(org, requester)
     let requesterIsOrgMember = false
     let requesterCanMaintain = false
-    if (!requesterIsPrAuthor) {
+    if (!requesterIsPrAuthor && !requesterIsAccountOwner) {
       try {
-        const membership = await github.checkOrgMembership(orgSlug, requester)
-        requesterIsOrgMember = membership === "active"
+        if (org.githubAccountType !== "user") {
+          const membership = await github.checkOrgMembership(orgSlug, requester)
+          requesterIsOrgMember = membership === "active"
+        }
         if (!requesterIsOrgMember) {
           const permission = await github.getRepositoryPermissionLevel(orgSlug, repoName, requester)
           requesterCanMaintain =
@@ -241,11 +248,16 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    if (!requesterIsPrAuthor && !requesterIsOrgMember && !requesterCanMaintain) {
+    if (
+      !requesterIsPrAuthor &&
+      !requesterIsAccountOwner &&
+      !requesterIsOrgMember &&
+      !requesterCanMaintain
+    ) {
       return NextResponse.json(
         {
           error:
-            "Forbidden: /recheck requires org membership, PR author access, or maintainer permissions",
+            "Forbidden: /recheck requires account owner access, org membership, PR author access, or maintainer permissions",
         },
         { status: 403 }
       )
@@ -322,8 +334,15 @@ async function handlePrCheck(params: {
     return NextResponse.json({ error: "GitHub client is not configured" }, { status: 500 })
   }
 
-  const membership = await github.checkOrgMembership(orgSlug, prAuthor)
-  if (membership === "active") {
+  const accountOwner = isPersonalAccountOwner(org, prAuthor, prAuthorId)
+  const membership =
+    org.githubAccountType === "user" || accountOwner
+      ? "not_member"
+      : await github.checkOrgMembership(orgSlug, prAuthor)
+  if (accountOwner || membership === "active") {
+    const bypassSummary = accountOwner
+      ? `@${prAuthor} is the owner of @${orgSlug}. No CLA signature required.`
+      : `@${prAuthor} is a member of @${orgSlug}. No CLA signature required.`
     const check = await github.createCheckRun({
       owner: orgSlug,
       repo: repoName,
@@ -332,8 +351,8 @@ async function handlePrCheck(params: {
       status: "completed",
       conclusion: "success",
       output: {
-        title: "CLA: Org member",
-        summary: `@${prAuthor} is a member of @${orgSlug}. No CLA signature required.`,
+        title: accountOwner ? "CLA: Repository owner" : "CLA: Org member",
+        summary: bypassSummary,
       },
     })
     await createAuditEvent({
@@ -345,15 +364,18 @@ async function handlePrCheck(params: {
         owner: orgSlug,
         repo: repoName,
         prNumber,
-        decision: "org_member",
+        decision: accountOwner ? "repo_owner" : "org_member",
         checkConclusion: check.conclusion,
       },
     })
     return NextResponse.json({
-      message: `@${prAuthor} is an org member of ${orgSlug}. Check passed.`,
+      message: accountOwner
+        ? `@${prAuthor} is the repository owner for ${orgSlug}. Check passed.`
+        : `@${prAuthor} is an org member of ${orgSlug}. Check passed.`,
       check: { id: check.id, status: "success", conclusion: check.conclusion },
       comment: null,
-      orgMember: true,
+      orgMember: membership === "active",
+      accountOwner,
       signed: true,
     })
   }
@@ -399,6 +421,7 @@ async function handlePrCheck(params: {
       check: { id: check.id, status: "success", conclusion: check.conclusion },
       comment: null,
       orgMember: false,
+      accountOwner: false,
       signed: true,
       needsResign: false,
     })
@@ -473,6 +496,7 @@ async function handlePrCheck(params: {
     check: { id: check.id, status: "failure", conclusion: check.conclusion },
     comment,
     orgMember: false,
+    accountOwner: false,
     signed: false,
     needsResign,
   })
@@ -480,6 +504,8 @@ async function handlePrCheck(params: {
 
 async function handleInstallation(payload: InstallationPayload) {
   const orgSlug = payload.installation?.account?.login
+  const accountType = normalizeGitHubAccountType(payload.installation?.account?.type)
+  const accountId = payload.installation?.account?.id
   const installationId = payload.installation?.id
   if (!orgSlug) {
     return NextResponse.json({ error: "Missing installation account login" }, { status: 400 })
@@ -503,17 +529,20 @@ async function handleInstallation(payload: InstallationPayload) {
     const existing = await getOrganizationBySlug(orgSlug)
     if (existing) {
       await setOrganizationActive(orgSlug, true)
-      if (installationId) {
-        await updateOrganizationInstallationId(orgSlug, installationId)
-      }
+      const updated = await updateOrganizationInstallationId(orgSlug, installationId ?? null, {
+        githubAccountType: accountType,
+        githubAccountId: accountId,
+      })
       return NextResponse.json({
-        message: `App active on org: ${orgSlug}`,
-        org: { ...existing, installationId: installationId ?? existing.installationId },
+        message: `App active on account: ${orgSlug}`,
+        org: updated ?? { ...existing, installationId: installationId ?? existing.installationId },
       })
     }
 
     const org = await createOrganization({
       githubOrgSlug: orgSlug,
+      githubAccountType: accountType,
+      githubAccountId: accountId,
       name: orgSlug,
       avatarUrl:
         payload.installation?.account?.avatar_url ??
@@ -523,19 +552,22 @@ async function handleInstallation(payload: InstallationPayload) {
     })
 
     return NextResponse.json({
-      message: `App installed on org: ${orgSlug}`,
+      message: `App installed on account: ${orgSlug}`,
       org,
     })
   }
 
   if (payload.action === "deleted" || payload.action === "suspend") {
     await setOrganizationActive(orgSlug, false)
-    await updateOrganizationInstallationId(orgSlug, null)
+    await updateOrganizationInstallationId(orgSlug, null, {
+      githubAccountType: accountType,
+      githubAccountId: accountId,
+    })
     return NextResponse.json({
       message:
         payload.action === "deleted"
-          ? `App uninstalled from org: ${orgSlug}`
-          : `App suspended on org: ${orgSlug}`,
+          ? `App uninstalled from account: ${orgSlug}`
+          : `App suspended on account: ${orgSlug}`,
     })
   }
 
@@ -544,17 +576,20 @@ async function handleInstallation(payload: InstallationPayload) {
 
 async function handleInstallationRepositories(payload: InstallationPayload) {
   const orgSlug = payload.installation?.account?.login
+  const accountType = normalizeGitHubAccountType(payload.installation?.account?.type)
+  const accountId = payload.installation?.account?.id
   const installationId = payload.installation?.id
   if (!orgSlug) {
     return NextResponse.json({ error: "Missing installation account login" }, { status: 400 })
   }
 
-  if (installationId) {
-    await updateOrganizationInstallationId(orgSlug, installationId)
-  }
+  await updateOrganizationInstallationId(orgSlug, installationId ?? null, {
+    githubAccountType: accountType,
+    githubAccountId: accountId,
+  })
 
   return NextResponse.json({
-    message: `installation_repositories processed for org: ${orgSlug}`,
+    message: `installation_repositories processed for account: ${orgSlug}`,
     action: payload.action,
   })
 }
@@ -581,6 +616,28 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({
     comment: botComment ? { id: botComment.id, commentMarkdown: botComment.body } : null,
   })
+}
+
+function normalizeGitHubAccountType(type?: "Organization" | "User"): GitHubAccountType {
+  return type === "User" ? "user" : "organization"
+}
+
+function isPersonalAccountOwner(
+  org: {
+    githubOrgSlug: string
+    githubAccountType?: string | null
+    githubAccountId?: string | null
+  },
+  username: string,
+  githubUserId?: number
+) {
+  if (org.githubAccountType !== "user") return false
+
+  const normalizedUsername = username.trim().toLowerCase()
+  if (normalizedUsername === org.githubOrgSlug.toLowerCase()) return true
+  if (typeof githubUserId !== "number") return false
+  if (!org.githubAccountId) return false
+  return String(githubUserId) === String(org.githubAccountId)
 }
 
 function verifyWebhookRequest(rawPayload: string, signatureHeader: string | null) {

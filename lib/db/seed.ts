@@ -69,6 +69,8 @@ export async function seedDatabase(db: Database) {
       {
         id: "org_1",
         githubOrgSlug: "fiveonefour",
+        githubAccountType: "organization",
+        githubAccountId: "2001",
         name: "Fiveonefour",
         avatarUrl: "https://api.dicebear.com/7.x/initials/svg?seed=514&backgroundColor=059669",
         installedAt: "2025-08-15T10:00:00Z",
@@ -81,6 +83,8 @@ export async function seedDatabase(db: Database) {
       {
         id: "org_2",
         githubOrgSlug: "moose-stack",
+        githubAccountType: "organization",
+        githubAccountId: "2002",
         name: "MooseStack",
         avatarUrl: "https://api.dicebear.com/7.x/initials/svg?seed=MS&backgroundColor=059669",
         installedAt: "2025-09-01T14:30:00Z",

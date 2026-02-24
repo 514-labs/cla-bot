@@ -21,14 +21,22 @@ export async function GET() {
       userId: user.id,
       totalOrgs: allOrgs.length,
       installedCount: installedOrgs.length,
-      installedOrgSlugs: installedOrgs.map((org) => org.githubOrgSlug),
+      installedOrgs: installedOrgs.map((org) => ({
+        slug: org.githubOrgSlug,
+        accountType: org.githubAccountType ?? "organization",
+        accountId: org.githubAccountId ?? null,
+      })),
     })
 
     const orgs = await filterInstalledOrganizationsForAdmin(user, allOrgs)
     console.info("[api/orgs] Authorized organizations resolved", {
       userId: user.id,
       authorizedCount: orgs.length,
-      authorizedOrgSlugs: orgs.map((org) => org.githubOrgSlug),
+      authorizedOrgs: orgs.map((org) => ({
+        slug: org.githubOrgSlug,
+        accountType: org.githubAccountType ?? "organization",
+        accountId: org.githubAccountId ?? null,
+      })),
     })
     return NextResponse.json({
       orgs,
@@ -38,7 +46,7 @@ export async function GET() {
   } catch (err) {
     console.error("Failed to list authorized organizations:", err)
     return NextResponse.json(
-      { error: "Failed to verify GitHub organization admin access" },
+      { error: "Failed to verify GitHub installation admin access" },
       { status: 502 }
     )
   }

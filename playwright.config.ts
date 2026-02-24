@@ -40,18 +40,24 @@ const PORT = Number.parseInt(
   process.env.TEST_PORT ?? process.env.PLAYWRIGHT_TEST_PORT ?? "3210",
   10
 )
+const HOST = process.env.PLAYWRIGHT_TEST_HOST ?? "127.0.0.1"
 const BASE_URL =
-  process.env.TEST_BASE_URL ?? process.env.PLAYWRIGHT_BASE_URL ?? `http://127.0.0.1:${PORT}`
+  process.env.TEST_BASE_URL ?? process.env.PLAYWRIGHT_BASE_URL ?? `http://${HOST}:${PORT}`
 const SHOULD_START_WEB_SERVER = !process.env.TEST_BASE_URL && !process.env.PLAYWRIGHT_BASE_URL
-const CHANNEL =
-  process.env.PLAYWRIGHT_CHANNEL ??
-  (existsSync("/Applications/Google Chrome.app") ? "chrome" : undefined)
+const REUSE_EXISTING_SERVER = process.env.PLAYWRIGHT_REUSE_EXISTING_SERVER === "true"
+const CHANNEL = process.env.PLAYWRIGHT_CHANNEL
+const REPORTER = process.env.PLAYWRIGHT_REPORTER ?? (process.env.CI ? "line" : "list")
 
 export default defineConfig({
   testDir: "./tests/e2e",
   fullyParallel: false,
   workers: 1,
   timeout: 180_000,
+  reporter: REPORTER,
+  reportSlowTests: {
+    max: 10,
+    threshold: 20_000,
+  },
   expect: {
     timeout: 10_000,
   },
@@ -61,10 +67,10 @@ export default defineConfig({
   },
   webServer: SHOULD_START_WEB_SERVER
     ? {
-        command: `SESSION_SECRET=${SHELL_SAFE_SESSION_SECRET} pnpm dev --port ${PORT}`,
+        command: `SESSION_SECRET=${SHELL_SAFE_SESSION_SECRET} pnpm dev --hostname ${HOST} --port ${PORT}`,
         url: `${BASE_URL}/api/auth/session`,
         timeout: 90_000,
-        reuseExistingServer: true,
+        reuseExistingServer: REUSE_EXISTING_SERVER,
       }
     : undefined,
 })

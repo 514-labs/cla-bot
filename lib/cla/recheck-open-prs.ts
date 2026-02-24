@@ -74,7 +74,16 @@ export async function recheckOpenPullRequestsAfterClaUpdate(params: {
 
   for (const pr of openPrs) {
     try {
-      const membership = await github.checkOrgMembership(params.orgSlug, pr.authorLogin)
+      const accountOwner = isPersonalAccountOwner(org, pr.authorLogin, pr.authorId)
+      if (accountOwner) {
+        summary.skippedOrgMembers += 1
+        continue
+      }
+
+      const membership =
+        org.githubAccountType === "user"
+          ? "not_member"
+          : await github.checkOrgMembership(params.orgSlug, pr.authorLogin)
       if (membership === "active") {
         summary.skippedOrgMembers += 1
         continue
@@ -145,4 +154,22 @@ export async function recheckOpenPullRequestsAfterClaUpdate(params: {
   }
 
   return summary
+}
+
+function isPersonalAccountOwner(
+  org: {
+    githubOrgSlug: string
+    githubAccountType?: string | null
+    githubAccountId?: string | null
+  },
+  username: string,
+  githubUserId?: number
+) {
+  if (org.githubAccountType !== "user") return false
+
+  const normalizedUsername = username.trim().toLowerCase()
+  if (normalizedUsername === org.githubOrgSlug.toLowerCase()) return true
+  if (typeof githubUserId !== "number") return false
+  if (!org.githubAccountId) return false
+  return String(githubUserId) === String(org.githubAccountId)
 }

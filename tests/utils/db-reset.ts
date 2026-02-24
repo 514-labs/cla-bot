@@ -1,13 +1,16 @@
 import { createHash } from "node:crypto"
+import { existsSync, readFileSync } from "node:fs"
+import { resolve } from "node:path"
 import { neon } from "@neondatabase/serverless"
 import { resetMockGitHub } from "@/lib/github/mock-github-client"
 
-const DATABASE_URL = process.env.DATABASE_URL
+const DATABASE_URL = process.env.DATABASE_URL ?? readDatabaseUrlFromEnvLocal()
 if (!DATABASE_URL) {
-  throw new Error("DATABASE_URL is required for Playwright e2e tests")
+  throw new Error("DATABASE_URL is required for integration/e2e tests")
 }
 
 const sql = neon(DATABASE_URL)
+let schemaCompatibilityReady: Promise<void> | null = null
 
 const DEFAULT_CLA_MARKDOWN = `# Contributor License Agreement
 
@@ -34,9 +37,39 @@ function sha256Hex(input: string) {
   return createHash("sha256").update(input, "utf8").digest("hex")
 }
 
+function readDatabaseUrlFromEnvLocal() {
+  const envLocalPath = resolve(process.cwd(), ".env.local")
+  if (!existsSync(envLocalPath)) {
+    return undefined
+  }
+
+  const contents = readFileSync(envLocalPath, "utf8")
+  for (const rawLine of contents.split(/\r?\n/)) {
+    const line = rawLine.trim()
+    if (!line || line.startsWith("#")) continue
+
+    const separatorIndex = line.indexOf("=")
+    if (separatorIndex === -1) continue
+
+    const key = line.slice(0, separatorIndex).trim()
+    if (key !== "DATABASE_URL") continue
+
+    const value = line.slice(separatorIndex + 1).trim()
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      return value.slice(1, -1)
+    }
+    return value
+  }
+
+  return undefined
+}
+
 export async function resetTestDatabase() {
   resetMockGitHub()
-  await ensureTestSchemaCompatibility()
+  await ensureSchemaCompatibilityOnce()
 
   const claHash = sha256Hex(DEFAULT_CLA_MARKDOWN)
 
@@ -97,6 +130,8 @@ export async function resetTestDatabase() {
     {
       id: "org_1",
       githubOrgSlug: "fiveonefour",
+      githubAccountType: "organization",
+      githubAccountId: "2001",
       name: "Fiveonefour",
       avatarUrl: "https://api.dicebear.com/7.x/initials/svg?seed=514&backgroundColor=059669",
       installedAt: "2025-08-15T10:00:00Z",
@@ -107,6 +142,8 @@ export async function resetTestDatabase() {
     {
       id: "org_2",
       githubOrgSlug: "moose-stack",
+      githubAccountType: "organization",
+      githubAccountId: "2002",
       name: "MooseStack",
       avatarUrl: "https://api.dicebear.com/7.x/initials/svg?seed=MS&backgroundColor=059669",
       installedAt: "2025-09-01T14:30:00Z",
@@ -117,7 +154,7 @@ export async function resetTestDatabase() {
   ]
 
   for (const org of organizations) {
-    await sql`INSERT INTO organizations (id, github_org_slug, name, avatar_url, installed_at, admin_user_id, is_active, installation_id, cla_text, cla_text_sha256) VALUES (${org.id}, ${org.githubOrgSlug}, ${org.name}, ${org.avatarUrl}, ${org.installedAt}, ${org.adminUserId}, ${org.isActive}, ${org.installationId}, ${DEFAULT_CLA_MARKDOWN}, ${claHash})`
+    await sql`INSERT INTO organizations (id, github_org_slug, github_account_type, github_account_id, name, avatar_url, installed_at, admin_user_id, is_active, installation_id, cla_text, cla_text_sha256) VALUES (${org.id}, ${org.githubOrgSlug}, ${org.githubAccountType}, ${org.githubAccountId}, ${org.name}, ${org.avatarUrl}, ${org.installedAt}, ${org.adminUserId}, ${org.isActive}, ${org.installationId}, ${DEFAULT_CLA_MARKDOWN}, ${claHash})`
   }
 
   await sql`INSERT INTO cla_archives (id, org_id, sha256, cla_text, created_at) VALUES (${"archive_1"}, ${"org_1"}, ${claHash}, ${DEFAULT_CLA_MARKDOWN}, ${"2025-08-15T10:00:00Z"})`
@@ -191,6 +228,13 @@ export async function resetTestDatabase() {
   }
 }
 
+async function ensureSchemaCompatibilityOnce() {
+  if (!schemaCompatibilityReady) {
+    schemaCompatibilityReady = ensureTestSchemaCompatibility()
+  }
+  await schemaCompatibilityReady
+}
+
 async function ensureTestSchemaCompatibility() {
   await sql`CREATE TABLE IF NOT EXISTS webhook_deliveries (delivery_id text PRIMARY KEY NOT NULL, event text NOT NULL, received_at text NOT NULL)`
   await sql`CREATE TABLE IF NOT EXISTS audit_events (id text PRIMARY KEY NOT NULL, event_type text NOT NULL, org_id text, user_id text, actor_github_id text, actor_github_username text, payload jsonb DEFAULT '{}'::jsonb NOT NULL, created_at text NOT NULL)`
@@ -203,6 +247,10 @@ async function ensureTestSchemaCompatibility() {
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified boolean DEFAULT false NOT NULL`
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS email_source text DEFAULT 'none' NOT NULL`
   await sql`DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'users_github_id_unique') THEN ALTER TABLE users ADD CONSTRAINT users_github_id_unique UNIQUE (github_id); END IF; END $$`
+
+  await sql`ALTER TABLE organizations ADD COLUMN IF NOT EXISTS github_account_type text DEFAULT 'organization' NOT NULL`
+  await sql`ALTER TABLE organizations ADD COLUMN IF NOT EXISTS github_account_id text`
+  await sql`UPDATE organizations SET github_account_type = 'organization' WHERE github_account_type IS NULL OR github_account_type = ''`
 
   await sql`ALTER TABLE cla_signatures ADD COLUMN IF NOT EXISTS accepted_sha256 text`
   await sql`ALTER TABLE cla_signatures ADD COLUMN IF NOT EXISTS consent_text_version text`
