@@ -21,14 +21,14 @@ const nextConfig = {
   },
   serverExternalPackages: [],
   async headers() {
-    const isNonProduction = process.env.NODE_ENV !== "production"
-    const scriptSrc = ["'self'", "'unsafe-inline'"]
-    const connectSrc = ["'self'", "https://api.github.com", "https://github.com"]
-
-    if (isNonProduction) {
-      scriptSrc.push("https://vercel.live", "https://*.vercel.live")
-      connectSrc.push("https://vercel.live", "https://*.vercel.live")
-    }
+    const scriptSrc = ["'self'", "'unsafe-inline'", "https://vercel.live", "https://*.vercel.live"]
+    const connectSrc = [
+      "'self'",
+      "https://api.github.com",
+      "https://github.com",
+      "https://vercel.live",
+      "https://*.vercel.live",
+    ]
 
     const csp = [
       "default-src 'self'",
@@ -36,6 +36,7 @@ const nextConfig = {
       "frame-ancestors 'none'",
       "object-src 'none'",
       `script-src ${scriptSrc.join(" ")}`,
+      `script-src-elem ${scriptSrc.join(" ")}`,
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: https:",
       "font-src 'self' data:",

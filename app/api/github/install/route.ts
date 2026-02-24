@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getSessionUser } from "@/lib/auth"
 
+const INSTALL_PENDING_COOKIE = "cla-install-pending"
+const INSTALL_PENDING_TTL_SECONDS = 180
+
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const requestedReturnTo = sanitizeReturnTo(searchParams.get("returnTo"), "/admin")
@@ -33,7 +36,15 @@ export async function GET(request: NextRequest) {
 
   const installUrl = new URL(`https://github.com/apps/${appSlug}/installations/new`)
   installUrl.searchParams.set("state", requestedReturnTo)
-  return NextResponse.redirect(installUrl.toString())
+  const response = NextResponse.redirect(installUrl.toString())
+  response.cookies.set(INSTALL_PENDING_COOKIE, "1", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: INSTALL_PENDING_TTL_SECONDS,
+  })
+  return response
 }
 
 function sanitizeReturnTo(raw: string | null, fallback: string): string {

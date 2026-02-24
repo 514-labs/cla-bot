@@ -1,6 +1,7 @@
 import Image from "next/image"
 import Link from "next/link"
 import { redirect } from "next/navigation"
+import { cookies } from "next/headers"
 import { SiteHeader } from "@/components/site-header"
 import { InstallSyncPoller } from "@/components/admin/install-sync-poller"
 import { Badge } from "@/components/ui/badge"
@@ -14,10 +15,13 @@ import { filterInstalledOrganizationsForAdmin } from "@/lib/github/admin-authori
 export default async function AdminPage({
   searchParams,
 }: {
-  searchParams: Promise<{ fromInstall?: string }>
+  searchParams: Promise<{ fromInstall?: string; setup_action?: string; installation_id?: string }>
 }) {
-  const [user, query] = await Promise.all([getSessionUser(), searchParams])
+  const [user, query, cookieStore] = await Promise.all([getSessionUser(), searchParams, cookies()])
   const fromInstall = query.fromInstall === "1"
+  const hasInstallCallbackQuery =
+    typeof query.setup_action === "string" || typeof query.installation_id === "string"
+  const hasInstallPendingCookie = cookieStore.get("cla-install-pending")?.value === "1"
 
   if (!user) {
     return (
@@ -59,9 +63,10 @@ export default async function AdminPage({
   }
 
   const hasInstalledOrgs = installedOrgsCount > 0
-  const shouldPollForInstallSync = fromInstall && orgs.length === 0
+  const installSyncExpected = fromInstall || hasInstallCallbackQuery || hasInstallPendingCookie
+  const shouldPollForInstallSync = installSyncExpected && orgs.length === 0
 
-  if (fromInstall && orgs.length > 0) {
+  if ((fromInstall || hasInstallCallbackQuery) && orgs.length > 0) {
     redirect("/admin")
   }
 
