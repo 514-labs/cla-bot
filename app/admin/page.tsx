@@ -1,6 +1,5 @@
 import Image from "next/image"
 import Link from "next/link"
-import { redirect } from "next/navigation"
 import { SiteHeader } from "@/components/site-header"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -42,7 +41,7 @@ export default async function AdminPage() {
   let hasApiError = false
   let orgs: Awaited<ReturnType<typeof getOrganizations>> = []
   let installedOrgsCount = 0
-  const installLink = getInstallLink("/admin")
+  const installHref = getInstallLink("/admin")
 
   try {
     const allOrgs = await getOrganizations()
@@ -50,15 +49,6 @@ export default async function AdminPage() {
     orgs = await filterInstalledOrganizationsForAdmin(user, allOrgs)
   } catch {
     hasApiError = true
-  }
-
-  if (
-    !hasApiError &&
-    orgs.length === 0 &&
-    installedOrgsCount === 0 &&
-    installLink.autoRedirectHref
-  ) {
-    redirect(installLink.autoRedirectHref)
   }
 
   const hasInstalledOrgs = installedOrgsCount > 0
@@ -75,7 +65,7 @@ export default async function AdminPage() {
                 Manage CLAs for your GitHub organizations and personal accounts.
               </p>
             </div>
-            <a href={installLink.href}>
+            <a href={installHref}>
               <Button className="gap-2">
                 <Plus className="h-4 w-4" />
                 Install on GitHub Account
@@ -129,7 +119,7 @@ export default async function AdminPage() {
                         ? "We found an installation, but your account is not recognized as an admin for any installed GitHub account."
                         : "Install the CLA Bot GitHub App on your organization or personal account to get started."}
                     </p>
-                    <a href={installLink.href}>
+                    <a href={installHref}>
                       <Button className="gap-2">
                         <Github className="h-4 w-4" />
                         Install GitHub App
@@ -202,20 +192,5 @@ export default async function AdminPage() {
 }
 
 function getInstallLink(returnTo: string) {
-  const fallback = `/api/github/install?returnTo=${encodeURIComponent(returnTo)}`
-  const appSlug = process.env.GITHUB_APP_SLUG?.trim()
-  if (!appSlug) {
-    return {
-      href: fallback,
-      autoRedirectHref: null,
-    }
-  }
-
-  const installUrl = new URL(`https://github.com/apps/${appSlug}/installations/new`)
-  installUrl.searchParams.set("state", returnTo)
-
-  return {
-    href: installUrl.toString(),
-    autoRedirectHref: installUrl.toString(),
-  }
+  return `/api/github/install?returnTo=${encodeURIComponent(returnTo)}`
 }

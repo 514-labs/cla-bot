@@ -103,7 +103,7 @@ This section is the behavior contract for UI routes.
 | `/` | Marketing landing page | Public page | Same | CTA to `/auth/signin`, example CLA link to `/sign/fiveonefour` |
 | `/auth/signin` | Start sign-in flow | Shows GitHub sign-in CTA | Same | Sends user to `/api/auth/github?returnTo=...`; `returnTo` is sanitized to internal paths only |
 | `/dashboard` | Mode selector page | Public page | Same + session shown in header | Navigate to `/admin` or `/contributor` |
-| `/admin` | Org admin overview | Shows "Sign in required" card | Lists organizations user can administer; auto-redirects to install flow when none are authorized | Install app (`/api/github/install`), open org manage pages |
+| `/admin` | Org admin overview | Shows "Sign in required" card | Lists organizations user can administer; shows install CTA when none are authorized | Install app (`/api/github/install`), open org manage pages |
 | `/admin/[orgSlug]` | Org CLA management | If data unavailable, shows "Organization not found" UI | Shows org details, CLA version, signers, archives, branch-protection reminder | Edit/save CLA text, activate/deactivate bot, copy signing link, inspect signers/archives |
 | `/contributor` | Contributor agreement dashboard | Shows "Sign in required" card | Lists signed CLAs | Re-sign prompts for outdated signatures, links to `/sign/[orgSlug]` |
 | `/sign/[orgSlug]` | CLA read/sign page | Shows sign-in required (or org not found) | Shows signed state, or sign/re-sign workflow | Requires scroll-to-bottom before sign button enables; handles inactive org warning |
@@ -125,7 +125,7 @@ This section amends your scenario list and adds missing scenarios.
 
 - If signed out: user sees auth-required state and can start GitHub login.
 - If signed in and authorized on at least one installed account: user sees the account list and install button.
-- If signed in but authorized on zero installed accounts: user is redirected to GitHub App install flow.
+- If signed in but authorized on zero installed accounts: user sees install CTA for GitHub App flow.
 
 ### 3) User selects Contributor
 

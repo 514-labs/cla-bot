@@ -6,9 +6,9 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { signOutAction } from "@/app/actions/auth"
-import { Badge } from "@/components/ui/badge"
+import { BrandLockup } from "@/components/brand-logo"
 import { Button } from "@/components/ui/button"
-import { FileCheck2, Github, LogOut, Menu, X } from "lucide-react"
+import { Github, LogOut, Menu, X } from "lucide-react"
 import type { SessionUserDto } from "@/lib/session-user"
 
 type SiteHeaderClientProps = {
@@ -16,7 +16,6 @@ type SiteHeaderClientProps = {
 }
 
 const navItems = [
-  { href: "/dashboard", label: "Dashboard" },
   { href: "/admin", label: "Admin" },
   { href: "/contributor", label: "Contributor" },
 ]
@@ -30,11 +29,7 @@ export function SiteHeaderClient({ user }: SiteHeaderClientProps) {
     <header className="sticky top-0 z-50 border-b border-white/10 bg-background/80 backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
         <Link href="/" className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-            <FileCheck2 className="h-4 w-4 text-primary-foreground" />
-          </div>
-          <span className="text-lg font-semibold tracking-tight text-foreground">CLA Bot</span>
-          <span className="hidden text-xs text-muted-foreground sm:inline">by fiveonefour</span>
+          <BrandLockup subtitleClassName="hidden sm:block text-[11px] text-muted-foreground" />
         </Link>
 
         <nav className="hidden items-center gap-1 md:flex" aria-label="Primary navigation">
@@ -57,9 +52,6 @@ export function SiteHeaderClient({ user }: SiteHeaderClientProps) {
         <div className="hidden items-center gap-3 md:flex">
           {isSignedIn && user ? (
             <div className="flex items-center gap-3">
-              <Badge variant="outline" className="text-xs capitalize">
-                {user.role}
-              </Badge>
               <div className="flex items-center gap-2">
                 <Image
                   src={user.avatarUrl || "/placeholder.svg"}
@@ -126,9 +118,6 @@ export function SiteHeaderClient({ user }: SiteHeaderClientProps) {
                   <p className="text-sm font-medium text-foreground">{user.name}</p>
                   <p className="text-xs text-muted-foreground">@{user.githubUsername}</p>
                 </div>
-                <Badge variant="outline" className="text-xs capitalize">
-                  {user.role}
-                </Badge>
               </div>
             )}
             {navItems.map((item) => (

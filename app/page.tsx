@@ -1,5 +1,6 @@
 import Script from "next/script"
 import Link from "next/link"
+import { BrandMark } from "@/components/brand-logo"
 import { SiteHeader } from "@/components/site-header"
 import { Button } from "@/components/ui/button"
 import { FileCheck2, Github, ShieldCheck, Users, GitPullRequest, ArrowRight } from "lucide-react"
@@ -196,7 +197,7 @@ export default function HomePage() {
       <footer className="relative z-10 border-t border-white/10" role="contentinfo">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-4 py-8 sm:flex-row">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <FileCheck2 className="h-4 w-4" />
+            <BrandMark className="h-4 w-4" />
             <span>CLA Bot by fiveonefour</span>
           </div>
           <nav aria-label="Footer navigation" className="flex gap-6 text-sm text-muted-foreground">

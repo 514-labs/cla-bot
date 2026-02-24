@@ -47,7 +47,8 @@ test("home page renders core navigation", async ({ page }) => {
   await expect(
     page.getByRole("heading", { name: "Automate your Contributor License Agreements" })
   ).toBeVisible()
-  await expect(page.getByRole("link", { name: "Dashboard", exact: true })).toBeVisible()
+  await expect(page.getByRole("link", { name: "Admin", exact: true })).toBeVisible()
+  await expect(page.getByRole("link", { name: "Contributor", exact: true })).toBeVisible()
 })
 
 test("sign-in page sanitizes external returnTo", async ({ page }) => {

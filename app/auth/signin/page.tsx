@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { FileCheck2, Github } from "lucide-react"
+import { BrandLockup } from "@/components/brand-logo"
+import { Github } from "lucide-react"
 import Link from "next/link"
 
 export default async function SignInPage({
@@ -14,10 +15,11 @@ export default async function SignInPage({
   return (
     <div className="flex min-h-screen flex-col items-center justify-center px-4">
       <Link href="/" className="mb-8 flex items-center gap-2">
-        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary">
-          <FileCheck2 className="h-5 w-5 text-primary-foreground" />
-        </div>
-        <span className="text-xl font-bold tracking-tight text-foreground">CLA Bot</span>
+        <BrandLockup
+          markClassName="h-10 w-10"
+          nameClassName="text-xl"
+          subtitleClassName="text-xs"
+        />
       </Link>
 
       <Card className="w-full max-w-sm">

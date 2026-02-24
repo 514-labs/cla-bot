@@ -100,6 +100,23 @@ test("Role switch helper can return to admin", async (baseUrl) => {
   assertEqual(data.user.name, "Org Admin", "name")
 })
 
+test("GET /api/github/install callback returns to admin instead of looping to GitHub", async (baseUrl) => {
+  await resetDb(baseUrl)
+  const res = await fetch(
+    `${baseUrl}/api/github/install?setup_action=install&installation_id=123&state=%2Fadmin`,
+    {
+      redirect: "manual",
+    }
+  )
+  assertEqual(res.status, 307, "status")
+  const location = res.headers.get("location") ?? ""
+  assert(location.includes("/admin"), "redirects to admin")
+  assert(location.includes("fromInstall=1"), "includes install callback marker")
+  assert(location.includes("setup_action=install"), "preserves setup action")
+  assert(location.includes("installation_id=123"), "preserves installation id")
+  assert(!location.includes("github.com/apps/"), "does not redirect back to GitHub install")
+})
+
 // ==========================================
 // 2. ADMIN ORG LISTING TESTS
 // ==========================================
