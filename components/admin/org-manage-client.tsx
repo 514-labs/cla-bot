@@ -32,6 +32,7 @@ type ClaArchive = {
 
 type Signer = {
   id: string
+  userId: string
   name: string
   githubUsername: string
   avatarUrl: string
@@ -52,6 +53,7 @@ type OrgManageClientProps = {
   org: ManagedOrg
   signers: Signer[]
   archives: ClaArchive[]
+  archiveSignerCounts: Record<string, number>
   currentClaMarkdown: string
   currentClaSha256: string | null
 }
@@ -60,6 +62,7 @@ export function OrgManageClient({
   org,
   signers,
   archives,
+  archiveSignerCounts,
   currentClaMarkdown,
   currentClaSha256,
 }: OrgManageClientProps) {
@@ -74,12 +77,16 @@ export function OrgManageClient({
   const [isTogglingActive, startToggleActiveTransition] = useTransition()
 
   const currentVersionSigners = useMemo(
-    () => signers.filter((signature) => signature.claSha256 === currentClaSha256),
+    () =>
+      signers.filter(
+        (signature) => Boolean(currentClaSha256) && signature.claSha256 === currentClaSha256
+      ),
     [signers, currentClaSha256]
   )
 
   const outdatedSigners = useMemo(
-    () => signers.filter((signature) => signature.claSha256 !== currentClaSha256),
+    () =>
+      signers.filter((signature) => !currentClaSha256 || signature.claSha256 !== currentClaSha256),
     [signers, currentClaSha256]
   )
   const hasConfiguredCla = Boolean(currentClaSha256 && currentClaMarkdown.trim().length > 0)
@@ -411,7 +418,9 @@ export function OrgManageClient({
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Signers</CardTitle>
-            <CardDescription>Contributors who have signed the CLA for {org.name}.</CardDescription>
+            <CardDescription>
+              Contributors grouped by their latest signature status for {org.name}.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             {signers.length === 0 ? (
@@ -420,71 +429,139 @@ export function OrgManageClient({
                 <p className="text-sm text-muted-foreground">No one has signed the CLA yet.</p>
               </div>
             ) : (
-              <div className="space-y-1" data-testid="signers-list">
-                <div className="grid grid-cols-4 gap-4 border-b px-4 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                  <span>Contributor</span>
-                  <span>GitHub</span>
-                  <span>Signed At</span>
-                  <span>Version</span>
-                </div>
+              <div className="space-y-6" data-testid="signers-list">
+                <section className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-semibold text-foreground">Current Version</h3>
+                    <Badge className="border-primary/30 bg-primary/10 text-primary">
+                      {currentVersionSigners.length}
+                    </Badge>
+                  </div>
 
-                {signers.map((signature) => {
-                  const isOnCurrentVersion = signature.claSha256 === currentClaSha256
-                  return (
-                    <div
-                      key={signature.id}
-                      className="grid grid-cols-4 items-center gap-4 rounded-lg px-4 py-3 transition-colors hover:bg-secondary"
-                      data-testid="signer-row"
-                    >
-                      <div className="flex items-center gap-3">
-                        <Image
-                          src={signature.avatarUrl || "/placeholder.svg"}
-                          alt={signature.name}
-                          width={32}
-                          height={32}
-                          className="h-8 w-8 rounded-full"
-                          sizes="32px"
-                        />
-                        <span className="text-sm font-medium text-foreground">
-                          {signature.name}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                        <Github className="h-3 w-3" />@{signature.githubUsername}
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        {new Date(signature.signedAt).toLocaleDateString("en-US", {
-                          year: "numeric",
-                          month: "short",
-                          day: "numeric",
-                        })}
-                      </div>
-                      <div>
-                        {isOnCurrentVersion ? (
-                          <Badge
-                            variant="outline"
-                            className="border-primary/30 font-mono text-primary"
-                          >
-                            {signature.claSha256.slice(0, 7)}
-                          </Badge>
-                        ) : (
-                          <Badge
-                            variant="outline"
-                            className="border-amber-500/30 font-mono text-amber-500"
-                          >
-                            {signature.claSha256.slice(0, 7)} (outdated)
-                          </Badge>
-                        )}
-                      </div>
+                  {currentVersionSigners.length === 0 ? (
+                    <div className="rounded-lg border border-dashed px-4 py-3 text-sm text-muted-foreground">
+                      No contributors have signed the latest CLA yet.
                     </div>
-                  )
-                })}
+                  ) : (
+                    <div className="space-y-1 rounded-lg border">
+                      <div className="grid grid-cols-4 gap-4 border-b px-4 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                        <span>Contributor</span>
+                        <span>GitHub</span>
+                        <span>Signed At</span>
+                        <span>Version</span>
+                      </div>
+                      {currentVersionSigners.map((signature) => (
+                        <div
+                          key={signature.id}
+                          className="grid grid-cols-4 items-center gap-4 rounded-lg px-4 py-3 transition-colors hover:bg-secondary"
+                          data-testid="signer-row"
+                        >
+                          <div className="flex items-center gap-3">
+                            <Image
+                              src={signature.avatarUrl || "/placeholder.svg"}
+                              alt={signature.name}
+                              width={32}
+                              height={32}
+                              className="h-8 w-8 rounded-full"
+                              sizes="32px"
+                            />
+                            <span className="text-sm font-medium text-foreground">
+                              {signature.name}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                            <Github className="h-3 w-3" />@{signature.githubUsername}
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            {new Date(signature.signedAt).toLocaleDateString("en-US", {
+                              year: "numeric",
+                              month: "short",
+                              day: "numeric",
+                            })}
+                          </div>
+                          <div>
+                            <Badge
+                              variant="outline"
+                              className="border-primary/30 font-mono text-primary"
+                            >
+                              {signature.claSha256.slice(0, 7)}
+                            </Badge>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </section>
+
+                <section className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-semibold text-foreground">Outdated Versions</h3>
+                    <Badge variant="outline" className="border-amber-500/30 text-amber-500">
+                      {outdatedSigners.length}
+                    </Badge>
+                  </div>
+
+                  {outdatedSigners.length === 0 ? (
+                    <div className="rounded-lg border border-dashed px-4 py-3 text-sm text-muted-foreground">
+                      No contributors are currently outdated.
+                    </div>
+                  ) : (
+                    <div className="space-y-1 rounded-lg border">
+                      <div className="grid grid-cols-4 gap-4 border-b px-4 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                        <span>Contributor</span>
+                        <span>GitHub</span>
+                        <span>Signed At</span>
+                        <span>Version</span>
+                      </div>
+
+                      {outdatedSigners.map((signature) => (
+                        <div
+                          key={signature.id}
+                          className="grid grid-cols-4 items-center gap-4 rounded-lg px-4 py-3 transition-colors hover:bg-secondary"
+                          data-testid="signer-row"
+                        >
+                          <div className="flex items-center gap-3">
+                            <Image
+                              src={signature.avatarUrl || "/placeholder.svg"}
+                              alt={signature.name}
+                              width={32}
+                              height={32}
+                              className="h-8 w-8 rounded-full"
+                              sizes="32px"
+                            />
+                            <span className="text-sm font-medium text-foreground">
+                              {signature.name}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                            <Github className="h-3 w-3" />@{signature.githubUsername}
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            {new Date(signature.signedAt).toLocaleDateString("en-US", {
+                              year: "numeric",
+                              month: "short",
+                              day: "numeric",
+                            })}
+                          </div>
+                          <div>
+                            <Badge
+                              variant="outline"
+                              className="border-amber-500/30 font-mono text-amber-500"
+                            >
+                              {signature.claSha256.slice(0, 7)} (outdated)
+                            </Badge>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </section>
               </div>
             )}
 
-            {outdatedSigners.length > 0 && (
+            {Boolean(currentClaSha256) && outdatedSigners.length > 0 && (
               <div className="mt-4 rounded-lg border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-sm text-amber-500">
-                {outdatedSigners.length} signer{outdatedSigners.length > 1 ? "s" : ""} signed an
+                {outdatedSigners.length} signer{outdatedSigners.length > 1 ? "s are" : " is"} on an
                 older version and will need to re-sign.
               </div>
             )}
@@ -525,9 +602,7 @@ export function OrgManageClient({
               <div className="space-y-3" data-testid="version-list">
                 {archives.map((archive) => {
                   const isCurrent = archive.sha256 === currentClaSha256
-                  const archiveSigners = signers.filter(
-                    (signature) => signature.claSha256 === archive.sha256
-                  )
+                  const archiveSignerCount = archiveSignerCounts[archive.sha256] ?? 0
 
                   return (
                     <div
@@ -550,7 +625,7 @@ export function OrgManageClient({
                         </div>
                         <div className="flex items-center gap-4 text-xs text-muted-foreground">
                           <span>
-                            {archiveSigners.length} signer{archiveSigners.length !== 1 ? "s" : ""}
+                            {archiveSignerCount} signer{archiveSignerCount !== 1 ? "s" : ""}
                           </span>
                           <span>
                             {new Date(archive.createdAt).toLocaleDateString("en-US", {

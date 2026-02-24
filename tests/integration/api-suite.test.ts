@@ -223,10 +223,17 @@ test("GET /api/orgs/fiveonefour returns org details, signers, and archives", asy
     "CLA content via currentClaMarkdown"
   )
   assertEqual(data.signers.length, 3, "fiveonefour signers count")
+  const uniqueSignerCount = new Set(data.signers.map((s: { userId: string }) => s.userId)).size
+  assertEqual(uniqueSignerCount, data.signers.length, "signers are deduplicated by user")
   assert(typeof data.currentClaSha256 === "string", "currentClaSha256 is a string")
   assert(data.currentClaSha256.length === 64, "sha256 is 64 hex chars")
   assert(Array.isArray(data.archives), "archives is array")
   assert(data.archives.length >= 1, "at least 1 archive exists")
+  assert(typeof data.archiveSignerCounts === "object", "archiveSignerCounts object is present")
+  assert(
+    typeof data.archiveSignerCounts[data.currentClaSha256] === "number",
+    "archiveSignerCounts contains current CLA count"
+  )
 })
 
 test("GET /api/orgs/nonexistent returns 404", async (baseUrl) => {
@@ -531,6 +538,32 @@ test("Admin signers list shows outdated badges after CLA update", async (baseUrl
   assert(noneOnCurrent, "all signers now on outdated version")
 })
 
+test("Admin signers list keeps one latest row per user after re-sign", async (baseUrl) => {
+  await resetDb(baseUrl)
+
+  await switchRole(baseUrl, "admin")
+  await updateClaForOrg("fiveonefour", "# Updated CLA v2")
+
+  await switchRole(baseUrl, "contributor")
+  const resignRes = await fetch(`${baseUrl}/api/sign`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ orgSlug: "fiveonefour" }),
+  })
+  assertEqual(resignRes.status, 200, "contributor re-sign succeeded")
+  const resignData = await resignRes.json()
+  const signerUserId = resignData.signature.userId
+  assert(typeof signerUserId === "string", "resigned user id is present")
+
+  await switchRole(baseUrl, "admin")
+  const res = await fetch(`${baseUrl}/api/orgs/fiveonefour`)
+  const data = await res.json()
+
+  const userRows = data.signers.filter((s: { userId: string }) => s.userId === signerUserId)
+  assertEqual(userRows.length, 1, "user appears only once in signers")
+  assertEqual(userRows[0].claSha256, data.currentClaSha256, "user row points to latest CLA")
+})
+
 test("Contributor dashboard shows re-sign required after CLA update", async (baseUrl) => {
   await resetDb(baseUrl)
 
@@ -747,8 +780,10 @@ test("Full flow: sign, update CLA, verify outdated, re-sign", async (baseUrl) =>
   // Step 7: Verify signers list -- admin should appear with current version
   const orgRes = await fetch(`${baseUrl}/api/orgs/fiveonefour`)
   const orgData = await orgRes.json()
-  // Original 3 signers on v1 + admin on v1 + admin on v2 = 5 total signer rows
-  assert(orgData.signers.length >= 4, "signers increased")
+  // Signers are deduplicated by user; admin should appear once and on latest version.
+  assert(orgData.signers.length >= 4, "unique signer count includes admin")
+  const uniqueUserCount = new Set(orgData.signers.map((s: { userId: string }) => s.userId)).size
+  assertEqual(uniqueUserCount, orgData.signers.length, "signers are deduplicated")
   // At least one signer on current sha256 (admin's re-sign)
   const currentSigners = orgData.signers.filter(
     (s: { claSha256: string }) => s.claSha256 === orgData.currentClaSha256

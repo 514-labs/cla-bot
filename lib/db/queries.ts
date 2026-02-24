@@ -12,7 +12,7 @@
  *  - audit_events = append-only audit trail
  */
 
-import { and, desc, eq } from "drizzle-orm"
+import { and, desc, eq, sql } from "drizzle-orm"
 import { ensureDbReady, resetDb } from "./index"
 import {
   auditEvents,
@@ -342,7 +342,35 @@ export async function getArchiveByOrgAndSha(orgId: string, sha256: string) {
 
 export async function getSignaturesByOrg(orgId: string) {
   const db = await ensureDbReady()
-  return db.select().from(claSignatures).where(eq(claSignatures.orgId, orgId))
+  const rows = await db
+    .selectDistinctOn([claSignatures.userId], {
+      id: claSignatures.id,
+      userId: claSignatures.userId,
+      name: claSignatures.name,
+      githubUsername: claSignatures.githubUsername,
+      avatarUrl: claSignatures.avatarUrl,
+      signedAt: claSignatures.signedAt,
+      claSha256: claSignatures.claSha256,
+    })
+    .from(claSignatures)
+    .where(eq(claSignatures.orgId, orgId))
+    .orderBy(claSignatures.userId, desc(claSignatures.signedAt), desc(claSignatures.id))
+
+  return rows.sort((a, b) => b.signedAt.localeCompare(a.signedAt))
+}
+
+export async function getSignerCountsByClaSha(orgId: string) {
+  const db = await ensureDbReady()
+  const rows = await db
+    .select({
+      claSha256: claSignatures.claSha256,
+      signerCount: sql<number>`count(distinct ${claSignatures.userId})`,
+    })
+    .from(claSignatures)
+    .where(eq(claSignatures.orgId, orgId))
+    .groupBy(claSignatures.claSha256)
+
+  return Object.fromEntries(rows.map((row) => [row.claSha256, Number(row.signerCount)]))
 }
 
 export async function getSignaturesByUser(userId: string) {
