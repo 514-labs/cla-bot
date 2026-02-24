@@ -1,6 +1,8 @@
 import Image from "next/image"
 import Link from "next/link"
+import { redirect } from "next/navigation"
 import { SiteHeader } from "@/components/site-header"
+import { InstallSyncPoller } from "@/components/admin/install-sync-poller"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -9,8 +11,13 @@ import { getSessionUser } from "@/lib/auth"
 import { getOrganizations } from "@/lib/db/queries"
 import { filterInstalledOrganizationsForAdmin } from "@/lib/github/admin-authorization"
 
-export default async function AdminPage() {
-  const user = await getSessionUser()
+export default async function AdminPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ fromInstall?: string }>
+}) {
+  const [user, query] = await Promise.all([getSessionUser(), searchParams])
+  const fromInstall = query.fromInstall === "1"
 
   if (!user) {
     return (
@@ -52,6 +59,11 @@ export default async function AdminPage() {
   }
 
   const hasInstalledOrgs = installedOrgsCount > 0
+  const shouldPollForInstallSync = fromInstall && orgs.length === 0
+
+  if (fromInstall && orgs.length > 0) {
+    redirect("/admin")
+  }
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -87,6 +99,7 @@ export default async function AdminPage() {
             </Card>
           ) : (
             <>
+              <InstallSyncPoller enabled={shouldPollForInstallSync} />
               <Card className="mb-8">
                 <CardContent className="flex items-center gap-4 py-4">
                   <Image
@@ -114,6 +127,11 @@ export default async function AdminPage() {
                     <h3 className="mb-1 text-lg font-semibold text-foreground">
                       {hasInstalledOrgs ? "No accessible organizations" : "No organizations yet"}
                     </h3>
+                    {shouldPollForInstallSync ? (
+                      <p className="mb-2 max-w-sm text-xs uppercase tracking-[0.16em] text-primary">
+                        Finalizing installation sync...
+                      </p>
+                    ) : null}
                     <p className="mb-6 max-w-sm text-sm text-muted-foreground">
                       {hasInstalledOrgs
                         ? "We found an installation, but your account is not recognized as an admin for any installed GitHub account."
