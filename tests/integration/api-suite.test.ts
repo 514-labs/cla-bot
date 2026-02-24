@@ -575,6 +575,8 @@ test("GET /api/contributor returns signed CLAs for contributor", async (baseUrl)
     data.signatures.some((s: { orgSlug: string }) => s.orgSlug === "moose-stack"),
     "moose-stack CLA present"
   )
+  assertEqual(data.signedOrgCount, 2, "signed org count")
+  assertEqual(data.outdatedOrgCount, 0, "outdated org count")
 })
 
 test("GET /api/contributor returns empty for admin (no signatures)", async (baseUrl) => {
@@ -582,6 +584,79 @@ test("GET /api/contributor returns empty for admin (no signatures)", async (base
   const res = await fetch(`${baseUrl}/api/contributor`)
   const data = await res.json()
   assertEqual(data.signatures.length, 0, "admin has no signatures")
+  assertEqual(data.signedOrgCount, 0, "signed org count")
+  assertEqual(data.outdatedOrgCount, 0, "outdated org count")
+})
+
+test("GET /api/contributor tracks latest signature status per org after re-sign", async (baseUrl) => {
+  await resetDb(baseUrl)
+
+  await switchRole(baseUrl, "contributor")
+  const beforeRes = await fetch(`${baseUrl}/api/contributor`)
+  const beforeData = await beforeRes.json()
+  assertEqual(beforeData.outdatedOrgCount, 0, "no outdated orgs initially")
+
+  await switchRole(baseUrl, "admin")
+  await updateClaForOrg("fiveonefour", "# Updated CLA v2")
+
+  await switchRole(baseUrl, "contributor")
+  const outdatedRes = await fetch(`${baseUrl}/api/contributor`)
+  const outdatedData = await outdatedRes.json()
+  assertEqual(outdatedData.outdatedOrgCount, 1, "org becomes outdated after CLA change")
+
+  const resignRes = await fetch(`${baseUrl}/api/sign`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ orgSlug: "fiveonefour" }),
+  })
+  assertEqual(resignRes.status, 200, "re-sign succeeds")
+
+  const afterRes = await fetch(`${baseUrl}/api/contributor`)
+  const afterData = await afterRes.json()
+  assertEqual(afterData.outdatedOrgCount, 0, "org no longer outdated after re-sign")
+
+  const latestFiveOneFour = afterData.signatures.find(
+    (s: { orgSlug: string; isLatestForOrg: boolean }) =>
+      s.orgSlug === "fiveonefour" && s.isLatestForOrg
+  )
+  assert(latestFiveOneFour !== undefined, "latest fiveonefour signature exists")
+  assertEqual(latestFiveOneFour.orgNeedsResign, false, "latest signature is compliant")
+})
+
+test("Contributor can download their signed CLA history entry", async (baseUrl) => {
+  await resetDb(baseUrl)
+  await switchRole(baseUrl, "contributor")
+
+  const listRes = await fetch(`${baseUrl}/api/contributor`)
+  const listData = await listRes.json()
+  const signatureId = listData.signatures[0]?.id
+  assert(typeof signatureId === "string", "signature id available")
+
+  const downloadRes = await fetch(`${baseUrl}/api/contributor/signatures/${signatureId}/download`)
+  const markdown = await downloadRes.text()
+  assertEqual(downloadRes.status, 200, "download status")
+  assert(
+    (downloadRes.headers.get("content-type") ?? "").startsWith("text/markdown"),
+    "markdown content-type"
+  )
+  assert(
+    (downloadRes.headers.get("content-disposition") ?? "").includes("attachment"),
+    "attachment disposition"
+  )
+  assert(markdown.includes("Contributor License Agreement"), "markdown body returned")
+})
+
+test("Contributor CLA download endpoint denies access to another user's signature", async (baseUrl) => {
+  await resetDb(baseUrl)
+  await switchRole(baseUrl, "contributor")
+  const listRes = await fetch(`${baseUrl}/api/contributor`)
+  const listData = await listRes.json()
+  const signatureId = listData.signatures[0]?.id
+  assert(typeof signatureId === "string", "signature id available")
+
+  await switchRole(baseUrl, "admin")
+  const deniedRes = await fetch(`${baseUrl}/api/contributor/signatures/${signatureId}/download`)
+  assertEqual(deniedRes.status, 404, "cannot download another user's signature")
 })
 
 // ==========================================

@@ -4,49 +4,81 @@ import { SiteHeader } from "@/components/site-header"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { FileCheck2, Github, ExternalLink, AlertTriangle } from "lucide-react"
+import { AlertTriangle, Download, ExternalLink, FileCheck2, Github } from "lucide-react"
 import { getSessionUser } from "@/lib/auth"
 import { getOrganizations, getSignaturesByUser } from "@/lib/db/queries"
 
 type EnrichedSignature = {
   id: string
   orgId: string
+  claSha256: string
   signedAt: string
   orgName: string
   orgSlug: string
   orgAvatarUrl: string
   orgIsActive: boolean
+  isLatestForOrg: boolean
+  orgHasCurrentSignature: boolean
+  orgNeedsResign: boolean
   isCurrentVersion: boolean
   signedVersionLabel: string
+  currentVersionLabel: string | null
 }
 
 export default async function ContributorPage() {
   const user = await getSessionUser()
 
   let mySignatures: EnrichedSignature[] = []
+  let signedOrgCount = 0
   if (user) {
     const [signatures, allOrgs] = await Promise.all([
       getSignaturesByUser(user.id),
       getOrganizations(),
     ])
+    const signaturesBySignedAtDesc = [...signatures].sort((a, b) =>
+      b.signedAt.localeCompare(a.signedAt)
+    )
+    const orgById = new Map(allOrgs.map((org) => [org.id, org]))
+    const latestSignatureByOrg = new Map<string, (typeof signaturesBySignedAtDesc)[number]>()
+    const orgsWithCurrentSignature = new Set<string>()
 
-    mySignatures = signatures.map((sig) => {
-      const org = allOrgs.find((candidate) => candidate.id === sig.orgId)
-      const isCurrentVersion = sig.claSha256 === org?.claTextSha256
+    for (const signature of signaturesBySignedAtDesc) {
+      if (!latestSignatureByOrg.has(signature.orgId)) {
+        latestSignatureByOrg.set(signature.orgId, signature)
+      }
+      const org = orgById.get(signature.orgId)
+      if (org && signature.claSha256 === org.claTextSha256) {
+        orgsWithCurrentSignature.add(signature.orgId)
+      }
+    }
+
+    signedOrgCount = latestSignatureByOrg.size
+    mySignatures = signaturesBySignedAtDesc.map((signature) => {
+      const org = orgById.get(signature.orgId)
+      const isLatestForOrg = latestSignatureByOrg.get(signature.orgId)?.id === signature.id
+      const orgHasCurrentSignature = orgsWithCurrentSignature.has(signature.orgId)
+      const orgNeedsResign = !orgHasCurrentSignature
+      const isCurrentVersion = signature.claSha256 === org?.claTextSha256
 
       return {
-        ...sig,
+        ...signature,
         orgName: org?.name ?? "Unknown",
         orgSlug: org?.githubOrgSlug ?? "",
         orgAvatarUrl: org?.avatarUrl ?? "",
         orgIsActive: org?.isActive ?? false,
+        isLatestForOrg,
+        orgHasCurrentSignature,
+        orgNeedsResign,
         isCurrentVersion,
-        signedVersionLabel: sig.claSha256.slice(0, 7),
+        signedVersionLabel: signature.claSha256.slice(0, 7),
+        currentVersionLabel: org?.claTextSha256 ? org.claTextSha256.slice(0, 7) : null,
       }
     })
   }
 
-  const outdatedCount = mySignatures.filter((signature) => !signature.isCurrentVersion).length
+  const outdatedCount = mySignatures.filter(
+    (signature) => signature.isLatestForOrg && signature.orgNeedsResign
+  ).length
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -130,14 +162,22 @@ export default async function ContributorPage() {
               ) : (
                 <div className="space-y-4">
                   <h2 className="text-lg font-semibold text-foreground" data-testid="signed-count">
-                    Signed Agreements ({mySignatures.length})
+                    Signed Agreements ({signedOrgCount})
                   </h2>
+                  <p className="text-sm text-muted-foreground">
+                    Full signature history is available below. You can download any previously
+                    signed version.
+                  </p>
 
                   {mySignatures.map((signature) => (
                     <Card
                       key={signature.id}
                       className={`transition-colors hover:border-primary/30 ${
-                        !signature.isCurrentVersion ? "border-amber-500/20" : ""
+                        signature.orgNeedsResign && signature.isLatestForOrg
+                          ? "border-amber-500/20"
+                          : signature.isLatestForOrg && signature.orgHasCurrentSignature
+                            ? "border-primary/30"
+                            : ""
                       }`}
                       data-testid="signed-cla-card"
                     >
@@ -157,18 +197,20 @@ export default async function ContributorPage() {
                             {signature.orgSlug}
                           </CardDescription>
                         </div>
-                        {signature.isCurrentVersion ? (
+                        {signature.orgNeedsResign && signature.isLatestForOrg ? (
+                          <Badge className="border-amber-500/30 bg-amber-500/10 text-amber-500">
+                            Re-sign Required
+                          </Badge>
+                        ) : signature.isLatestForOrg ? (
                           <Badge className="border-primary/30 bg-primary/10 text-primary">
                             Signed
                           </Badge>
                         ) : (
-                          <Badge className="border-amber-500/30 bg-amber-500/10 text-amber-500">
-                            Re-sign Required
-                          </Badge>
+                          <Badge variant="secondary">History</Badge>
                         )}
                       </CardHeader>
                       <CardContent>
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between gap-3">
                           <div className="flex flex-col gap-0.5">
                             <p className="text-xs text-muted-foreground">
                               Signed <code>{signature.signedVersionLabel}</code> on{" "}
@@ -178,26 +220,53 @@ export default async function ContributorPage() {
                                 day: "numeric",
                               })}
                             </p>
-                            {!signature.isCurrentVersion && (
+                            {signature.orgNeedsResign && signature.isLatestForOrg && (
                               <p className="text-xs text-amber-500">
-                                A newer version has been published.
+                                A newer version
+                                {signature.currentVersionLabel
+                                  ? ` (${signature.currentVersionLabel})`
+                                  : ""}{" "}
+                                has been published.
+                              </p>
+                            )}
+                            {!signature.isLatestForOrg && (
+                              <p className="text-xs text-muted-foreground">
+                                Historical signature record.
                               </p>
                             )}
                           </div>
-                          <Link href={`/sign/${signature.orgSlug}`}>
-                            <Button
-                              variant={signature.isCurrentVersion ? "ghost" : "outline"}
-                              size="sm"
-                              className={`gap-2 ${
-                                signature.isCurrentVersion
-                                  ? "text-muted-foreground"
-                                  : "border-amber-500/30 bg-transparent text-amber-500 hover:bg-amber-500/10"
-                              }`}
+                          <div className="flex items-center gap-2">
+                            <a
+                              href={`/api/contributor/signatures/${encodeURIComponent(
+                                signature.id
+                              )}/download`}
                             >
-                              {signature.isCurrentVersion ? "View CLA" : "Re-sign"}
-                              <ExternalLink className="h-3 w-3" />
-                            </Button>
-                          </Link>
+                              <Button variant="outline" size="sm" className="gap-2 bg-transparent">
+                                Download
+                                <Download className="h-3 w-3" />
+                              </Button>
+                            </a>
+                            <Link href={`/sign/${signature.orgSlug}`}>
+                              <Button
+                                variant={
+                                  signature.orgNeedsResign && signature.isLatestForOrg
+                                    ? "outline"
+                                    : "ghost"
+                                }
+                                size="sm"
+                                className={`gap-2 ${
+                                  signature.orgNeedsResign && signature.isLatestForOrg
+                                    ? "border-amber-500/30 bg-transparent text-amber-500 hover:bg-amber-500/10"
+                                    : "text-muted-foreground"
+                                }`}
+                              >
+                                {signature.orgNeedsResign && signature.isLatestForOrg
+                                  ? "Re-sign"
+                                  : "View CLA"}
+                                <ExternalLink className="h-3 w-3" />
+                              </Button>
+                            </Link>
+                          </div>
                         </div>
                       </CardContent>
                     </Card>

@@ -169,6 +169,12 @@ export async function getOrganizationBySlug(slug: string) {
   return rows[0] ?? undefined
 }
 
+export async function getOrganizationById(id: string) {
+  const db = await ensureDbReady()
+  const rows = await db.select().from(organizations).where(eq(organizations.id, id)).limit(1)
+  return rows[0] ?? undefined
+}
+
 export async function setOrganizationActive(slug: string, isActive: boolean) {
   const db = await ensureDbReady()
   const rows = await db
@@ -316,6 +322,22 @@ export async function getArchivesByOrg(orgId: string) {
     .orderBy(desc(claArchives.createdAt))
 }
 
+export async function getArchiveById(id: string) {
+  const db = await ensureDbReady()
+  const rows = await db.select().from(claArchives).where(eq(claArchives.id, id)).limit(1)
+  return rows[0] ?? undefined
+}
+
+export async function getArchiveByOrgAndSha(orgId: string, sha256: string) {
+  const db = await ensureDbReady()
+  const rows = await db
+    .select()
+    .from(claArchives)
+    .where(and(eq(claArchives.orgId, orgId), eq(claArchives.sha256, sha256)))
+    .limit(1)
+  return rows[0] ?? undefined
+}
+
 // ---------- Signatures ----------
 
 export async function getSignaturesByOrg(orgId: string) {
@@ -326,6 +348,12 @@ export async function getSignaturesByOrg(orgId: string) {
 export async function getSignaturesByUser(userId: string) {
   const db = await ensureDbReady()
   return db.select().from(claSignatures).where(eq(claSignatures.userId, userId))
+}
+
+export async function getSignatureById(id: string) {
+  const db = await ensureDbReady()
+  const rows = await db.select().from(claSignatures).where(eq(claSignatures.id, id)).limit(1)
+  return rows[0] ?? undefined
 }
 
 export async function getSignature(orgId: string, userId: string) {

@@ -11,6 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import {
   ArrowLeft,
   Check,
+  Download,
   FileEdit,
   Github,
   History,
@@ -121,6 +122,18 @@ export function OrgManageClient({
     await navigator.clipboard.writeText(url)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
+  }
+
+  function handleDownloadCurrentCla() {
+    if (!currentClaMarkdown.trim()) return
+    const version = currentClaSha256 ? currentClaSha256.slice(0, 7) : "current"
+    const fileName = `${sanitizeFilePart(org.githubOrgSlug)}-cla-${version}.md`
+    downloadMarkdownFile(fileName, currentClaMarkdown)
+  }
+
+  function handleDownloadArchive(archive: ClaArchive) {
+    const fileName = `${sanitizeFilePart(org.githubOrgSlug)}-cla-${archive.sha256.slice(0, 7)}-${archive.createdAt.slice(0, 10)}.md`
+    downloadMarkdownFile(fileName, archive.claText)
   }
 
   return (
@@ -481,12 +494,24 @@ export function OrgManageClient({
 
       {activeTab === "archives" && (
         <Card>
-          <CardHeader>
-            <CardTitle className="text-base">CLA Archives</CardTitle>
-            <CardDescription>
-              Snapshots of CLA text at the moment someone signed. Only versions that were actually
-              signed appear here.
-            </CardDescription>
+          <CardHeader className="flex flex-row items-start justify-between gap-3">
+            <div>
+              <CardTitle className="text-base">CLA Archives</CardTitle>
+              <CardDescription>
+                Snapshots of CLA text at the moment someone signed. Only versions that were actually
+                signed appear here.
+              </CardDescription>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2 bg-transparent"
+              onClick={handleDownloadCurrentCla}
+              disabled={currentClaMarkdown.trim().length === 0}
+            >
+              <Download className="h-4 w-4" />
+              Download Current CLA
+            </Button>
           </CardHeader>
           <CardContent>
             {archives.length === 0 ? (
@@ -536,6 +561,15 @@ export function OrgManageClient({
                               minute: "2-digit",
                             })}
                           </span>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 gap-1 bg-transparent px-2 text-xs"
+                            onClick={() => handleDownloadArchive(archive)}
+                          >
+                            <Download className="h-3 w-3" />
+                            Download
+                          </Button>
                         </div>
                       </div>
                       <p className="mt-2 line-clamp-2 font-mono text-xs text-muted-foreground">
@@ -551,4 +585,20 @@ export function OrgManageClient({
       )}
     </div>
   )
+}
+
+function downloadMarkdownFile(fileName: string, content: string) {
+  const blob = new Blob([content], { type: "text/markdown;charset=utf-8" })
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement("a")
+  anchor.href = url
+  anchor.download = fileName
+  document.body.appendChild(anchor)
+  anchor.click()
+  document.body.removeChild(anchor)
+  URL.revokeObjectURL(url)
+}
+
+function sanitizeFilePart(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9._-]+/g, "-")
 }

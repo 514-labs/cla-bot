@@ -7,11 +7,14 @@ It gives org admins a place to manage CLA text and signing history, and gives co
 ## Product Requirements (Authoritative)
 
 - If a contributor has signed a non-current CLA version, they must re-sign before being considered compliant.
+- Contributor compliance status is evaluated per org using the contributor's latest signed version for that org.
 - If a contributor has open pull requests and their signature becomes outdated after a CLA update, checks may need to be re-opened/re-evaluated and set to failing until re-signing is completed.
 - GitHub is the user-management source of truth for the app.
 - The app has no local signup/password user-management system; DB user rows are GitHub-linked identity mirrors only.
 - Authentication/session management is stateless JWT-based (HTTP-only cookie + signed JWT with `jti`).
 - Users can only log in via GitHub OAuth.
+- Contributors can view and download every CLA version they have signed.
+- Admins can download both current and archived CLA versions for managed orgs.
 
 ## What The App Is For
 
@@ -104,8 +107,8 @@ This section is the behavior contract for UI routes.
 | `/auth/signin` | Start sign-in flow | Shows GitHub sign-in CTA | Same | Sends user to `/api/auth/github?returnTo=...`; `returnTo` is sanitized to internal paths only |
 | `/dashboard` | Mode selector page | Public page | Same + session shown in header | Navigate to `/admin` or `/contributor` |
 | `/admin` | Org admin overview | Shows "Sign in required" card | Lists organizations user can administer; shows install CTA when none are authorized | Install app (`/api/github/install`), open org manage pages |
-| `/admin/[orgSlug]` | Org CLA management | If data unavailable, shows "Organization not found" UI | Shows org details, CLA version, signers, archives, branch-protection reminder | Edit/save CLA text, activate/deactivate bot, copy signing link, inspect signers/archives |
-| `/contributor` | Contributor agreement dashboard | Shows "Sign in required" card | Lists signed CLAs | Re-sign prompts for outdated signatures, links to `/sign/[orgSlug]` |
+| `/admin/[orgSlug]` | Org CLA management | If data unavailable, shows "Organization not found" UI | Shows org details, CLA version, signers, archives, branch-protection reminder | Edit/save CLA text, activate/deactivate bot, copy signing link, inspect signers/archives, download current/archived CLA text |
+| `/contributor` | Contributor agreement dashboard | Shows "Sign in required" card | Lists signed CLA history grouped by org status | Re-sign prompts for outdated orgs, links to `/sign/[orgSlug]`, download previously signed CLA records |
 | `/sign/[orgSlug]` | CLA read/sign page | Shows sign-in required (or org not found) | Shows signed state, or sign/re-sign workflow | Requires scroll-to-bottom before sign button enables; handles inactive org warning |
 | `/terms` | Legal terms page | Public page | Same | Documents signing/enforcement terms and branch-protection requirement |
 | `/privacy` | Privacy policy page | Public page | Same | Documents collected data, retention, and rights workflow |
@@ -131,6 +134,8 @@ This section amends your scenario list and adds missing scenarios.
 ### 3) User selects Contributor
 
 - User sees signed CLA records including org, version label/hash prefix, and signed timestamp.
+- User can view full signing history and download each signed record they own.
+- Org compliance status uses the latest signature per org; older historical rows do not keep an org in a warning state once the latest version is signed.
 - User can open a CLA from the list and view full language on `/sign/[orgSlug]`.
 - Data detail: full SHA-256 hash is persisted in DB; UI currently shows the short 7-character version label.
 
@@ -161,7 +166,13 @@ This section amends your scenario list and adds missing scenarios.
 - There is no route to delete signed CLA archives/signature history.
 - Signed version history behaves as append-only.
 
-### 8) Additional scenarios commonly missed
+### 8) CLA downloads
+
+- Contributors can download CLA versions from their own signing history.
+- Admins can download both current and archived CLA versions for orgs they administer.
+- Download endpoints enforce ownership/authorization and do not expose records across users/orgs.
+
+### 9) Additional scenarios commonly missed
 
 - Org deactivated/uninstalled: signing blocked, webhook checks/comments skipped.
 - `/recheck` authorization: allowed for PR author, org member, or maintainer; unauthorized users are blocked.
@@ -169,32 +180,32 @@ This section amends your scenario list and adds missing scenarios.
 - Webhook hardening: production signature verification and delivery de-duplication.
 - Standard error paths: unauthorized, forbidden, missing org, invalid payload combinations.
 
-### 9) OAuth/session lifecycle edge cases
+### 10) OAuth/session lifecycle edge cases
 
 - OAuth callback state mismatch/expired state cookie: sign-in fails safely and redirects back to `/auth/signin?error=...`.
 - GitHub token exchange or profile fetch failure: sign-in fails safely and no session cookie is issued.
 - Explicit logout clears JWT cookie; expired/invalid JWT is treated as signed-out.
 
-### 10) `/recheck` command behavior edge cases
+### 11) `/recheck` command behavior edge cases
 
 - `/recheck` is only processed on PR issue comments; non-PR issue comments are ignored.
 - Non-command comments (or non-created comment events) are ignored.
 - If PR head SHA cannot be resolved in production, `/recheck` fails with an error instead of guessing.
 
-### 11) Webhook delivery/idempotency scenarios
+### 12) Webhook delivery/idempotency scenarios
 
 - Duplicate `x-github-delivery` IDs are ignored via persistent DB-backed delivery tracking to reduce duplicate check/comment churn across process restarts.
 - Missing/invalid webhook signature is rejected in production when `GITHUB_WEBHOOK_SECRET` is configured.
 - Missing required payload fields return `400` and do not mutate DB/check state.
 
-### 12) Installation lifecycle scenarios
+### 13) Installation lifecycle scenarios
 
 - Installation `created` or `unsuspend`: account row is created/reactivated, installation ID refreshed, and installation target metadata (`organization` vs `user`) is persisted.
 - New installations are initialized with empty CLA text and `cla_text_sha256 = null` (no built-in agreement/template is auto-published).
 - Installation `deleted` or `suspend`: account is deactivated and installation ID cleared.
 - Installation repository-change events refresh installation linkage.
 
-### 13) Access-control scenarios
+### 14) Access-control scenarios
 
 - In production, org installs require live GitHub org-admin verification.
 - In production, personal-account installs are authorized when the signed-in GitHub user matches the installation target account.
@@ -205,6 +216,7 @@ This section amends your scenario list and adds missing scenarios.
 
 - Pull request webhook checks whether PR author is an org member or has signed current CLA.
 - PR signature resolution is keyed by immutable GitHub user ID when available (username is fallback only).
+- Contributor dashboard status uses the latest stored signature per org to determine current/outdated state in UI.
 - Outcomes:
   - Org member: passing check, no CLA comment.
   - Signed current CLA: passing check, no CLA comment.
