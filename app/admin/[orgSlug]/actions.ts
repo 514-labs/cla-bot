@@ -10,7 +10,7 @@ import { getBaseUrlFromHeaders } from "@/lib/cla/signing"
 
 const updateClaSchema = z.object({
   orgSlug: z.string().min(1),
-  claMarkdown: z.string().min(1, "CLA text cannot be empty"),
+  claMarkdown: z.string().trim().min(1, "CLA text cannot be empty"),
 })
 
 const toggleActiveSchema = z.object({

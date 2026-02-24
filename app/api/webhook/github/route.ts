@@ -380,6 +380,68 @@ async function handlePrCheck(params: {
     })
   }
 
+  if (!org.claTextSha256 || org.claText.trim().length === 0) {
+    const check = await github.createCheckRun({
+      owner: orgSlug,
+      repo: repoName,
+      name: CHECK_NAME,
+      head_sha: headSha,
+      status: "completed",
+      conclusion: "failure",
+      output: {
+        title: "CLA: Configuration required",
+        summary: `@${orgSlug} has not published a CLA yet. A maintainer must configure one before contributors can sign.`,
+      },
+    })
+
+    const commentBody = generateUnconfiguredClaComment({
+      prAuthor,
+      orgName: org.name,
+      orgSlug: org.githubOrgSlug,
+      appBaseUrl: baseUrl,
+    })
+    const existingComment = await github.findBotComment(orgSlug, repoName, prNumber)
+    const comment = existingComment
+      ? await github.updateComment({
+          owner: orgSlug,
+          repo: repoName,
+          comment_id: existingComment.id,
+          body: commentBody,
+        })
+      : await github.createComment({
+          owner: orgSlug,
+          repo: repoName,
+          issue_number: prNumber,
+          body: commentBody,
+        })
+
+    await createAuditEvent({
+      eventType: "webhook.pr_check",
+      orgId: org.id,
+      actorGithubId: prAuthorId ? String(prAuthorId) : null,
+      actorGithubUsername: prAuthor,
+      payload: {
+        owner: orgSlug,
+        repo: repoName,
+        prNumber,
+        decision: "cla_unconfigured",
+        checkConclusion: check.conclusion,
+        commentId: comment.id,
+      },
+    })
+
+    return NextResponse.json({
+      message: `CLA is not configured for ${orgSlug}. Check failed until maintainers publish one.`,
+      check: { id: check.id, status: "failure", conclusion: check.conclusion },
+      comment: { id: comment.id, commentMarkdown: comment.body },
+      orgMember: false,
+      accountOwner: false,
+      signed: false,
+      needsResign: false,
+      configRequired: true,
+    })
+  }
+
   const sigStatus =
     typeof prAuthorId === "number"
       ? await getSignatureStatusByGithubId(orgSlug, String(prAuthorId))
@@ -692,4 +754,24 @@ function normalizeWebhookSecret(secret: string): string {
 function getBaseUrl(request: NextRequest): string {
   const url = new URL(request.url)
   return `${url.protocol}//${url.host}`
+}
+
+function generateUnconfiguredClaComment(params: {
+  prAuthor: string
+  orgName: string
+  orgSlug: string
+  appBaseUrl: string
+}) {
+  const { prAuthor, orgName, orgSlug, appBaseUrl } = params
+  const adminUrl = `${appBaseUrl}/admin/${encodeURIComponent(orgSlug)}`
+
+  return `### CLA setup in progress
+
+Hey @${prAuthor}, thanks for contributing to **${orgName}**.
+
+This repository has not published a Contributor License Agreement yet, so we cannot validate signatures for external contributors at this time.
+
+A maintainer must publish the CLA first: ${adminUrl}
+
+<sub>Once the CLA is configured, this check will enforce contributor signing automatically.</sub>`
 }

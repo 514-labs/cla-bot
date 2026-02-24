@@ -126,6 +126,7 @@ This section amends your scenario list and adds missing scenarios.
 - If signed out: user sees auth-required state and can start GitHub login.
 - If signed in and authorized on at least one installed account: user sees the account list and install button.
 - If signed in but authorized on zero installed accounts: user sees install CTA for GitHub App flow.
+- Newly installed accounts start with no CLA text. Maintainers must publish their own CLA before external contributors can sign.
 
 ### 3) User selects Contributor
 
@@ -189,6 +190,7 @@ This section amends your scenario list and adds missing scenarios.
 ### 12) Installation lifecycle scenarios
 
 - Installation `created` or `unsuspend`: account row is created/reactivated, installation ID refreshed, and installation target metadata (`organization` vs `user`) is persisted.
+- New installations are initialized with empty CLA text and `cla_text_sha256 = null` (no built-in agreement/template is auto-published).
 - Installation `deleted` or `suspend`: account is deactivated and installation ID cleared.
 - Installation repository-change events refresh installation linkage.
 

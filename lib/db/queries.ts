@@ -189,8 +189,6 @@ export async function createOrganization(data: {
   installationId?: number
 }) {
   const db = await ensureDbReady()
-  const { DEFAULT_CLA_MARKDOWN } = await import("./seed")
-  const hash = await sha256Hex(DEFAULT_CLA_MARKDOWN)
 
   const rows = await db
     .insert(organizations)
@@ -208,8 +206,8 @@ export async function createOrganization(data: {
       adminUserId: data.adminUserId,
       isActive: true,
       installationId: data.installationId ?? null,
-      claText: DEFAULT_CLA_MARKDOWN,
-      claTextSha256: hash,
+      claText: "",
+      claTextSha256: null,
     })
     .returning()
 

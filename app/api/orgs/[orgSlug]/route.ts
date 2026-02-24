@@ -70,6 +70,9 @@ export async function PATCH(
   if (typeof claMarkdown !== "string") {
     return NextResponse.json({ error: "claMarkdown or isActive is required" }, { status: 400 })
   }
+  if (claMarkdown.trim().length === 0) {
+    return NextResponse.json({ error: "CLA text cannot be empty" }, { status: 400 })
+  }
 
   const org = await updateOrganizationCla(orgSlug, claMarkdown)
   if (!org) {

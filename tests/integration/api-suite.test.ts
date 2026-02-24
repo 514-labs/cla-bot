@@ -1282,15 +1282,51 @@ test("Webhook: missing pull_request payload fields returns 400", async (baseUrl)
 
 test("Webhook: installation created registers new org", async (baseUrl) => {
   await resetDb(baseUrl)
-  const { data } = await sendWebhook(baseUrl, "installation", {
+  const { res, data } = await sendWebhook(baseUrl, "installation", {
     action: "created",
     installation: { account: { login: "new-org" } },
+    sender: { id: 1001, login: "orgadmin" },
   })
+  assertEqual(res.status, 200, "status")
   assert(data.message.includes("new-org"), "message references org")
   assert(data.org !== undefined, "org object returned")
+  assertEqual(data.org.claText, "", "no built-in CLA text")
+  assertEqual(data.org.claTextSha256, null, "no built-in CLA hash")
 
   const orgRes = await fetch(`${baseUrl}/api/orgs/new-org`)
+  const orgData = await orgRes.json()
   assertEqual(orgRes.status, 200, "new org accessible")
+  assertEqual(orgData.currentClaMarkdown, "", "org details expose empty CLA")
+  assertEqual(orgData.currentClaSha256, null, "org details expose null CLA hash")
+})
+
+test("Webhook: non-member PR on org without configured CLA fails with config required", async (baseUrl) => {
+  await resetDb(baseUrl)
+  await sendWebhook(baseUrl, "installation", {
+    action: "created",
+    installation: {
+      id: 33001,
+      account: { login: "new-org", id: 3301, type: "Organization" },
+    },
+    sender: { id: 1001, login: "orgadmin" },
+  })
+
+  const { res, data } = await sendWebhook(
+    baseUrl,
+    "pull_request",
+    makePrPayload({
+      action: "opened",
+      prAuthor: "new-contributor",
+      orgSlug: "new-org",
+      repoName: "starter-kit",
+      prNumber: 7,
+    })
+  )
+  assertEqual(res.status, 200, "status")
+  assertEqual(data.check.status, "failure", "check fails")
+  assertEqual(data.configRequired, true, "config required flag set")
+  assert(data.comment !== null, "bot comment posted")
+  assert(data.comment.commentMarkdown.includes("not published"), "comment explains missing CLA")
 })
 
 test("Webhook: personal-account installation stores user target metadata", async (baseUrl) => {

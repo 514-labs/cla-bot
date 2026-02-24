@@ -67,8 +67,9 @@ export function SignClaClient({
   const [actionError, setActionError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
+  const hasConfiguredCla = Boolean(currentSha256 && org.claMarkdown.trim().length > 0)
   const signed = alreadySigned || justSigned
-  const showSignAction = !signed
+  const showSignAction = !signed && hasConfiguredCla
 
   const signedBannerText = useMemo(() => {
     if (existingSignature && !justSigned) {
@@ -90,7 +91,7 @@ export function SignClaClient({
   }, [])
 
   function handleSign() {
-    if (!currentSha256) return
+    if (!currentSha256 || !hasConfiguredCla) return
 
     startTransition(async () => {
       setActionError(null)
@@ -137,6 +138,19 @@ export function SignClaClient({
             <p className="text-sm font-medium text-foreground">CLA Bot is inactive</p>
             <p className="text-xs text-muted-foreground">
               The CLA bot has been deactivated for this organization. Signing is currently disabled.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {!hasConfiguredCla && (
+        <div className="mb-6 flex items-center gap-3 rounded-xl border border-amber-500/30 bg-amber-500/5 px-5 py-4">
+          <AlertTriangle className="h-5 w-5 shrink-0 text-amber-500" />
+          <div>
+            <p className="text-sm font-medium text-foreground">CLA not configured yet</p>
+            <p className="text-xs text-muted-foreground">
+              A maintainer needs to publish this organization&apos;s CLA before contributors can
+              sign.
             </p>
           </div>
         </div>
@@ -192,18 +206,26 @@ export function SignClaClient({
             )}
           </CardTitle>
           <CardDescription>
-            Please read the full agreement below.
+            {hasConfiguredCla
+              ? "Please read the full agreement below."
+              : "No CLA has been published for this organization yet."}
             {showSignAction && " Scroll to the bottom to enable signing."}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div
-            className="max-h-[500px] overflow-y-auto rounded-lg border bg-background p-6"
-            onScroll={handleScroll}
-            data-testid="cla-scroll-area"
-          >
-            <MarkdownRenderer content={org.claMarkdown} />
-          </div>
+          {hasConfiguredCla ? (
+            <div
+              className="max-h-[500px] overflow-y-auto rounded-lg border bg-background p-6"
+              onScroll={handleScroll}
+              data-testid="cla-scroll-area"
+            >
+              <MarkdownRenderer content={org.claMarkdown} />
+            </div>
+          ) : (
+            <div className="rounded-lg border border-dashed border-border bg-background/40 p-6 text-sm text-muted-foreground">
+              This page will show the agreement once a maintainer adds it in the admin dashboard.
+            </div>
+          )}
         </CardContent>
       </Card>
 

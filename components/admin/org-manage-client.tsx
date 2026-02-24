@@ -80,6 +80,7 @@ export function OrgManageClient({
     () => signers.filter((signature) => signature.claSha256 !== currentClaSha256),
     [signers, currentClaSha256]
   )
+  const hasConfiguredCla = Boolean(currentClaSha256 && currentClaMarkdown.trim().length > 0)
 
   function handleSave() {
     startTransition(async () => {
@@ -221,7 +222,7 @@ export function OrgManageClient({
         <Card>
           <CardContent className="py-4 text-center">
             <p className="font-mono text-2xl font-bold text-foreground" data-testid="version-count">
-              {currentClaSha256 ? currentClaSha256.slice(0, 7) : "---"}
+              {currentClaSha256 ? currentClaSha256.slice(0, 7) : "unset"}
             </p>
             <p className="text-xs text-muted-foreground">CLA Version</p>
           </CardContent>
@@ -305,8 +306,9 @@ export function OrgManageClient({
                 )}
               </CardTitle>
               <CardDescription>
-                This is the agreement contributors must sign before their PRs are accepted. Saving
-                creates a new version; existing signers will need to re-sign.
+                {hasConfiguredCla
+                  ? "This is the agreement contributors must sign before their PRs are accepted. Saving creates a new version; existing signers will need to re-sign."
+                  : "No CLA is configured yet. Publish your own CLA below to start enforcement."}
               </CardDescription>
             </div>
             {!isEditing ? (
@@ -365,7 +367,14 @@ export function OrgManageClient({
               />
             ) : (
               <div className="rounded-lg border bg-background p-6" data-testid="cla-preview">
-                <MarkdownRenderer content={claContent} />
+                {hasConfiguredCla ? (
+                  <MarkdownRenderer content={claContent} />
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    No CLA configured yet. Click <strong>Edit</strong> and paste your own CLA in
+                    Markdown.
+                  </p>
+                )}
               </div>
             )}
           </CardContent>
