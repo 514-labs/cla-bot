@@ -140,7 +140,7 @@ This section amends your scenario list and adds missing scenarios.
 - Existing signatures remain historical; users on previous hash are treated as outdated and must re-sign.
 - If no one has signed prior versions, only current hash/text changes.
 - If prior versions were signed, historical signed versions remain in archives/signatures.
-- Open pull requests are proactively rechecked after save; non-member contributors with missing/outdated signatures receive failing checks and updated signing comments.
+- Saving CLA schedules an async workflow recheck of open pull requests; non-member contributors with missing/outdated signatures receive failing checks and updated signing comments once the workflow run completes.
 
 ### 5) Contributor opens a PR
 

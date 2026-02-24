@@ -1,3 +1,7 @@
+import { createHash } from "node:crypto"
+import { existsSync, readFileSync } from "node:fs"
+import { resolve } from "node:path"
+import { neon } from "@neondatabase/serverless"
 import { afterAll, beforeAll, expect, test as vitestTest } from "vitest"
 import { resetTestDatabase } from "@/tests/utils/db-reset"
 import { TEST_USERS, type TestRole } from "@/tests/utils/fixtures"
@@ -23,6 +27,11 @@ const nativeFetch = globalThis.fetch.bind(globalThis)
 let currentRole: TestRole = "admin"
 let baseUrl = ""
 let stopIntegrationServer: (() => Promise<void>) | null = null
+const TEST_DATABASE_URL = process.env.DATABASE_URL ?? readDatabaseUrlFromEnvLocal()
+if (!TEST_DATABASE_URL) {
+  throw new Error("DATABASE_URL is required to run integration tests")
+}
+const sql = neon(TEST_DATABASE_URL)
 
 beforeAll(async () => {
   const server = await startIntegrationServer()
@@ -64,6 +73,64 @@ async function switchRole(_baseUrl: string, role: TestRole) {
     role,
     user: TEST_USERS[role],
   }
+}
+
+async function updateClaForOrg(orgSlug: string, claMarkdown: string) {
+  const hash = sha256Hex(claMarkdown)
+  const rows = await sql`
+    UPDATE organizations
+    SET cla_text = ${claMarkdown},
+        cla_text_sha256 = ${hash}
+    WHERE github_org_slug = ${orgSlug}
+    RETURNING id, cla_text AS "claText", cla_text_sha256 AS "claTextSha256"
+  `
+  const org = rows[0]
+  assert(org !== undefined, `org exists for CLA update (${orgSlug})`)
+  return org
+}
+
+async function setOrgActiveForTest(orgSlug: string, isActive: boolean) {
+  const rows = await sql`
+    UPDATE organizations
+    SET is_active = ${isActive}
+    WHERE github_org_slug = ${orgSlug}
+    RETURNING id, is_active AS "isActive"
+  `
+  const org = rows[0]
+  assert(org !== undefined, `org exists for activation toggle (${orgSlug})`)
+  return org
+}
+
+function sha256Hex(input: string) {
+  return createHash("sha256").update(input, "utf8").digest("hex")
+}
+
+function readDatabaseUrlFromEnvLocal() {
+  const envLocalPath = resolve(process.cwd(), ".env.local")
+  if (!existsSync(envLocalPath)) return undefined
+
+  const contents = readFileSync(envLocalPath, "utf8")
+  for (const rawLine of contents.split(/\r?\n/)) {
+    const line = rawLine.trim()
+    if (!line || line.startsWith("#")) continue
+
+    const separatorIndex = line.indexOf("=")
+    if (separatorIndex === -1) continue
+
+    const key = line.slice(0, separatorIndex).trim()
+    if (key !== "DATABASE_URL") continue
+
+    const value = line.slice(separatorIndex + 1).trim()
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      return value.slice(1, -1)
+    }
+    return value
+  }
+
+  return undefined
 }
 
 // ==========================================
@@ -172,29 +239,21 @@ test("GET /api/orgs/nonexistent returns 404", async (baseUrl) => {
 // 4. CLA EDITING & VERSIONING TESTS
 // ==========================================
 
-test("PATCH /api/orgs/fiveonefour updates CLA text and sha256", async (baseUrl) => {
+test("Internal CLA mutation updates CLA text and sha256", async (baseUrl) => {
   await resetDb(baseUrl)
   const orgBefore = await fetch(`${baseUrl}/api/orgs/fiveonefour`).then((r) => r.json())
   const oldSha256 = orgBefore.currentClaSha256
 
   const newCla = "# Updated CLA\n\nNew agreement text here."
-  const res = await fetch(`${baseUrl}/api/orgs/fiveonefour`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ claMarkdown: newCla }),
-  })
-  const data = await res.json()
-  assertEqual(res.status, 200, "status")
-  // PATCH returns { org } with updated inline text + sha256
-  assert(data.org !== undefined, "org returned")
-  assertEqual(data.org.claText, newCla, "org has updated CLA text")
-  assert(data.org.claTextSha256 !== oldSha256, "sha256 changed after edit")
+  const org = await updateClaForOrg("fiveonefour", newCla)
+  assertEqual(org.claText, newCla, "org has updated CLA text")
+  assert(org.claTextSha256 !== oldSha256, "sha256 changed after edit")
 
   // Verify by re-fetching org detail
   const res2 = await fetch(`${baseUrl}/api/orgs/fiveonefour`)
   const data2 = await res2.json()
   assertEqual(data2.currentClaMarkdown, newCla, "CLA persisted after re-fetch")
-  assertEqual(data2.currentClaSha256, data.org.claTextSha256, "sha256 persisted")
+  assertEqual(data2.currentClaSha256, org.claTextSha256, "sha256 persisted")
 })
 
 test("Multiple CLA edits only update sha256 (no archive until signing)", async (baseUrl) => {
@@ -203,21 +262,11 @@ test("Multiple CLA edits only update sha256 (no archive until signing)", async (
   const archivesBefore = orgBefore.archives.length
 
   // Edit 1
-  const res1 = await fetch(`${baseUrl}/api/orgs/fiveonefour`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ claMarkdown: "# V2 CLA" }),
-  })
-  const data1 = await res1.json()
+  const orgV2 = await updateClaForOrg("fiveonefour", "# V2 CLA")
 
   // Edit 2
-  const res2 = await fetch(`${baseUrl}/api/orgs/fiveonefour`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ claMarkdown: "# V3 CLA" }),
-  })
-  const data2 = await res2.json()
-  assert(data1.org.claTextSha256 !== data2.org.claTextSha256, "each edit produces different sha256")
+  const orgV3 = await updateClaForOrg("fiveonefour", "# V3 CLA")
+  assert(orgV2.claTextSha256 !== orgV3.claTextSha256, "each edit produces different sha256")
 
   // Verify: no new archives created (only signings create archives)
   const orgAfter = await fetch(`${baseUrl}/api/orgs/fiveonefour`).then((r) => r.json())
@@ -225,40 +274,34 @@ test("Multiple CLA edits only update sha256 (no archive until signing)", async (
   assertEqual(orgAfter.currentClaMarkdown, "# V3 CLA", "latest CLA content")
 })
 
-test("PATCH /api/orgs/fiveonefour rejects missing claMarkdown", async (baseUrl) => {
+test("PATCH /api/orgs/fiveonefour returns 405", async (baseUrl) => {
   await resetDb(baseUrl)
   const res = await fetch(`${baseUrl}/api/orgs/fiveonefour`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({}),
   })
-  assertEqual(res.status, 400, "status")
+  assertEqual(res.status, 405, "status")
 })
 
-test("PATCH /api/orgs/nonexistent returns 404", async (baseUrl) => {
+test("PATCH /api/orgs/nonexistent returns 405", async (baseUrl) => {
   await resetDb(baseUrl)
   const res = await fetch(`${baseUrl}/api/orgs/nonexistent`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ claMarkdown: "test" }),
   })
-  assertEqual(res.status, 404, "status")
+  assertEqual(res.status, 405, "status")
 })
 
 // ==========================================
 // 5. ACTIVATE / DEACTIVATE TESTS
 // ==========================================
 
-test("PATCH /api/orgs/fiveonefour can deactivate an org", async (baseUrl) => {
+test("Internal org mutation can deactivate an org", async (baseUrl) => {
   await resetDb(baseUrl)
-  const res = await fetch(`${baseUrl}/api/orgs/fiveonefour`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ isActive: false }),
-  })
-  const data = await res.json()
-  assertEqual(res.status, 200, "status")
-  assertEqual(data.org.isActive, false, "org deactivated")
+  const org = await setOrgActiveForTest("fiveonefour", false)
+  assertEqual(org.isActive, false, "org deactivated")
 
   // Verify persists
   const res2 = await fetch(`${baseUrl}/api/orgs/fiveonefour`)
@@ -266,32 +309,19 @@ test("PATCH /api/orgs/fiveonefour can deactivate an org", async (baseUrl) => {
   assertEqual(data2.org.isActive, false, "deactivation persisted")
 })
 
-test("PATCH /api/orgs/fiveonefour can re-activate an org", async (baseUrl) => {
+test("Internal org mutation can re-activate an org", async (baseUrl) => {
   await resetDb(baseUrl)
   // Deactivate
-  await fetch(`${baseUrl}/api/orgs/fiveonefour`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ isActive: false }),
-  })
+  await setOrgActiveForTest("fiveonefour", false)
   // Re-activate
-  const res = await fetch(`${baseUrl}/api/orgs/fiveonefour`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ isActive: true }),
-  })
-  const data = await res.json()
-  assertEqual(data.org.isActive, true, "org re-activated")
+  const org = await setOrgActiveForTest("fiveonefour", true)
+  assertEqual(org.isActive, true, "org re-activated")
 })
 
 test("POST /api/sign blocks signing on deactivated org", async (baseUrl) => {
   await resetDb(baseUrl)
   // Deactivate the org
-  await fetch(`${baseUrl}/api/orgs/fiveonefour`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ isActive: false }),
-  })
+  await setOrgActiveForTest("fiveonefour", false)
   // Try to sign as admin
   const res = await fetch(`${baseUrl}/api/sign`, {
     method: "POST",
@@ -438,13 +468,8 @@ test("CLA update invalidates existing signatures (needs re-sign)", async (baseUr
 
   // Step 2: Admin updates the CLA text (changes sha256)
   await switchRole(baseUrl, "admin")
-  const patchRes = await fetch(`${baseUrl}/api/orgs/fiveonefour`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ claMarkdown: "# Updated CLA v2\n\nNew terms." }),
-  })
-  const patchData = await patchRes.json()
-  assert(patchData.org.claTextSha256 !== originalSha256, "sha256 changed after edit")
+  const updatedOrg = await updateClaForOrg("fiveonefour", "# Updated CLA v2\n\nNew terms.")
+  assert(updatedOrg.claTextSha256 !== originalSha256, "sha256 changed after edit")
 
   // Step 3: Contributor now needs to re-sign
   await switchRole(baseUrl, "contributor")
@@ -461,11 +486,7 @@ test("Contributor can re-sign after CLA update", async (baseUrl) => {
 
   // Step 1: Admin updates CLA
   await switchRole(baseUrl, "admin")
-  await fetch(`${baseUrl}/api/orgs/fiveonefour`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ claMarkdown: "# Updated CLA v2" }),
-  })
+  await updateClaForOrg("fiveonefour", "# Updated CLA v2")
 
   // Step 2: Contributor re-signs
   await switchRole(baseUrl, "contributor")
@@ -498,11 +519,7 @@ test("Admin signers list shows outdated badges after CLA update", async (baseUrl
   assert(allOnCurrent, "all signers on current version initially")
 
   // Step 2: Admin updates CLA
-  await fetch(`${baseUrl}/api/orgs/fiveonefour`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ claMarkdown: "# Updated CLA v2" }),
-  })
+  await updateClaForOrg("fiveonefour", "# Updated CLA v2")
 
   // Step 3: All signers are now outdated (their sha256 != new sha256)
   const res2 = await fetch(`${baseUrl}/api/orgs/fiveonefour`)
@@ -519,11 +536,7 @@ test("Contributor dashboard shows re-sign required after CLA update", async (bas
 
   // Step 1: Admin updates CLA
   await switchRole(baseUrl, "admin")
-  await fetch(`${baseUrl}/api/orgs/fiveonefour`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ claMarkdown: "# Updated CLA v2" }),
-  })
+  await updateClaForOrg("fiveonefour", "# Updated CLA v2")
 
   // Step 2: Contributor checks their dashboard
   await switchRole(baseUrl, "contributor")
@@ -593,12 +606,7 @@ test("Full flow: sign, update CLA, verify outdated, re-sign", async (baseUrl) =>
   assertEqual(checkData1.needsResign, false, "no re-sign needed")
 
   // Step 3: Admin updates CLA to v2
-  const patchRes = await fetch(`${baseUrl}/api/orgs/fiveonefour`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ claMarkdown: "# Completely new CLA v2" }),
-  })
-  assertEqual(patchRes.status, 200, "CLA update success")
+  await updateClaForOrg("fiveonefour", "# Completely new CLA v2")
 
   // Step 4: Admin now needs to re-sign (their v1 signature is outdated)
   const checkRes2 = await fetch(`${baseUrl}/api/sign/fiveonefour`)
@@ -637,12 +645,7 @@ test("Full flow: CLA edit visible on sign page", async (baseUrl) => {
 
   // Step 1: Admin edits CLA
   const newCla = "# Custom CLA\n\nThis is a totally custom agreement."
-  const patchRes = await fetch(`${baseUrl}/api/orgs/fiveonefour`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ claMarkdown: newCla }),
-  })
-  assertEqual(patchRes.status, 200, "patch success")
+  await updateClaForOrg("fiveonefour", newCla)
 
   // Step 2: Contributor sees updated CLA on sign page
   await switchRole(baseUrl, "contributor")
@@ -685,11 +688,7 @@ test("Full flow: deactivate org blocks signing, reactivate allows it", async (ba
   await resetDb(baseUrl)
 
   // Step 1: Deactivate
-  await fetch(`${baseUrl}/api/orgs/fiveonefour`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ isActive: false }),
-  })
+  await setOrgActiveForTest("fiveonefour", false)
 
   // Step 2: Signing blocked
   const signRes1 = await fetch(`${baseUrl}/api/sign`, {
@@ -700,11 +699,7 @@ test("Full flow: deactivate org blocks signing, reactivate allows it", async (ba
   assertEqual(signRes1.status, 403, "signing blocked when inactive")
 
   // Step 3: Reactivate
-  await fetch(`${baseUrl}/api/orgs/fiveonefour`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ isActive: true }),
-  })
+  await setOrgActiveForTest("fiveonefour", true)
 
   // Step 4: Signing allowed again
   const signRes2 = await fetch(`${baseUrl}/api/sign`, {
@@ -721,11 +716,7 @@ test("Full flow: deactivate org blocks signing, reactivate allows it", async (ba
 
 test("Reset helper restores initial state", async (baseUrl) => {
   // Mutate data
-  await fetch(`${baseUrl}/api/orgs/fiveonefour`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ claMarkdown: "MUTATED" }),
-  })
+  await updateClaForOrg("fiveonefour", "MUTATED")
 
   // Reset
   await resetDb(baseUrl)
@@ -870,11 +861,7 @@ test("Webhook: after signing, check auto-updates to success (no /recheck needed)
   await resetDb(baseUrl)
 
   // Step 1: Update CLA to v2 so contributor1's existing v1 sig is stale
-  await fetch(`${baseUrl}/api/orgs/fiveonefour`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ claMarkdown: "# Updated CLA v2" }),
-  })
+  await updateClaForOrg("fiveonefour", "# Updated CLA v2")
 
   // Step 2: contributor1 opens PR -> fails (stale sig)
   const { data: prData } = await sendWebhook(
@@ -922,11 +909,7 @@ test("Webhook: CLA updated -> contributor needs re-sign -> failing check", async
   await resetDb(baseUrl)
 
   // Update CLA (creates v2, invalidates contributor1's v1 signature)
-  await fetch(`${baseUrl}/api/orgs/fiveonefour`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ claMarkdown: "# Updated CLA v2" }),
-  })
+  await updateClaForOrg("fiveonefour", "# Updated CLA v2")
 
   const { data } = await sendWebhook(
     baseUrl,
@@ -951,11 +934,7 @@ test("Webhook: re-sign flow -- sign auto-updates check + comment", async (baseUr
   await resetDb(baseUrl)
 
   // Update CLA to v2
-  await fetch(`${baseUrl}/api/orgs/fiveonefour`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ claMarkdown: "# Updated CLA v2" }),
-  })
+  await updateClaForOrg("fiveonefour", "# Updated CLA v2")
 
   // PR opened with stale signature -> fails
   const { data: prData } = await sendWebhook(
@@ -1025,11 +1004,7 @@ test("Webhook: CLA update can recheck open PR and fail until contributor re-sign
   assertEqual(openedData.comment, null, "no initial comment while current")
 
   // Step 2: admin updates CLA to a new version (contributor1 signature becomes outdated)
-  await fetch(`${baseUrl}/api/orgs/fiveonefour`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ claMarkdown: "# Updated CLA v2" }),
-  })
+  await updateClaForOrg("fiveonefour", "# Updated CLA v2")
 
   // Step 3: /recheck on the same open PR should fail and post/update the re-sign comment
   const { res: recheckRes, data: recheckData } = await sendWebhook(baseUrl, "issue_comment", {
@@ -1052,7 +1027,7 @@ test("Webhook: CLA update can recheck open PR and fail until contributor re-sign
   )
 })
 
-test("CLA update proactively rechecks open PRs and fails outdated contributors", async (baseUrl) => {
+test("CLA update + /recheck command fails outdated contributors on open PRs", async (baseUrl) => {
   await resetDb(baseUrl)
 
   // Step 1: contributor1 opens PR while still compliant -> passing check
@@ -1069,21 +1044,25 @@ test("CLA update proactively rechecks open PRs and fails outdated contributors",
   )
   assertEqual(openedData.check.status, "success", "initial check passes")
 
-  // Step 2: admin updates CLA, which should proactively sweep open PRs
-  const patchRes = await fetch(`${baseUrl}/api/orgs/fiveonefour`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ claMarkdown: "# Updated CLA v2 for proactive recheck" }),
+  // Step 2: admin updates CLA, making the existing signature outdated
+  await updateClaForOrg("fiveonefour", "# Updated CLA v2 for proactive recheck")
+
+  // Step 3: /recheck on the same PR should now fail and post/update a re-sign comment
+  const { res: recheckRes, data: recheckData } = await sendWebhook(baseUrl, "issue_comment", {
+    action: "created",
+    comment: { body: "/recheck", user: { login: "orgadmin" } },
+    issue: {
+      number: 66,
+      user: { login: "contributor1" },
+      pull_request: { url: "https://api.github.com/repos/fiveonefour/sdk/pulls/66" },
+    },
+    repository: { name: "sdk", owner: { login: "fiveonefour" } },
   })
-  assertEqual(patchRes.status, 200, "patch succeeds")
-  const patchData = await patchRes.json()
+  assertEqual(recheckRes.status, 200, "recheck accepted")
+  assertEqual(recheckData.check.status, "failure", "recheck fails on outdated signature")
+  assertEqual(recheckData.needsResign, true, "recheck marks contributor as needing re-sign")
 
-  assert(patchData.recheckSummary !== undefined, "recheck summary returned")
-  assert(patchData.recheckSummary.attempted >= 1, "at least one open PR considered")
-  assert(patchData.recheckSummary.rechecked >= 1, "at least one open PR rechecked")
-  assert(patchData.recheckSummary.failedChecks >= 1, "at least one failing check created")
-
-  // Step 3: bot comment is updated/created with re-sign guidance
+  // Step 4: bot comment is updated/created with re-sign guidance
   const commentRes = await fetch(
     `${baseUrl}/api/webhook/github?orgSlug=fiveonefour&repoName=sdk&prNumber=66`
   )
@@ -1101,11 +1080,7 @@ test("Webhook: inactive org -> no check, no comment, completely skipped", async 
   await resetDb(baseUrl)
 
   // Deactivate org
-  await fetch(`${baseUrl}/api/orgs/fiveonefour`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ isActive: false }),
-  })
+  await setOrgActiveForTest("fiveonefour", false)
 
   const { data } = await sendWebhook(
     baseUrl,

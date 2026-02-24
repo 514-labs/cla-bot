@@ -2,11 +2,12 @@
 
 import { headers } from "next/headers"
 import { revalidatePath } from "next/cache"
+import { start } from "workflow/api"
 import { z } from "zod"
-import { recheckOpenPullRequestsAfterClaUpdate } from "@/lib/cla/recheck-open-prs"
 import { createAuditEvent, setOrganizationActive, updateOrganizationCla } from "@/lib/db/queries"
 import { authorizeOrgAccess } from "@/lib/server/org-access"
 import { getBaseUrlFromHeaders } from "@/lib/cla/signing"
+import { runClaRecheckWorkflow } from "@/workflows/cla-recheck"
 
 const updateClaSchema = z.object({
   orgSlug: z.string().min(1),
@@ -41,11 +42,43 @@ export async function updateClaAction(input: unknown): Promise<ActionResult> {
   }
 
   const headerStore = await headers()
-  const recheckSummary = await recheckOpenPullRequestsAfterClaUpdate({
-    orgSlug,
-    appBaseUrl: getBaseUrlFromHeaders(headerStore),
-    installationId: org.installationId ?? undefined,
-  })
+  const appBaseUrl = getBaseUrlFromHeaders(headerStore)
+
+  let recheckRunId: string | null = null
+  let recheckScheduleError: string | null = null
+  try {
+    const run = await start(runClaRecheckWorkflow, [
+      {
+        orgSlug,
+        orgId: org.id,
+        claSha256: org.claTextSha256,
+        appBaseUrl,
+        installationId: org.installationId ?? null,
+        actor: {
+          userId: access.user.id,
+          githubId: access.user.githubId ?? null,
+          githubUsername: access.user.githubUsername ?? null,
+        },
+      },
+    ])
+    recheckRunId = run.runId
+  } catch (error) {
+    recheckScheduleError =
+      error instanceof Error ? error.message : "Unknown CLA recheck workflow scheduling failure"
+    console.error("Failed to schedule CLA recheck workflow:", error)
+
+    await createAuditEvent({
+      eventType: "cla.recheck_schedule_failed",
+      orgId: org.id,
+      userId: access.user.id,
+      actorGithubId: access.user.githubId ?? null,
+      actorGithubUsername: access.user.githubUsername,
+      payload: {
+        claSha256: org.claTextSha256,
+        error: recheckScheduleError,
+      },
+    })
+  }
 
   await createAuditEvent({
     eventType: "cla.updated",
@@ -55,7 +88,9 @@ export async function updateClaAction(input: unknown): Promise<ActionResult> {
     actorGithubUsername: access.user.githubUsername,
     payload: {
       claSha256: org.claTextSha256,
-      recheckSummary,
+      recheckScheduled: recheckRunId !== null,
+      recheckRunId,
+      recheckScheduleError,
     },
   })
 

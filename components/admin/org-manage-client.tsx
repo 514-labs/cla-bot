@@ -69,7 +69,8 @@ export function OrgManageClient({
   const [saved, setSaved] = useState(false)
   const [copied, setCopied] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [isPending, startTransition] = useTransition()
+  const [isSaving, startSaveTransition] = useTransition()
+  const [isTogglingActive, startToggleActiveTransition] = useTransition()
 
   const currentVersionSigners = useMemo(
     () => signers.filter((signature) => signature.claSha256 === currentClaSha256),
@@ -83,7 +84,7 @@ export function OrgManageClient({
   const hasConfiguredCla = Boolean(currentClaSha256 && currentClaMarkdown.trim().length > 0)
 
   function handleSave() {
-    startTransition(async () => {
+    startSaveTransition(async () => {
       setError(null)
       const result = await updateClaAction({ orgSlug: org.githubOrgSlug, claMarkdown: claContent })
       if (!result.ok) {
@@ -99,7 +100,7 @@ export function OrgManageClient({
   }
 
   function handleToggleActive() {
-    startTransition(async () => {
+    startToggleActiveTransition(async () => {
       setError(null)
       const result = await toggleOrganizationActiveAction({
         orgSlug: org.githubOrgSlug,
@@ -168,10 +169,10 @@ export function OrgManageClient({
             size="sm"
             className="gap-2 bg-transparent"
             onClick={handleToggleActive}
-            disabled={isPending}
+            disabled={isTogglingActive || isSaving}
             data-testid="toggle-active-btn"
           >
-            {isPending ? (
+            {isTogglingActive ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : org.isActive ? (
               <PowerOff className="h-4 w-4" />
@@ -327,6 +328,7 @@ export function OrgManageClient({
                 <Button
                   variant="ghost"
                   size="sm"
+                  disabled={isSaving}
                   onClick={() => {
                     setIsEditing(false)
                     setClaContent(currentClaMarkdown)
@@ -339,10 +341,14 @@ export function OrgManageClient({
                   className="gap-2"
                   data-testid="save-cla-btn"
                   onClick={handleSave}
-                  disabled={isPending}
+                  disabled={isSaving || isTogglingActive}
                 >
-                  <Check className="h-4 w-4" />
-                  Save as New Version
+                  {isSaving ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Check className="h-4 w-4" />
+                  )}
+                  {isSaving ? "Saving..." : "Save as New Version"}
                 </Button>
               </div>
             )}
@@ -354,6 +360,13 @@ export function OrgManageClient({
                 data-testid="save-success"
               >
                 New CLA version saved. Existing signers will need to re-sign the updated agreement.
+                GitHub PR checks/comments are updating in the background.
+              </div>
+            )}
+
+            {isSaving && (
+              <div className="mb-4 rounded-lg border border-primary/25 bg-primary/10 px-4 py-3 text-sm text-primary">
+                Saving CLA and rechecking open pull requests. This can take a few seconds.
               </div>
             )}
 
