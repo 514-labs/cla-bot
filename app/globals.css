@@ -83,6 +83,87 @@
   }
 }
 
+@keyframes app-bg-drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+
+  50% {
+    transform: translate3d(0, -14px, 0) scale(1.01);
+  }
+}
+
+@keyframes app-bg-trace {
+  0% {
+    stroke-dashoffset: 0;
+  }
+
+  100% {
+    stroke-dashoffset: -320;
+  }
+}
+
+@keyframes app-bg-spin {
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes app-bg-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.45;
+  }
+
+  50% {
+    transform: scale(1.28);
+    opacity: 1;
+  }
+}
+
+.app-bg-drift {
+  animation: app-bg-drift 26s ease-in-out infinite;
+  transform-origin: center center;
+}
+
+.app-bg-trace {
+  animation: app-bg-trace 36s linear infinite;
+  stroke-dasharray: 8 18;
+}
+
+.app-bg-spin {
+  animation: app-bg-spin 48s linear infinite;
+  transform-origin: 1160px 250px;
+}
+
+.app-bg-pulse {
+  animation: app-bg-pulse 5.8s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.app-bg-delay-1 {
+  animation-delay: 0.9s;
+}
+
+.app-bg-delay-2 {
+  animation-delay: 1.8s;
+}
+
+.app-bg-delay-3 {
+  animation-delay: 2.7s;
+}
+
+.app-bg-delay-4 {
+  animation-delay: 3.6s;
+}
+
 .cla-markdown h1 {
   @apply mb-4 mt-0 text-2xl font-bold text-foreground;
 }

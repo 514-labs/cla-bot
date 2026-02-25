@@ -2,6 +2,8 @@ import React from "react"
 import type { Metadata, Viewport } from "next"
 import { Fraunces, IBM_Plex_Sans } from "next/font/google"
 import { VercelToolbar } from "@vercel/toolbar/next"
+import { AppFooter } from "@/components/app-footer"
+import { AppBackground } from "@/components/app-background"
 
 import "./globals.css"
 
@@ -93,8 +95,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${displayFont.variable} ${bodyFont.variable}`}>
-      <body className="font-body antialiased">
-        {children}
+      <body className="relative font-body antialiased">
+        <AppBackground />
+        <div className="relative z-10">
+          {children}
+          <AppFooter />
+        </div>
         {process.env.NODE_ENV !== "production" && <VercelToolbar />}
       </body>
     </html>
