@@ -11,6 +11,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { getGitHubClient, upsertMockPullRequest } from "@/lib/github"
 import {
   getOrganizationBySlug,
+  isBypassAccountForOrg,
   getSignatureStatusByGithubId,
   getSignatureStatusByUsername,
   createOrganization,
@@ -332,6 +333,65 @@ async function handlePrCheck(params: {
   } catch (err) {
     console.error("Failed to initialize GitHub client:", err)
     return NextResponse.json({ error: "GitHub client is not configured" }, { status: 500 })
+  }
+
+  const bypassAccount = await isBypassAccountForOrg({
+    orgId: org.id,
+    githubUserId: prAuthorId,
+    githubUsername: prAuthor,
+  })
+  if (bypassAccount) {
+    const check = await github.createCheckRun({
+      owner: orgSlug,
+      repo: repoName,
+      name: CHECK_NAME,
+      head_sha: headSha,
+      status: "completed",
+      conclusion: "success",
+      output: {
+        title: "CLA: Bypassed",
+        summary: `@${prAuthor} is on the CLA bypass list for @${orgSlug}.`,
+      },
+    })
+
+    const existingComment = await github.findBotComment(orgSlug, repoName, prNumber)
+    let deletedCommentId: number | null = null
+    if (existingComment && isRemovableClaPromptComment(existingComment.body)) {
+      await github.deleteComment({
+        owner: orgSlug,
+        repo: repoName,
+        comment_id: existingComment.id,
+      })
+      deletedCommentId = existingComment.id
+    }
+
+    await createAuditEvent({
+      eventType: "webhook.pr_check",
+      orgId: org.id,
+      actorGithubId: prAuthorId ? String(prAuthorId) : null,
+      actorGithubUsername: prAuthor,
+      payload: {
+        owner: orgSlug,
+        repo: repoName,
+        prNumber,
+        decision: "bypass_list",
+        checkConclusion: check.conclusion,
+        bypassGithubUserId: bypassAccount.githubUserId,
+        bypassGithubUsername: bypassAccount.githubUsername,
+        deletedCommentId,
+      },
+    })
+
+    return NextResponse.json({
+      message: `@${prAuthor} is on the bypass list. Check passed.`,
+      check: { id: check.id, status: "success", conclusion: check.conclusion },
+      comment: null,
+      orgMember: false,
+      accountOwner: false,
+      signed: true,
+      needsResign: false,
+      bypassed: true,
+    })
   }
 
   const accountOwner = isPersonalAccountOwner(org, prAuthor, prAuthorId)
@@ -774,4 +834,12 @@ This repository has not published a Contributor License Agreement yet, so we can
 A maintainer must publish the CLA first: ${adminUrl}
 
 <sub>Once the CLA is configured, this check will enforce contributor signing automatically.</sub>`
+}
+
+function isRemovableClaPromptComment(commentBody: string) {
+  return (
+    commentBody.includes("Contributor License Agreement Required") ||
+    commentBody.includes("Re-signing Required") ||
+    commentBody.includes("CLA Bot is not configured for this repository")
+  )
 }

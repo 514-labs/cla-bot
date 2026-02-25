@@ -17,6 +17,7 @@ import { ensureDbReady, resetDb } from "./index"
 import {
   auditEvents,
   claArchives,
+  orgClaBypassAccounts,
   claSignatures,
   organizations,
   users,
@@ -173,6 +174,126 @@ export async function getOrganizationById(id: string) {
   const db = await ensureDbReady()
   const rows = await db.select().from(organizations).where(eq(organizations.id, id)).limit(1)
   return rows[0] ?? undefined
+}
+
+export async function getBypassAccountsByOrg(orgId: string) {
+  const db = await ensureDbReady()
+  return db
+    .select()
+    .from(orgClaBypassAccounts)
+    .where(eq(orgClaBypassAccounts.orgId, orgId))
+    .orderBy(orgClaBypassAccounts.githubUsername)
+}
+
+export async function getBypassAccountByOrgAndGithubId(orgId: string, githubUserId: string) {
+  const db = await ensureDbReady()
+  const rows = await db
+    .select()
+    .from(orgClaBypassAccounts)
+    .where(
+      and(
+        eq(orgClaBypassAccounts.orgId, orgId),
+        eq(orgClaBypassAccounts.githubUserId, githubUserId)
+      )
+    )
+    .limit(1)
+  return rows[0] ?? undefined
+}
+
+export async function getBypassAccountByOrgAndGithubUsername(
+  orgId: string,
+  githubUsername: string
+) {
+  const db = await ensureDbReady()
+  const normalizedUsername = githubUsername.trim().toLowerCase()
+  if (!normalizedUsername) return undefined
+
+  const rows = await db
+    .select()
+    .from(orgClaBypassAccounts)
+    .where(
+      and(
+        eq(orgClaBypassAccounts.orgId, orgId),
+        sql`lower(${orgClaBypassAccounts.githubUsername}) = ${normalizedUsername}`
+      )
+    )
+    .limit(1)
+  return rows[0] ?? undefined
+}
+
+export async function countBypassAccountsByOrg(orgId: string) {
+  const db = await ensureDbReady()
+  const rows = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(orgClaBypassAccounts)
+    .where(eq(orgClaBypassAccounts.orgId, orgId))
+  return Number(rows[0]?.count ?? 0)
+}
+
+export async function addBypassAccount(data: {
+  orgId: string
+  githubUserId: string
+  githubUsername: string
+  createdByUserId: string
+}) {
+  const db = await ensureDbReady()
+  const rows = await db
+    .insert(orgClaBypassAccounts)
+    .values({
+      id: `bypass_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      orgId: data.orgId,
+      githubUserId: data.githubUserId,
+      githubUsername: data.githubUsername,
+      createdByUserId: data.createdByUserId,
+      createdAt: new Date().toISOString(),
+    })
+    .onConflictDoNothing({
+      target: [orgClaBypassAccounts.orgId, orgClaBypassAccounts.githubUserId],
+    })
+    .returning()
+
+  return rows[0] ?? undefined
+}
+
+export async function removeBypassAccount(params: { orgId: string; githubUserId: string }) {
+  const db = await ensureDbReady()
+  const rows = await db
+    .delete(orgClaBypassAccounts)
+    .where(
+      and(
+        eq(orgClaBypassAccounts.orgId, params.orgId),
+        eq(orgClaBypassAccounts.githubUserId, params.githubUserId)
+      )
+    )
+    .returning()
+  return rows[0] ?? undefined
+}
+
+export async function isBypassAccountForOrg(params: {
+  orgId: string
+  githubUserId?: string | number | null
+  githubUsername?: string | null
+}) {
+  const normalizedGithubUserId =
+    params.githubUserId === undefined || params.githubUserId === null
+      ? null
+      : String(params.githubUserId)
+  if (normalizedGithubUserId) {
+    const byId = await getBypassAccountByOrgAndGithubId(params.orgId, normalizedGithubUserId)
+    if (byId) return byId
+  }
+
+  const normalizedGithubUsername =
+    typeof params.githubUsername === "string" ? params.githubUsername.trim() : ""
+  if (normalizedGithubUsername) {
+    const byUsername = await getBypassAccountByOrgAndGithubUsername(
+      params.orgId,
+      normalizedGithubUsername
+    )
+    if (byUsername) return byUsername
+  }
+
+  return null
 }
 
 export async function setOrganizationActive(slug: string, isActive: boolean) {

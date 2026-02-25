@@ -15,6 +15,13 @@
       "when": 1771890639200,
       "tag": "0001_uneven_expediter",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1771988475316,
+      "tag": "0002_loud_speed",
+      "breakpoints": true
     }
   ]
 }

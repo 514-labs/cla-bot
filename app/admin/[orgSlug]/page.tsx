@@ -2,7 +2,12 @@ import { SiteHeader } from "@/components/site-header"
 import { OrgManageClient } from "@/components/admin/org-manage-client"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { getArchivesByOrg, getSignerCountsByClaSha, getSignaturesByOrg } from "@/lib/db/queries"
+import {
+  getArchivesByOrg,
+  getBypassAccountsByOrg,
+  getSignerCountsByClaSha,
+  getSignaturesByOrg,
+} from "@/lib/db/queries"
 import { authorizeOrgAccess } from "@/lib/server/org-access"
 
 export default async function OrgManagePage({ params }: { params: Promise<{ orgSlug: string }> }) {
@@ -56,10 +61,11 @@ export default async function OrgManagePage({ params }: { params: Promise<{ orgS
   }
 
   const { org } = access
-  const [signers, archives, archiveSignerCounts] = await Promise.all([
+  const [signers, archives, archiveSignerCounts, bypassAccounts] = await Promise.all([
     getSignaturesByOrg(org.id),
     getArchivesByOrg(org.id),
     getSignerCountsByClaSha(org.id),
+    getBypassAccountsByOrg(org.id),
   ])
 
   return (
@@ -71,6 +77,7 @@ export default async function OrgManagePage({ params }: { params: Promise<{ orgS
           signers={signers}
           archives={archives}
           archiveSignerCounts={archiveSignerCounts}
+          bypassAccounts={bypassAccounts}
           currentClaMarkdown={org.claText}
           currentClaSha256={org.claTextSha256}
         />

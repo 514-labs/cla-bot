@@ -73,7 +73,7 @@ export async function resetTestDatabase() {
 
   const claHash = sha256Hex(DEFAULT_CLA_MARKDOWN)
 
-  await sql`TRUNCATE audit_events, webhook_deliveries, cla_signatures, cla_archives, organizations, users CASCADE`
+  await sql`TRUNCATE audit_events, webhook_deliveries, org_cla_bypass_accounts, cla_signatures, cla_archives, organizations, users CASCADE`
 
   const users = [
     {
@@ -238,6 +238,8 @@ async function ensureSchemaCompatibilityOnce() {
 async function ensureTestSchemaCompatibility() {
   await sql`CREATE TABLE IF NOT EXISTS webhook_deliveries (delivery_id text PRIMARY KEY NOT NULL, event text NOT NULL, received_at text NOT NULL)`
   await sql`CREATE TABLE IF NOT EXISTS audit_events (id text PRIMARY KEY NOT NULL, event_type text NOT NULL, org_id text, user_id text, actor_github_id text, actor_github_username text, payload jsonb DEFAULT '{}'::jsonb NOT NULL, created_at text NOT NULL)`
+  await sql`CREATE TABLE IF NOT EXISTS org_cla_bypass_accounts (id text PRIMARY KEY NOT NULL, org_id text NOT NULL, github_user_id text NOT NULL, github_username text NOT NULL, created_by_user_id text NOT NULL, created_at text NOT NULL)`
+  await sql`CREATE UNIQUE INDEX IF NOT EXISTS org_cla_bypass_accounts_org_github_user_idx ON org_cla_bypass_accounts (org_id, github_user_id)`
 
   await sql`ALTER TABLE users DROP CONSTRAINT IF EXISTS users_github_username_unique`
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS github_id text`

@@ -1,5 +1,6 @@
 import {
   getOrganizationBySlug,
+  isBypassAccountForOrg,
   getSignatureStatusByGithubId,
   getSignatureStatusByUsername,
 } from "@/lib/db/queries"
@@ -12,10 +13,13 @@ export type ClaOpenPrRecheckSummary = {
   attempted: number
   rechecked: number
   failedChecks: number
+  passedBypassChecks: number
   commentsCreated: number
   commentsUpdated: number
+  commentsDeleted: number
   skippedOrgMembers: number
   skippedCompliant: number
+  skippedBypass: number
   recheckErrors: number
   skippedInactive: boolean
   error: string | null
@@ -30,10 +34,13 @@ export async function recheckOpenPullRequestsAfterClaUpdate(params: {
     attempted: 0,
     rechecked: 0,
     failedChecks: 0,
+    passedBypassChecks: 0,
     commentsCreated: 0,
     commentsUpdated: 0,
+    commentsDeleted: 0,
     skippedOrgMembers: 0,
     skippedCompliant: 0,
+    skippedBypass: 0,
     recheckErrors: 0,
     skippedInactive: false,
     error: null,
@@ -74,6 +81,41 @@ export async function recheckOpenPullRequestsAfterClaUpdate(params: {
 
   for (const pr of openPrs) {
     try {
+      const bypassAccount = await isBypassAccountForOrg({
+        orgId: org.id,
+        githubUserId: pr.authorId,
+        githubUsername: pr.authorLogin,
+      })
+      if (bypassAccount) {
+        await github.createCheckRun({
+          owner: params.orgSlug,
+          repo: pr.repoName,
+          name: CHECK_NAME,
+          head_sha: pr.headSha,
+          status: "completed",
+          conclusion: "success",
+          output: {
+            title: "CLA: Bypassed",
+            summary: `@${pr.authorLogin} is on the CLA bypass list for @${params.orgSlug}.`,
+          },
+        })
+        summary.passedBypassChecks += 1
+        summary.skippedBypass += 1
+
+        const existingComment = await github.findBotComment(params.orgSlug, pr.repoName, pr.number)
+        if (existingComment && isRemovableClaPromptComment(existingComment.body)) {
+          await github.deleteComment({
+            owner: params.orgSlug,
+            repo: pr.repoName,
+            comment_id: existingComment.id,
+          })
+          summary.commentsDeleted += 1
+        }
+
+        summary.rechecked += 1
+        continue
+      }
+
       const accountOwner = isPersonalAccountOwner(org, pr.authorLogin, pr.authorId)
       if (accountOwner) {
         summary.skippedOrgMembers += 1
@@ -172,4 +214,12 @@ function isPersonalAccountOwner(
   if (typeof githubUserId !== "number") return false
   if (!org.githubAccountId) return false
   return String(githubUserId) === String(org.githubAccountId)
+}
+
+function isRemovableClaPromptComment(commentBody: string) {
+  return (
+    commentBody.includes("Contributor License Agreement Required") ||
+    commentBody.includes("Re-signing Required") ||
+    commentBody.includes("CLA Bot is not configured for this repository")
+  )
 }

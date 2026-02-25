@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
-import { getArchivesByOrg, getSignerCountsByClaSha, getSignaturesByOrg } from "@/lib/db/queries"
+import {
+  getArchivesByOrg,
+  getBypassAccountsByOrg,
+  getSignerCountsByClaSha,
+  getSignaturesByOrg,
+} from "@/lib/db/queries"
 import { authorizeOrgAccess } from "@/lib/server/org-access"
 
 export async function GET(
@@ -13,10 +18,11 @@ export async function GET(
   }
 
   const { org } = access
-  const [signers, archives, archiveSignerCounts] = await Promise.all([
+  const [signers, archives, archiveSignerCounts, bypassAccounts] = await Promise.all([
     getSignaturesByOrg(org.id),
     getArchivesByOrg(org.id),
     getSignerCountsByClaSha(org.id),
+    getBypassAccountsByOrg(org.id),
   ])
 
   return NextResponse.json({
@@ -24,6 +30,7 @@ export async function GET(
     signers,
     archives,
     archiveSignerCounts,
+    bypassAccounts,
     currentClaMarkdown: org.claText,
     currentClaSha256: org.claTextSha256,
   })

@@ -86,6 +86,7 @@ async function assertMigrationsApplied() {
       }
       await sql`SELECT 1 FROM users LIMIT 1`
       await sql`SELECT 1 FROM cla_signatures LIMIT 1`
+      await sql`SELECT 1 FROM org_cla_bypass_accounts LIMIT 1`
       await sql`SELECT 1 FROM webhook_deliveries LIMIT 1`
       await sql`SELECT 1 FROM audit_events LIMIT 1`
       return
@@ -127,7 +128,7 @@ export async function ensureDbReady(): Promise<Database> {
  */
 export async function resetDb(): Promise<void> {
   const sql = neon(getDatabaseUrl())
-  await sql`TRUNCATE audit_events, webhook_deliveries, cla_signatures, cla_archives, organizations, users CASCADE`
+  await sql`TRUNCATE audit_events, webhook_deliveries, org_cla_bypass_accounts, cla_signatures, cla_archives, organizations, users CASCADE`
   const { seedDatabase } = await import("./seed")
   await seedDatabase(db)
 }

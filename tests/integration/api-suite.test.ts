@@ -101,6 +101,34 @@ async function setOrgActiveForTest(orgSlug: string, isActive: boolean) {
   return org
 }
 
+async function addBypassAccountForOrg(params: {
+  orgSlug: string
+  githubUserId: string
+  githubUsername: string
+}) {
+  const rows = await sql`
+    INSERT INTO org_cla_bypass_accounts (id, org_id, github_user_id, github_username, created_by_user_id, created_at)
+    SELECT ${`bypass_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`}, id, ${params.githubUserId}, ${params.githubUsername}, 'user_1', NOW()::text
+    FROM organizations
+    WHERE github_org_slug = ${params.orgSlug}
+    ON CONFLICT (org_id, github_user_id) DO NOTHING
+    RETURNING id
+  `
+  assert(rows.length > 0, `bypass account inserted for ${params.orgSlug}`)
+}
+
+async function removeBypassAccountForOrg(params: { orgSlug: string; githubUserId: string }) {
+  const rows = await sql`
+    DELETE FROM org_cla_bypass_accounts
+    WHERE org_id = (
+      SELECT id FROM organizations WHERE github_org_slug = ${params.orgSlug}
+    )
+      AND github_user_id = ${params.githubUserId}
+    RETURNING id
+  `
+  assert(rows.length > 0, `bypass account removed for ${params.orgSlug}`)
+}
+
 function sha256Hex(input: string) {
   return createHash("sha256").update(input, "utf8").digest("hex")
 }
@@ -973,6 +1001,119 @@ test("Webhook: personal account owner opens PR -> green check, no comment", asyn
   assertEqual(data.check.status, "success", "check passes for personal account owner")
   assertEqual(data.accountOwner, true, "flagged as account owner")
   assertEqual(data.comment, null, "no comment posted for account owner")
+})
+
+test("Webhook: bypassed user opens PR -> green check, no CLA comment", async (baseUrl) => {
+  await resetDb(baseUrl)
+  await addBypassAccountForOrg({
+    orgSlug: "fiveonefour",
+    githubUserId: "1004",
+    githubUsername: "new-contributor",
+  })
+
+  const { data } = await sendWebhook(
+    baseUrl,
+    "pull_request",
+    makePrPayload({
+      action: "opened",
+      prAuthor: "new-contributor",
+      orgSlug: "fiveonefour",
+      repoName: "sdk",
+      prNumber: 102,
+    })
+  )
+  assertEqual(data.check.status, "success", "check passes for bypassed user")
+  assertEqual(data.bypassed, true, "response flags bypass")
+  assertEqual(data.comment, null, "no CLA comment posted for bypassed user")
+})
+
+test("Webhook: adding bypass then /recheck removes stale CLA comment", async (baseUrl) => {
+  await resetDb(baseUrl)
+
+  const { data: initialData } = await sendWebhook(
+    baseUrl,
+    "pull_request",
+    makePrPayload({
+      action: "opened",
+      prAuthor: "new-contributor",
+      orgSlug: "fiveonefour",
+      repoName: "sdk",
+      prNumber: 103,
+    })
+  )
+  assertEqual(initialData.check.status, "failure", "initial check fails before bypass")
+  assert(initialData.comment?.id, "initial CLA comment exists")
+
+  await addBypassAccountForOrg({
+    orgSlug: "fiveonefour",
+    githubUserId: "1004",
+    githubUsername: "new-contributor",
+  })
+
+  const { data: recheckData } = await sendWebhook(baseUrl, "issue_comment", {
+    action: "created",
+    comment: { body: "/recheck", user: { login: "orgadmin" } },
+    issue: {
+      number: 103,
+      user: { login: "new-contributor" },
+      pull_request: { url: "https://api.github.com/repos/fiveonefour/sdk/pulls/103" },
+    },
+    repository: { owner: { login: "fiveonefour" }, name: "sdk" },
+    installation: { id: 10001 },
+  })
+  assertEqual(recheckData.check.status, "success", "recheck passes after bypass")
+  assertEqual(recheckData.bypassed, true, "recheck response flags bypass")
+
+  const getRes = await fetch(
+    `${baseUrl}/api/webhook/github?orgSlug=fiveonefour&repoName=sdk&prNumber=103`
+  )
+  const getData = await getRes.json()
+  assertEqual(getData.comment, null, "stale CLA comment removed after bypass recheck")
+})
+
+test("Webhook: removing bypass restores CLA enforcement on /recheck", async (baseUrl) => {
+  await resetDb(baseUrl)
+  await addBypassAccountForOrg({
+    orgSlug: "fiveonefour",
+    githubUserId: "1004",
+    githubUsername: "new-contributor",
+  })
+
+  await sendWebhook(
+    baseUrl,
+    "pull_request",
+    makePrPayload({
+      action: "opened",
+      prAuthor: "new-contributor",
+      orgSlug: "fiveonefour",
+      repoName: "sdk",
+      prNumber: 104,
+    })
+  )
+
+  await removeBypassAccountForOrg({
+    orgSlug: "fiveonefour",
+    githubUserId: "1004",
+  })
+
+  const { data: recheckData } = await sendWebhook(baseUrl, "issue_comment", {
+    action: "created",
+    comment: { body: "/recheck", user: { login: "orgadmin" } },
+    issue: {
+      number: 104,
+      user: { login: "new-contributor" },
+      pull_request: { url: "https://api.github.com/repos/fiveonefour/sdk/pulls/104" },
+    },
+    repository: { owner: { login: "fiveonefour" }, name: "sdk" },
+    installation: { id: 10001 },
+  })
+  assertEqual(recheckData.check.status, "failure", "recheck fails after bypass removal")
+  assertEqual(recheckData.bypassed, undefined, "no bypass flag once removed")
+  assert(
+    typeof recheckData.comment?.commentMarkdown === "string" &&
+      recheckData.comment.commentMarkdown.includes("Contributor License Agreement Required"),
+    "CLA required comment restored after bypass removal"
+  )
 })
 
 // -- Scenario 2: Non-member, never signed ANY version -> red check + unsigned comment --

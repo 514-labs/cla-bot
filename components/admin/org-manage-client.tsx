@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState, useTransition } from "react"
+import { useEffect, useMemo, useState, useTransition } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -15,13 +15,21 @@ import {
   FileEdit,
   Github,
   History,
+  Search,
   LinkIcon,
   Loader2,
   Power,
   PowerOff,
+  Trash2,
+  UserPlus,
   Users,
 } from "lucide-react"
-import { toggleOrganizationActiveAction, updateClaAction } from "@/app/admin/[orgSlug]/actions"
+import {
+  addBypassAccountAction,
+  removeBypassAccountAction,
+  toggleOrganizationActiveAction,
+  updateClaAction,
+} from "@/app/admin/[orgSlug]/actions"
 
 type ClaArchive = {
   id: string
@@ -49,11 +57,27 @@ type ManagedOrg = {
   installedAt: string
 }
 
+type BypassAccount = {
+  id: string
+  githubUserId: string
+  githubUsername: string
+  createdAt: string
+}
+
+type BypassSuggestion = {
+  githubUserId: string
+  githubUsername: string
+  avatarUrl: string
+  type: "User" | "Organization" | "Bot"
+  alreadyBypassed: boolean
+}
+
 type OrgManageClientProps = {
   org: ManagedOrg
   signers: Signer[]
   archives: ClaArchive[]
   archiveSignerCounts: Record<string, number>
+  bypassAccounts: BypassAccount[]
   currentClaMarkdown: string
   currentClaSha256: string | null
 }
@@ -63,18 +87,32 @@ export function OrgManageClient({
   signers,
   archives,
   archiveSignerCounts,
+  bypassAccounts,
   currentClaMarkdown,
   currentClaSha256,
 }: OrgManageClientProps) {
   const router = useRouter()
-  const [activeTab, setActiveTab] = useState<"cla" | "signers" | "archives">("cla")
+  const [activeTab, setActiveTab] = useState<"cla" | "signers" | "archives" | "bypass">("cla")
   const [isEditing, setIsEditing] = useState(false)
   const [claContent, setClaContent] = useState(currentClaMarkdown)
   const [saved, setSaved] = useState(false)
   const [copied, setCopied] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [bypassQuery, setBypassQuery] = useState("")
+  const [selectedBypassSuggestion, setSelectedBypassSuggestion] = useState<BypassSuggestion | null>(
+    null
+  )
+  const [bypassSuggestions, setBypassSuggestions] = useState<BypassSuggestion[]>([])
+  const [isSearchingBypass, setIsSearchingBypass] = useState(false)
+  const [bypassSuggestError, setBypassSuggestError] = useState<string | null>(null)
+  const [bypassNotice, setBypassNotice] = useState<{
+    tone: "success" | "warning"
+    message: string
+  } | null>(null)
   const [isSaving, startSaveTransition] = useTransition()
   const [isTogglingActive, startToggleActiveTransition] = useTransition()
+  const [isAddingBypass, startAddBypassTransition] = useTransition()
+  const [isRemovingBypass, startRemoveBypassTransition] = useTransition()
 
   const currentVersionSigners = useMemo(
     () =>
@@ -90,6 +128,58 @@ export function OrgManageClient({
     [signers, currentClaSha256]
   )
   const hasConfiguredCla = Boolean(currentClaSha256 && currentClaMarkdown.trim().length > 0)
+  const isMutating = isSaving || isTogglingActive || isAddingBypass || isRemovingBypass
+
+  useEffect(() => {
+    if (activeTab !== "bypass") return
+
+    const normalizedQuery = bypassQuery.trim().replace(/^@/, "")
+    if (normalizedQuery.length < 2) {
+      setBypassSuggestions([])
+      setBypassSuggestError(null)
+      setIsSearchingBypass(false)
+      return
+    }
+
+    const controller = new AbortController()
+    const timer = window.setTimeout(async () => {
+      setIsSearchingBypass(true)
+      setBypassSuggestError(null)
+      try {
+        const response = await fetch(
+          `/api/admin/orgs/${encodeURIComponent(org.githubOrgSlug)}/bypass/suggest?q=${encodeURIComponent(
+            normalizedQuery
+          )}`,
+          {
+            method: "GET",
+            signal: controller.signal,
+          }
+        )
+
+        const payload = (await response.json()) as {
+          error?: string
+          suggestions?: BypassSuggestion[]
+        }
+        if (!response.ok) {
+          setBypassSuggestions([])
+          setBypassSuggestError(payload.error ?? "Failed to load suggestions")
+          return
+        }
+        setBypassSuggestions(Array.isArray(payload.suggestions) ? payload.suggestions : [])
+      } catch (fetchError) {
+        if ((fetchError as Error).name === "AbortError") return
+        setBypassSuggestions([])
+        setBypassSuggestError("Failed to load suggestions")
+      } finally {
+        setIsSearchingBypass(false)
+      }
+    }, 300)
+
+    return () => {
+      window.clearTimeout(timer)
+      controller.abort()
+    }
+  }, [activeTab, bypassQuery, org.githubOrgSlug])
 
   function handleSave() {
     startSaveTransition(async () => {
@@ -129,6 +219,64 @@ export function OrgManageClient({
     await navigator.clipboard.writeText(url)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
+  }
+
+  function handleAddBypassAccount() {
+    if (!selectedBypassSuggestion) {
+      setError("Select a user from suggestions before adding to bypass")
+      return
+    }
+
+    startAddBypassTransition(async () => {
+      setError(null)
+      setBypassNotice(null)
+      const result = await addBypassAccountAction({
+        orgSlug: org.githubOrgSlug,
+        githubUserId: selectedBypassSuggestion.githubUserId,
+        githubUsername: selectedBypassSuggestion.githubUsername,
+      })
+
+      if (!result.ok) {
+        setError(result.error ?? "Failed to add bypass account")
+        return
+      }
+
+      setBypassQuery("")
+      setSelectedBypassSuggestion(null)
+      setBypassSuggestions([])
+      setBypassSuggestError(null)
+      setBypassNotice({
+        tone: result.recheckScheduleError ? "warning" : "success",
+        message: result.recheckScheduleError
+          ? "Bypass account added, but open PR recheck scheduling failed."
+          : "Bypass account added. Open PR checks/comments are updating in the background.",
+      })
+      router.refresh()
+    })
+  }
+
+  function handleRemoveBypassAccount(account: BypassAccount) {
+    startRemoveBypassTransition(async () => {
+      setError(null)
+      setBypassNotice(null)
+      const result = await removeBypassAccountAction({
+        orgSlug: org.githubOrgSlug,
+        githubUserId: account.githubUserId,
+      })
+
+      if (!result.ok) {
+        setError(result.error ?? "Failed to remove bypass account")
+        return
+      }
+
+      setBypassNotice({
+        tone: result.recheckScheduleError ? "warning" : "success",
+        message: result.recheckScheduleError
+          ? "Bypass account removed, but open PR recheck scheduling failed."
+          : "Bypass account removed. Open PR checks/comments are updating in the background.",
+      })
+      router.refresh()
+    })
   }
 
   function handleDownloadCurrentCla() {
@@ -189,7 +337,7 @@ export function OrgManageClient({
             size="sm"
             className="gap-2 bg-transparent"
             onClick={handleToggleActive}
-            disabled={isTogglingActive || isSaving}
+            disabled={isMutating}
             data-testid="toggle-active-btn"
           >
             {isTogglingActive ? (
@@ -312,6 +460,19 @@ export function OrgManageClient({
           <History className="h-4 w-4" />
           Archives ({archives.length})
         </button>
+        <button
+          type="button"
+          data-testid="tab-bypass"
+          className={`flex flex-1 items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+            activeTab === "bypass"
+              ? "bg-background text-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+          onClick={() => setActiveTab("bypass")}
+        >
+          <UserPlus className="h-4 w-4" />
+          Bypass ({bypassAccounts.length})
+        </button>
       </div>
 
       {activeTab === "cla" && (
@@ -361,7 +522,7 @@ export function OrgManageClient({
                   className="gap-2"
                   data-testid="save-cla-btn"
                   onClick={handleSave}
-                  disabled={isSaving || isTogglingActive}
+                  disabled={isMutating}
                 >
                   {isSaving ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -655,6 +816,184 @@ export function OrgManageClient({
                     </div>
                   )
                 })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {activeTab === "bypass" && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Bypass Accounts</CardTitle>
+            <CardDescription>
+              Users on this list bypass CLA enforcement for this org. Their PR CLA check is marked
+              as passed automatically.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {bypassNotice && (
+              <div
+                className={`rounded-lg border px-4 py-3 text-sm ${
+                  bypassNotice.tone === "warning"
+                    ? "border-amber-500/30 bg-amber-500/10 text-amber-500"
+                    : "border-primary/30 bg-primary/10 text-primary"
+                }`}
+              >
+                {bypassNotice.message}
+              </div>
+            )}
+
+            <div className="rounded-lg border bg-secondary/30 p-4">
+              <label
+                htmlFor="bypass-query"
+                className="mb-2 block text-xs font-medium uppercase tracking-wider text-muted-foreground"
+              >
+                Add Bypass Account
+              </label>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <div className="relative flex-1">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    id="bypass-query"
+                    value={bypassQuery}
+                    onChange={(event) => {
+                      setBypassQuery(event.target.value)
+                      setSelectedBypassSuggestion(null)
+                      setBypassNotice(null)
+                    }}
+                    placeholder="Search GitHub username..."
+                    className="h-10 w-full rounded-md border bg-background pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                  />
+
+                  {(isSearchingBypass ||
+                    bypassSuggestions.length > 0 ||
+                    bypassSuggestError ||
+                    bypassQuery.trim().replace(/^@/, "").length >= 2) && (
+                    <div className="absolute z-10 mt-2 max-h-64 w-full overflow-auto rounded-md border bg-popover shadow-lg">
+                      {isSearchingBypass ? (
+                        <div className="px-3 py-2 text-sm text-muted-foreground">Searching...</div>
+                      ) : bypassSuggestError ? (
+                        <div className="px-3 py-2 text-sm text-destructive">
+                          {bypassSuggestError}
+                        </div>
+                      ) : bypassSuggestions.length === 0 ? (
+                        <div className="px-3 py-2 text-sm text-muted-foreground">
+                          No GitHub users found.
+                        </div>
+                      ) : (
+                        <ul>
+                          {bypassSuggestions.map((suggestion) => (
+                            <li key={suggestion.githubUserId}>
+                              <button
+                                type="button"
+                                className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm transition-colors hover:bg-secondary"
+                                onClick={() => {
+                                  setSelectedBypassSuggestion(suggestion)
+                                  setBypassQuery(suggestion.githubUsername)
+                                  setBypassSuggestions([])
+                                }}
+                              >
+                                <span className="min-w-0 flex items-center gap-2">
+                                  <Image
+                                    src={suggestion.avatarUrl || "/placeholder.svg"}
+                                    alt={suggestion.githubUsername}
+                                    width={20}
+                                    height={20}
+                                    className="h-5 w-5 rounded-full"
+                                    sizes="20px"
+                                  />
+                                  <span className="min-w-0">
+                                    <span className="block truncate text-foreground">
+                                      @{suggestion.githubUsername}
+                                    </span>
+                                    <span className="block text-xs text-muted-foreground">
+                                      {suggestion.type}
+                                    </span>
+                                  </span>
+                                </span>
+                                {suggestion.alreadyBypassed && (
+                                  <Badge variant="outline" className="text-xs">
+                                    Already bypassed
+                                  </Badge>
+                                )}
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <Button
+                  type="button"
+                  className="gap-2"
+                  onClick={handleAddBypassAccount}
+                  disabled={!selectedBypassSuggestion || isMutating}
+                >
+                  {isAddingBypass ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <UserPlus className="h-4 w-4" />
+                  )}
+                  Add
+                </Button>
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Limit: 50 accounts per organization.
+              </p>
+            </div>
+
+            {bypassAccounts.length === 0 ? (
+              <div className="rounded-lg border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
+                No bypass accounts configured.
+              </div>
+            ) : (
+              <div className="space-y-1 rounded-lg border">
+                <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-4 border-b px-4 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                  <span>Account</span>
+                  <span>Added</span>
+                  <span className="justify-self-end">Action</span>
+                </div>
+                {bypassAccounts.map((account) => (
+                  <div
+                    key={account.id}
+                    className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-4 px-4 py-3"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-foreground">
+                        @{account.githubUsername}
+                      </p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        ID {account.githubUserId}
+                      </p>
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      {new Date(account.createdAt).toLocaleDateString("en-US", {
+                        year: "numeric",
+                        month: "short",
+                        day: "numeric",
+                      })}
+                    </div>
+                    <div className="justify-self-end">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8 gap-1 bg-transparent px-2 text-xs"
+                        onClick={() => handleRemoveBypassAccount(account)}
+                        disabled={isMutating}
+                      >
+                        {isRemovingBypass ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-3.5 w-3.5" />
+                        )}
+                        Remove
+                      </Button>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </CardContent>

@@ -49,6 +49,27 @@ export const organizations = pgTable("organizations", {
   claTextSha256: text("cla_text_sha256"),
 })
 
+// ── CLA Bypass Accounts ───────────────────────────────────────────
+// Org-scoped allowlist of GitHub accounts that bypass CLA enforcement.
+export const orgClaBypassAccounts = pgTable(
+  "org_cla_bypass_accounts",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id")
+      .notNull()
+      .references(() => organizations.id),
+    githubUserId: text("github_user_id").notNull(),
+    githubUsername: text("github_username").notNull(),
+    createdByUserId: text("created_by_user_id")
+      .notNull()
+      .references(() => users.id),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("org_cla_bypass_accounts_org_github_user_idx").on(table.orgId, table.githubUserId),
+  ]
+)
+
 // ── CLA Archives ───────────────────────────────────────────────────
 // Point-in-time snapshot of the CLA text, created lazily the first
 // time someone signs a particular sha256. Rapid edits with no
