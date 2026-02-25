@@ -103,6 +103,7 @@ export function OrgManageClient({
     null
   )
   const [bypassSuggestions, setBypassSuggestions] = useState<BypassSuggestion[]>([])
+  const [highlightedBypassSuggestionIndex, setHighlightedBypassSuggestionIndex] = useState(-1)
   const [isSearchingBypass, setIsSearchingBypass] = useState(false)
   const [bypassSuggestError, setBypassSuggestError] = useState<string | null>(null)
   const [bypassNotice, setBypassNotice] = useState<{
@@ -137,6 +138,7 @@ export function OrgManageClient({
     if (normalizedQuery.length < 2) {
       setBypassSuggestions([])
       setBypassSuggestError(null)
+      setHighlightedBypassSuggestionIndex(-1)
       setIsSearchingBypass(false)
       return
     }
@@ -163,13 +165,17 @@ export function OrgManageClient({
         if (!response.ok) {
           setBypassSuggestions([])
           setBypassSuggestError(payload.error ?? "Failed to load suggestions")
+          setHighlightedBypassSuggestionIndex(-1)
           return
         }
-        setBypassSuggestions(Array.isArray(payload.suggestions) ? payload.suggestions : [])
+        const suggestions = Array.isArray(payload.suggestions) ? payload.suggestions : []
+        setBypassSuggestions(suggestions)
+        setHighlightedBypassSuggestionIndex(suggestions.length > 0 ? 0 : -1)
       } catch (fetchError) {
         if ((fetchError as Error).name === "AbortError") return
         setBypassSuggestions([])
         setBypassSuggestError("Failed to load suggestions")
+        setHighlightedBypassSuggestionIndex(-1)
       } finally {
         setIsSearchingBypass(false)
       }
@@ -221,8 +227,9 @@ export function OrgManageClient({
     setTimeout(() => setCopied(false), 2000)
   }
 
-  function handleAddBypassAccount() {
-    if (!selectedBypassSuggestion) {
+  function handleAddBypassAccount(suggestionOverride?: BypassSuggestion) {
+    const suggestionToAdd = suggestionOverride ?? selectedBypassSuggestion
+    if (!suggestionToAdd) {
       setError("Select a user from suggestions before adding to bypass")
       return
     }
@@ -232,8 +239,8 @@ export function OrgManageClient({
       setBypassNotice(null)
       const result = await addBypassAccountAction({
         orgSlug: org.githubOrgSlug,
-        githubUserId: selectedBypassSuggestion.githubUserId,
-        githubUsername: selectedBypassSuggestion.githubUsername,
+        githubUserId: suggestionToAdd.githubUserId,
+        githubUsername: suggestionToAdd.githubUsername,
       })
 
       if (!result.ok) {
@@ -244,6 +251,7 @@ export function OrgManageClient({
       setBypassQuery("")
       setSelectedBypassSuggestion(null)
       setBypassSuggestions([])
+      setHighlightedBypassSuggestionIndex(-1)
       setBypassSuggestError(null)
       setBypassNotice({
         tone: result.recheckScheduleError ? "warning" : "success",
@@ -253,6 +261,44 @@ export function OrgManageClient({
       })
       router.refresh()
     })
+  }
+
+  function handleBypassQueryKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
+    if (event.key === "ArrowDown") {
+      if (bypassSuggestions.length === 0) return
+      event.preventDefault()
+      const nextIndex =
+        highlightedBypassSuggestionIndex < 0
+          ? 0
+          : Math.min(highlightedBypassSuggestionIndex + 1, bypassSuggestions.length - 1)
+      setHighlightedBypassSuggestionIndex(nextIndex)
+      setSelectedBypassSuggestion(bypassSuggestions[nextIndex] ?? null)
+      return
+    }
+
+    if (event.key === "ArrowUp") {
+      if (bypassSuggestions.length === 0) return
+      event.preventDefault()
+      const nextIndex =
+        highlightedBypassSuggestionIndex <= 0 ? 0 : highlightedBypassSuggestionIndex - 1
+      setHighlightedBypassSuggestionIndex(nextIndex)
+      setSelectedBypassSuggestion(bypassSuggestions[nextIndex] ?? null)
+      return
+    }
+
+    if (event.key !== "Enter") return
+    if (isMutating) return
+
+    const highlightedSuggestion =
+      highlightedBypassSuggestionIndex >= 0
+        ? (bypassSuggestions[highlightedBypassSuggestionIndex] ?? null)
+        : null
+
+    const suggestionToAdd = highlightedSuggestion ?? selectedBypassSuggestion
+    if (!suggestionToAdd) return
+
+    event.preventDefault()
+    handleAddBypassAccount(suggestionToAdd)
   }
 
   function handleRemoveBypassAccount(account: BypassAccount) {
@@ -860,8 +906,10 @@ export function OrgManageClient({
                     onChange={(event) => {
                       setBypassQuery(event.target.value)
                       setSelectedBypassSuggestion(null)
+                      setHighlightedBypassSuggestionIndex(-1)
                       setBypassNotice(null)
                     }}
+                    onKeyDown={handleBypassQueryKeyDown}
                     placeholder="Search GitHub username..."
                     className="h-10 w-full rounded-md border bg-background pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                   />
@@ -883,15 +931,19 @@ export function OrgManageClient({
                         </div>
                       ) : (
                         <ul>
-                          {bypassSuggestions.map((suggestion) => (
+                          {bypassSuggestions.map((suggestion, index) => (
                             <li key={suggestion.githubUserId}>
                               <button
                                 type="button"
-                                className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm transition-colors hover:bg-secondary"
+                                className={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm transition-colors hover:bg-secondary ${
+                                  index === highlightedBypassSuggestionIndex ? "bg-secondary" : ""
+                                }`}
+                                onMouseEnter={() => setHighlightedBypassSuggestionIndex(index)}
                                 onClick={() => {
                                   setSelectedBypassSuggestion(suggestion)
                                   setBypassQuery(suggestion.githubUsername)
                                   setBypassSuggestions([])
+                                  setHighlightedBypassSuggestionIndex(-1)
                                 }}
                               >
                                 <span className="min-w-0 flex items-center gap-2">
@@ -928,7 +980,7 @@ export function OrgManageClient({
                 <Button
                   type="button"
                   className="gap-2"
-                  onClick={handleAddBypassAccount}
+                  onClick={() => handleAddBypassAccount()}
                   disabled={!selectedBypassSuggestion || isMutating}
                 >
                   {isAddingBypass ? (
