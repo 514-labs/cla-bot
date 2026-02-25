@@ -4,6 +4,7 @@ import { Fraunces, IBM_Plex_Sans } from "next/font/google"
 import { VercelToolbar } from "@vercel/toolbar/next"
 import { AppFooter } from "@/components/app-footer"
 import { AppBackground } from "@/components/app-background"
+import { buildFiveonefourUrl } from "@/lib/marketing-links"
 
 import "./globals.css"
 
@@ -38,7 +39,12 @@ export const metadata: Metadata = {
     "developer tools",
     "fiveonefour",
   ],
-  authors: [{ name: "fiveonefour", url: "https://fiveonefour.com" }],
+  authors: [
+    {
+      name: "fiveonefour",
+      url: buildFiveonefourUrl({ medium: "app_metadata", content: "authors" }),
+    },
+  ],
   creator: "fiveonefour",
   publisher: "fiveonefour",
   robots: {

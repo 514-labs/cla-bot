@@ -3,6 +3,7 @@ import Link from "next/link"
 import { SiteHeader } from "@/components/site-header"
 import { Button } from "@/components/ui/button"
 import { FileCheck2, Github, ShieldCheck, Users, GitPullRequest, ArrowRight } from "lucide-react"
+import { buildFiveonefourUrl } from "@/lib/marketing-links"
 
 const jsonLd = {
   "@context": "https://schema.org",
@@ -16,7 +17,10 @@ const jsonLd = {
   author: {
     "@type": "Organization",
     name: "fiveonefour",
-    url: "https://fiveonefour.com",
+    url: buildFiveonefourUrl({
+      medium: "app_jsonld",
+      content: "software_application_author",
+    }),
   },
   offers: {
     "@type": "Offer",

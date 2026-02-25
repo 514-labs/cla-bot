@@ -1,5 +1,11 @@
 import Link from "next/link"
 import { BrandMark } from "@/components/brand-logo"
+import { buildFiveonefourUrl } from "@/lib/marketing-links"
+
+const FIVEONEFOUR_FOOTER_URL = buildFiveonefourUrl({
+  medium: "app_footer",
+  content: "global_footer",
+})
 
 export function AppFooter() {
   return (
@@ -10,7 +16,7 @@ export function AppFooter() {
           <span>
             Made with love by{" "}
             <Link
-              href="https://fiveonefour.com"
+              href={FIVEONEFOUR_FOOTER_URL}
               className="font-medium text-foreground transition-colors hover:text-primary"
             >
               fiveonefour

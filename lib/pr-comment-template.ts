@@ -5,6 +5,17 @@
  *   1. "unsigned" -- contributor has not signed (or needs to re-sign). Blocks the PR.
  *   2. "signed"   -- contributor has a valid signature. PR is clear to merge.
  */
+import { buildFiveonefourUrl } from "@/lib/marketing-links"
+
+function buildBrandingFooter(appBaseUrl: string, context: "unsigned" | "signed" | "inactive") {
+  const fiveonefourUrl = buildFiveonefourUrl({
+    medium: "github_pr_comment",
+    content: `branding_${context}`,
+  })
+  const claBotUrl = `${appBaseUrl}?utm_source=cla_bot&utm_medium=github_pr_comment&utm_campaign=fiveonefour_referral&utm_content=cla_bot_${context}`
+
+  return `<sub>Built with love by [fiveonefour.com](${fiveonefourUrl}) | [CLA Bot](${claBotUrl}) automates Contributor License Agreements for GitHub</sub>`
+}
 
 export function generateUnsignedComment({
   prAuthor,
@@ -49,7 +60,7 @@ Once you've signed, the status check on this PR will update automatically.
 
 ---
 
-<sub>Built with love by [fiveonefour.com](https://fiveonefour.com?utm_source=github&utm_medium=pr_comment&utm_campaign=cla_bot_branding) | [CLA Bot](${appBaseUrl}?utm_source=github&utm_medium=pr_comment&utm_campaign=cla_bot_branding) automates Contributor License Agreements for GitHub</sub>
+${buildBrandingFooter(appBaseUrl, "unsigned")}
 `
 }
 
@@ -71,7 +82,7 @@ All good, @${prAuthor}! You have a valid CLA signature on file for **${orgName}*
 
 ---
 
-<sub>Built with love by [fiveonefour.com](https://fiveonefour.com?utm_source=github&utm_medium=pr_comment&utm_campaign=cla_bot_branding) | [CLA Bot](${appBaseUrl}?utm_source=github&utm_medium=pr_comment&utm_campaign=cla_bot_branding) automates Contributor License Agreements for GitHub</sub>
+${buildBrandingFooter(appBaseUrl, "signed")}
 `
 }
 
@@ -90,6 +101,6 @@ Hey @${prAuthor}, the CLA bot for **${orgName}** is currently inactive. No actio
 
 ---
 
-<sub>Built with love by [fiveonefour.com](https://fiveonefour.com?utm_source=github&utm_medium=pr_comment&utm_campaign=cla_bot_branding) | [CLA Bot](${appBaseUrl}?utm_source=github&utm_medium=pr_comment&utm_campaign=cla_bot_branding) automates Contributor License Agreements for GitHub</sub>
+${buildBrandingFooter(appBaseUrl, "inactive")}
 `
 }

@@ -1761,9 +1761,9 @@ test("Webhook: unsigned PR comment includes branding with UTM", async (baseUrl) 
   )
   const md = data.comment.commentMarkdown as string
   assert(md.includes("Built with love by"), "has 'built with love' text")
-  assert(md.includes("fiveonefour.com?utm_source=github"), "branding link has utm_source")
-  assert(md.includes("utm_medium=pr_comment"), "branding link has utm_medium")
-  assert(md.includes("utm_campaign=cla_bot_branding"), "branding link has utm_campaign")
+  assert(md.includes("utm_source=cla_bot"), "branding link has utm_source")
+  assert(md.includes("utm_medium=github_pr_comment"), "branding link has utm_medium")
+  assert(md.includes("utm_campaign=fiveonefour_referral"), "branding link has utm_campaign")
 })
 
 // ==========================================
