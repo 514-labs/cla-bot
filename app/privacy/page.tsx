@@ -8,7 +8,7 @@ export default function PrivacyPage() {
       <main className="flex-1">
         <div className="mx-auto max-w-3xl px-4 py-12">
           <h1 className="text-3xl font-bold tracking-tight text-foreground">Privacy Policy</h1>
-          <p className="mt-2 text-sm text-muted-foreground">Last updated: February 23, 2026</p>
+          <p className="mt-2 text-sm text-muted-foreground">Last updated: February 25, 2026</p>
 
           <section className="mt-8 space-y-4 text-sm leading-relaxed text-foreground">
             <p>
@@ -36,10 +36,25 @@ export default function PrivacyPage() {
               metadata. Legal signature records may be retained when required for compliance and
               evidentiary purposes.
             </p>
+            <h2 className="text-lg font-semibold">Self-Hosted Instances</h2>
+            <p>
+              CLA Bot is open-source software. If you are using a self-hosted instance, the operator
+              of that instance is responsible for its own data-handling practices. This privacy policy
+              applies only to instances operated by the original maintainers.
+            </p>
             <h2 className="text-lg font-semibold">Contact</h2>
             <p>
               For privacy requests, contact repository maintainers for the organization where you
               signed the CLA.
+            </p>
+            <h2 className="text-lg font-semibold">Disclaimer</h2>
+            <p>
+              This privacy policy is provided for informational purposes. The service is provided
+              &ldquo;as is&rdquo; without warranties of any kind. See our{" "}
+              <Link href="/terms" className="underline underline-offset-2">
+                Terms of Use
+              </Link>{" "}
+              for full warranty and liability disclaimers.
             </p>
           </section>
 
