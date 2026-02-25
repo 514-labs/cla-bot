@@ -24,4 +24,17 @@ describe("simpleMarkdownToHtml", () => {
     const html = simpleMarkdownToHtml("4. Clause")
     expect(html).toContain('<li value="4">Clause</li>')
   })
+
+  it("renders lower-alpha ordered lists for legal clauses", () => {
+    const html = simpleMarkdownToHtml("a. First clause\nb. Second clause\nc) Third clause")
+    expect(html).toContain('<ol type="a">')
+    expect(html).toContain('<li value="1">First clause</li>')
+    expect(html).toContain('<li value="2">Second clause</li>')
+    expect(html).toContain('<li value="3">Third clause</li>')
+  })
+
+  it("applies visual indentation to indented alpha lists", () => {
+    const html = simpleMarkdownToHtml("  a. Nested clause\n  b. Nested clause two")
+    expect(html).toContain('<ol type="a" style="margin-left:1.25rem">')
+  })
 })

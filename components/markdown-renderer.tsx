@@ -45,53 +45,77 @@ export function simpleMarkdownToHtml(md: string): string {
   // Process lists and blockquotes
   const lines = html.split("\n")
   const result: string[] = []
-  let inOl = false
-  let inUl = false
+  let listState: {
+    kind: "ol" | "ul" | "ol-alpha-lower" | "ol-alpha-upper"
+    indent: number
+  } | null = null
   let inBlockquote = false
+
+  const closeList = () => {
+    if (!listState) return
+    result.push(listState.kind === "ul" ? "</ul>" : "</ol>")
+    listState = null
+  }
+
+  const openList = (kind: "ol" | "ul" | "ol-alpha-lower" | "ol-alpha-upper", indent: number) => {
+    if (kind === "ul") {
+      result.push(`<ul${listIndentStyle(indent)}>`)
+      listState = { kind, indent }
+      return
+    }
+
+    const typeAttr =
+      kind === "ol-alpha-lower" ? ' type="a"' : kind === "ol-alpha-upper" ? ' type="A"' : ""
+    result.push(`<ol${typeAttr}${listIndentStyle(indent)}>`)
+    listState = { kind, indent }
+  }
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
-    const olMatch = line.match(/^(\d+)\.\s+(.+)$/)
-    const ulMatch = line.match(/^[-*]\s+(.+)$/)
+    const olMatch = line.match(/^(\s*)(\d+)[.)]\s+(.+)$/)
+    const alphaMatch = line.match(/^(\s*)([a-zA-Z])[.)]\s+(.+)$/)
+    const ulMatch = line.match(/^(\s*)[-*]\s+(.+)$/)
     const bqMatch = line.match(/^>\s?(.*)$/)
 
     if (olMatch) {
-      if (inUl) {
-        result.push("</ul>")
-        inUl = false
-      }
+      const indent = getListIndentLevel(olMatch[1])
       if (inBlockquote) {
         result.push("</blockquote>")
         inBlockquote = false
       }
-      if (!inOl) {
-        result.push("<ol>")
-        inOl = true
+      if (!listState || listState.kind !== "ol" || listState.indent !== indent) {
+        closeList()
+        openList("ol", indent)
       }
-      result.push(`<li value="${olMatch[1]}">${olMatch[2]}</li>`)
+      result.push(`<li value="${olMatch[2]}">${olMatch[3]}</li>`)
+    } else if (alphaMatch) {
+      const indent = getListIndentLevel(alphaMatch[1])
+      const marker = alphaMatch[2]
+      const markerValue = marker.toLowerCase().charCodeAt(0) - 96
+      const listKind = marker === marker.toUpperCase() ? "ol-alpha-upper" : "ol-alpha-lower"
+
+      if (inBlockquote) {
+        result.push("</blockquote>")
+        inBlockquote = false
+      }
+      if (!listState || listState.kind !== listKind || listState.indent !== indent) {
+        closeList()
+        openList(listKind, indent)
+      }
+      result.push(`<li value="${markerValue}">${alphaMatch[3]}</li>`)
     } else if (ulMatch) {
-      if (inOl) {
-        result.push("</ol>")
-        inOl = false
-      }
+      const indent = getListIndentLevel(ulMatch[1])
       if (inBlockquote) {
         result.push("</blockquote>")
         inBlockquote = false
       }
-      if (!inUl) {
-        result.push("<ul>")
-        inUl = true
+      if (!listState || listState.kind !== "ul" || listState.indent !== indent) {
+        closeList()
+        openList("ul", indent)
       }
-      result.push(`<li>${ulMatch[1]}</li>`)
+      result.push(`<li>${ulMatch[2]}</li>`)
     } else if (bqMatch) {
-      if (inOl) {
-        result.push("</ol>")
-        inOl = false
-      }
-      if (inUl) {
-        result.push("</ul>")
-        inUl = false
-      }
+      closeList()
       if (!inBlockquote) {
         result.push("<blockquote>")
         inBlockquote = true
@@ -100,14 +124,7 @@ export function simpleMarkdownToHtml(md: string): string {
         result.push(`<p>${bqMatch[1]}</p>`)
       }
     } else {
-      if (inOl) {
-        result.push("</ol>")
-        inOl = false
-      }
-      if (inUl) {
-        result.push("</ul>")
-        inUl = false
-      }
+      closeList()
       if (inBlockquote) {
         result.push("</blockquote>")
         inBlockquote = false
@@ -128,11 +145,21 @@ export function simpleMarkdownToHtml(md: string): string {
     }
   }
 
-  if (inOl) result.push("</ol>")
-  if (inUl) result.push("</ul>")
+  closeList()
   if (inBlockquote) result.push("</blockquote>")
 
   return result.join("\n")
+}
+
+function getListIndentLevel(rawIndent: string) {
+  const normalized = rawIndent.replaceAll("\t", "  ")
+  return Math.floor(normalized.length / 2)
+}
+
+function listIndentStyle(indentLevel: number) {
+  if (indentLevel <= 0) return ""
+  const marginLeft = (indentLevel * 1.25).toFixed(2).replace(/\.00$/, "")
+  return ` style="margin-left:${marginLeft}rem"`
 }
 
 function escapeHtml(input: string) {

@@ -231,7 +231,7 @@ This section amends your scenario list and adds missing scenarios.
 - When CLA text changes, contributors on older signatures are marked as requiring re-sign; open PRs may require check re-evaluation and failure until re-signing.
 - After signing/re-signing, an async workflow updates signer-authored open PR CLA checks to success and removes stale CLA prompt comments.
 - Repository maintainers must require `CLA Bot / Contributor License Agreement` in GitHub branch protection/rulesets for merge blocking to be enforced.
-- Markdown ordered lists preserve explicit authored numbering (for example `1.`, `2.`, `7.` stays `1, 2, 7` instead of being re-numbered by renderer normalization).
+- Markdown ordered lists preserve explicit authored numbering (for example `1.`, `2.`, `7.` stays `1, 2, 7`), and legal alpha markers (`a.` / `a)`) render as ordered sub-clauses with indentation.
 
 ## End-to-End Test Coverage Around This Spec
 
