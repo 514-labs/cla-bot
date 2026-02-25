@@ -109,7 +109,7 @@ This section is the behavior contract for UI routes.
 | `/auth/signin` | Start sign-in flow | Shows GitHub sign-in CTA | Same | Sends user to `/api/auth/github?returnTo=...`; `returnTo` is sanitized to internal paths only |
 | `/dashboard` | Mode selector page | Public page | Same + session shown in header | Navigate to `/admin` or `/contributor` |
 | `/admin` | Org admin overview | Shows "Sign in required" card | Lists organizations user can administer; shows install CTA when none are authorized | Install app (`/api/github/install`), open org manage pages |
-| `/admin/[orgSlug]` | Org CLA management | If data unavailable, shows "Organization not found" UI | Shows org details, CLA version, signers, archives, bypass list, branch-protection reminder | Edit/save CLA text, activate/deactivate bot, copy signing link, inspect signers/archives, manage bypass usernames, download current/archived CLA text, share tab links via `?tab=cla|signers|archives|bypass` |
+| `/admin/[orgSlug]` | Org CLA management | If data unavailable, shows "Organization not found" UI | Shows org details, CLA version, signers, archives, bypass list, branch-protection reminder | Edit/save CLA text with live markdown preview modes (`Edit`, `Split`, `Preview`), activate/deactivate bot, copy signing link, inspect signers/archives, manage bypass usernames, download current/archived CLA text, share tab links via `?tab=cla|signers|archives|bypass` |
 | `/contributor` | Contributor agreement dashboard | Shows "Sign in required" card | Lists signed CLA history grouped by org status | Re-sign prompts for outdated orgs, links to `/sign/[orgSlug]`, download previously signed CLA records |
 | `/sign/[orgSlug]` | CLA read/sign page | Shows sign-in required (or org not found) | Shows signed state, or sign/re-sign workflow | Requires scroll-to-bottom before sign button enables; handles inactive org warning |
 | `/terms` | Legal terms page | Public page | Same | Documents signing/enforcement terms and branch-protection requirement |
@@ -145,6 +145,7 @@ This section amends your scenario list and adds missing scenarios.
 ### 4) Admin creates a new CLA version
 
 - Saving CLA updates current text/hash.
+- While editing, maintainers can preview rendering before save (`Edit`, `Split`, `Preview` modes; desktop defaults to split view).
 - Existing signatures remain historical; users on previous hash are treated as outdated and must re-sign.
 - If no one has signed prior versions, only current hash/text changes.
 - If prior versions were signed, historical signed versions remain in archives/signatures.
@@ -230,6 +231,7 @@ This section amends your scenario list and adds missing scenarios.
 - When CLA text changes, contributors on older signatures are marked as requiring re-sign; open PRs may require check re-evaluation and failure until re-signing.
 - After signing/re-signing, an async workflow updates signer-authored open PR CLA checks to success and removes stale CLA prompt comments.
 - Repository maintainers must require `CLA Bot / Contributor License Agreement` in GitHub branch protection/rulesets for merge blocking to be enforced.
+- Markdown ordered lists preserve explicit authored numbering (for example `1.`, `2.`, `7.` stays `1, 2, 7` instead of being re-numbered by renderer normalization).
 
 ## End-to-End Test Coverage Around This Spec
 

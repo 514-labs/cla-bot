@@ -370,7 +370,7 @@ export function OrgManageClient({
   }
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-12">
+    <div className="mx-auto w-full max-w-6xl px-4 py-12">
       <Link
         href="/admin"
         className="mb-6 inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -676,7 +676,7 @@ export function OrgManageClient({
                 </div>
 
                 {effectiveClaEditViewMode === "split" ? (
-                  <div className="grid gap-4 md:grid-cols-2">
+                  <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-5">
                     <textarea
                       value={claContent}
                       onChange={(event) => setClaContent(event.target.value)}
