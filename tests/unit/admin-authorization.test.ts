@@ -11,18 +11,17 @@ import {
   isGitHubInstallationAccountAdmin,
 } from "@/lib/github/admin-authorization"
 
-const ORIGINAL_NODE_ENV = process.env.NODE_ENV
 const originalFetch = global.fetch
 
 afterEach(() => {
-  process.env.NODE_ENV = ORIGINAL_NODE_ENV
+  vi.unstubAllEnvs()
   global.fetch = originalFetch
   vi.clearAllMocks()
 })
 
 describe("admin authorization", () => {
   it("authorizes a personal-account installation for the account owner", async () => {
-    process.env.NODE_ENV = "production"
+    vi.stubEnv("NODE_ENV", "production")
 
     const allowed = await isGitHubInstallationAccountAdmin(
       {
@@ -43,7 +42,7 @@ describe("admin authorization", () => {
   })
 
   it("filters org installs via GitHub admin membership and preserves personal-account owner access", async () => {
-    process.env.NODE_ENV = "production"
+    vi.stubEnv("NODE_ENV", "production")
     global.fetch = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ state: "active", role: "admin" }), {
         status: 200,
@@ -82,7 +81,7 @@ describe("admin authorization", () => {
   })
 
   it("does not authorize a personal-account installation for non-owners", async () => {
-    process.env.NODE_ENV = "production"
+    vi.stubEnv("NODE_ENV", "production")
 
     const authorized = await filterInstalledOrganizationsForAdmin(
       {

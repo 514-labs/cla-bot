@@ -39,8 +39,8 @@ export default function PrivacyPage() {
             <h2 className="text-lg font-semibold">Self-Hosted Instances</h2>
             <p>
               CLA Bot is open-source software. If you are using a self-hosted instance, the operator
-              of that instance is responsible for its own data-handling practices. This privacy policy
-              applies only to instances operated by the original maintainers.
+              of that instance is responsible for its own data-handling practices. This privacy
+              policy applies only to instances operated by the original maintainers.
             </p>
             <h2 className="text-lg font-semibold">Contact</h2>
             <p>

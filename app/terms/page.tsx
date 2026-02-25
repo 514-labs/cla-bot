@@ -39,26 +39,31 @@ export default function TermsPage() {
             <h2 className="text-lg font-semibold">Open-Source License</h2>
             <p>
               The source code for CLA Bot is released under the{" "}
-              <Link href="https://opensource.org/licenses/MIT" className="underline underline-offset-2">
+              <Link
+                href="https://opensource.org/licenses/MIT"
+                className="underline underline-offset-2"
+              >
                 MIT License
               </Link>
-              . You are free to use, copy, modify, and distribute the software subject to the terms of
-              that license.
+              . You are free to use, copy, modify, and distribute the software subject to the terms
+              of that license.
             </p>
             <h2 className="text-lg font-semibold">Disclaimer of Warranties</h2>
             <p>
               THE SERVICE IS PROVIDED &ldquo;AS IS&rdquo; AND &ldquo;AS AVAILABLE&rdquo; WITHOUT
-              WARRANTIES OF ANY KIND, WHETHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO IMPLIED
-              WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT. WE
-              DO NOT WARRANT THAT THE SERVICE WILL BE UNINTERRUPTED, ERROR-FREE, OR SECURE.
+              WARRANTIES OF ANY KIND, WHETHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO
+              IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND
+              NON-INFRINGEMENT. WE DO NOT WARRANT THAT THE SERVICE WILL BE UNINTERRUPTED,
+              ERROR-FREE, OR SECURE.
             </p>
             <h2 className="text-lg font-semibold">Limitation of Liability</h2>
             <p>
               TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, IN NO EVENT SHALL THE AUTHORS,
               COPYRIGHT HOLDERS, OR MAINTAINERS OF CLA BOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL,
               SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, OR ANY LOSS OF PROFITS, DATA, USE, OR
-              GOODWILL, ARISING OUT OF OR IN CONNECTION WITH YOUR ACCESS TO OR USE OF (OR INABILITY TO
-              USE) THE SERVICE, WHETHER BASED ON WARRANTY, CONTRACT, TORT, OR ANY OTHER LEGAL THEORY.
+              GOODWILL, ARISING OUT OF OR IN CONNECTION WITH YOUR ACCESS TO OR USE OF (OR INABILITY
+              TO USE) THE SERVICE, WHETHER BASED ON WARRANTY, CONTRACT, TORT, OR ANY OTHER LEGAL
+              THEORY.
             </p>
           </section>
 
