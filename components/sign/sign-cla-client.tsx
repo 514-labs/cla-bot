@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useCallback, useMemo, useState, useTransition } from "react"
+import React, { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -64,12 +64,14 @@ export function SignClaClient({
   const router = useRouter()
   const [justSigned, setJustSigned] = useState(false)
   const [scrolledToBottom, setScrolledToBottom] = useState(false)
+  const [requiresScrollToSign, setRequiresScrollToSign] = useState(true)
   const [actionError, setActionError] = useState<string | null>(null)
   const [postSignNotice, setPostSignNotice] = useState<{
     tone: "info" | "warning"
     message: string
   } | null>(null)
   const [isPending, startTransition] = useTransition()
+  const scrollAreaRef = useRef<HTMLDivElement | null>(null)
 
   const hasConfiguredCla = Boolean(currentSha256 && org.claMarkdown.trim().length > 0)
   const signed = alreadySigned || justSigned
@@ -93,6 +95,37 @@ export function SignClaClient({
       setScrolledToBottom(true)
     }
   }, [])
+
+  useEffect(() => {
+    if (!showSignAction) return
+    const scrollArea = scrollAreaRef.current
+    if (!scrollArea) return
+
+    const updateScrollRequirement = () => {
+      const needsScroll = scrollArea.scrollHeight - scrollArea.clientHeight > 4
+      setRequiresScrollToSign(needsScroll)
+
+      if (!needsScroll) {
+        setScrolledToBottom(true)
+        return
+      }
+
+      const isAtBottom =
+        scrollArea.scrollHeight - scrollArea.scrollTop - scrollArea.clientHeight < 40
+      setScrolledToBottom((alreadyAtBottom) => alreadyAtBottom || isAtBottom)
+    }
+
+    updateScrollRequirement()
+
+    const observer = new ResizeObserver(updateScrollRequirement)
+    observer.observe(scrollArea)
+    window.addEventListener("resize", updateScrollRequirement)
+
+    return () => {
+      observer.disconnect()
+      window.removeEventListener("resize", updateScrollRequirement)
+    }
+  }, [showSignAction, org.claMarkdown])
 
   function handleSign() {
     if (!currentSha256 || !hasConfiguredCla) return
@@ -233,12 +266,13 @@ export function SignClaClient({
             {hasConfiguredCla
               ? "Please read the full agreement below."
               : "No CLA has been published for this organization yet."}
-            {showSignAction && " Scroll to the bottom to enable signing."}
+            {showSignAction && requiresScrollToSign && " Scroll to the bottom to enable signing."}
           </CardDescription>
         </CardHeader>
         <CardContent>
           {hasConfiguredCla ? (
             <div
+              ref={scrollAreaRef}
               className="max-h-[500px] overflow-y-auto rounded-lg border bg-background p-6"
               onScroll={handleScroll}
               data-testid="cla-scroll-area"
@@ -314,7 +348,9 @@ export function SignClaClient({
               <Button
                 size="lg"
                 className="gap-2"
-                disabled={!scrolledToBottom || isPending || !currentSha256}
+                disabled={
+                  (requiresScrollToSign && !scrolledToBottom) || isPending || !currentSha256
+                }
                 onClick={handleSign}
                 data-testid="sign-btn"
               >
@@ -327,10 +363,14 @@ export function SignClaClient({
                   ? needsResign
                     ? "Re-sign Agreement"
                     : "Sign Agreement"
-                  : "Scroll to read full agreement"}
+                  : requiresScrollToSign
+                    ? "Scroll to read full agreement"
+                    : needsResign
+                      ? "Re-sign Agreement"
+                      : "Sign Agreement"}
               </Button>
 
-              {!scrolledToBottom && (
+              {requiresScrollToSign && !scrolledToBottom && (
                 <p className="text-xs text-muted-foreground" data-testid="scroll-hint">
                   Please scroll through the entire agreement to enable signing.
                 </p>
