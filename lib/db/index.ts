@@ -1,13 +1,26 @@
 import "server-only"
 import { neon } from "@neondatabase/serverless"
-import { drizzle } from "drizzle-orm/neon-http"
+import { drizzle as drizzleNeonHttp } from "drizzle-orm/neon-http"
+import postgres from "postgres"
+import { drizzle as drizzlePostgresJs } from "drizzle-orm/postgres-js"
 import * as schema from "./schema"
 
 // ── Types ──────────────────────────────────────────────────────────
 
-export type Database = ReturnType<typeof createNeonDb>
+// Tagged-template SQL function compatible with both neon() and postgres()
+type RawSqlFn = (
+  strings: TemplateStringsArray,
+  ...values: unknown[]
+) => Promise<Record<string, unknown>[]>
 
-// ── Neon client ────────────────────────────────────────────────────
+export type Database = ReturnType<typeof createDb>
+
+// ── Helpers ────────────────────────────────────────────────────────
+
+/** Returns true when the URL points at a Neon serverless endpoint. */
+function isNeonUrl(url: string): boolean {
+  return /neon\.tech|neondb\.net/.test(url)
+}
 
 function getDatabaseUrl() {
   const databaseUrl = process.env.DATABASE_URL
@@ -17,9 +30,30 @@ function getDatabaseUrl() {
   return databaseUrl
 }
 
-function createNeonDb() {
-  const sql = neon(getDatabaseUrl())
-  return drizzle({ client: sql, schema })
+// ── Raw SQL (for migration checks & reset) ─────────────────────────
+
+let _pgClient: ReturnType<typeof postgres> | null = null
+
+function createRawSql(url: string): RawSqlFn {
+  if (isNeonUrl(url)) {
+    return neon(url) as unknown as RawSqlFn
+  }
+  if (!_pgClient) {
+    _pgClient = postgres(url)
+  }
+  return _pgClient as unknown as RawSqlFn
+}
+
+// ── Drizzle instance ───────────────────────────────────────────────
+
+function createDb() {
+  const url = getDatabaseUrl()
+  if (isNeonUrl(url)) {
+    const sql = neon(url)
+    return drizzleNeonHttp({ client: sql, schema })
+  }
+  _pgClient = postgres(url)
+  return drizzlePostgresJs({ client: _pgClient, schema })
 }
 
 // ── Singleton ──────────────────────────────────────────────────────
@@ -33,7 +67,7 @@ const globalForDb = globalThis as unknown as {
 
 function getDb(): Database {
   if (!globalForDb.__db) {
-    globalForDb.__db = createNeonDb()
+    globalForDb.__db = createDb()
     // Kick off migration verification + optional seed immediately.
     globalForDb.__dbReady = initDb(globalForDb.__db).catch((err) => {
       console.error("[db] Init failed, will retry on next request:", err)
@@ -58,7 +92,7 @@ async function initDb(db: Database) {
 }
 
 async function assertMigrationsApplied() {
-  const sql = neon(getDatabaseUrl())
+  const sql = createRawSql(getDatabaseUrl())
   const migrationsTable = process.env.DRIZZLE_MIGRATIONS_TABLE ?? "__drizzle_migrations"
   const migrationsSchema = process.env.DRIZZLE_MIGRATIONS_SCHEMA
   try {
@@ -127,7 +161,7 @@ export async function ensureDbReady(): Promise<Database> {
  * Full reset -- truncate all data and re-seed.
  */
 export async function resetDb(): Promise<void> {
-  const sql = neon(getDatabaseUrl())
+  const sql = createRawSql(getDatabaseUrl())
   await sql`TRUNCATE audit_events, webhook_deliveries, org_cla_bypass_accounts, cla_signatures, cla_archives, organizations, users CASCADE`
   const { seedDatabase } = await import("./seed")
   await seedDatabase(db)
