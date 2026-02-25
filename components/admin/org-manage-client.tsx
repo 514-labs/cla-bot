@@ -3,11 +3,16 @@
 import { useEffect, useMemo, useState, useTransition } from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { MarkdownRenderer } from "@/components/markdown-renderer"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  ORG_MANAGE_DEFAULT_TAB,
+  type OrgManageTab,
+  parseOrgManageTab,
+} from "@/lib/admin/org-manage-tabs"
 import {
   ArrowLeft,
   Check,
@@ -80,6 +85,7 @@ type OrgManageClientProps = {
   bypassAccounts: BypassAccount[]
   currentClaMarkdown: string
   currentClaSha256: string | null
+  initialTab: OrgManageTab
 }
 
 export function OrgManageClient({
@@ -90,9 +96,12 @@ export function OrgManageClient({
   bypassAccounts,
   currentClaMarkdown,
   currentClaSha256,
+  initialTab,
 }: OrgManageClientProps) {
   const router = useRouter()
-  const [activeTab, setActiveTab] = useState<"cla" | "signers" | "archives" | "bypass">("cla")
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const [activeTab, setActiveTab] = useState<OrgManageTab>(initialTab)
   const [isEditing, setIsEditing] = useState(false)
   const [claContent, setClaContent] = useState(currentClaMarkdown)
   const [saved, setSaved] = useState(false)
@@ -130,6 +139,11 @@ export function OrgManageClient({
   )
   const hasConfiguredCla = Boolean(currentClaSha256 && currentClaMarkdown.trim().length > 0)
   const isMutating = isSaving || isTogglingActive || isAddingBypass || isRemovingBypass
+
+  useEffect(() => {
+    const tabFromQuery = parseOrgManageTab(searchParams.get("tab")) ?? ORG_MANAGE_DEFAULT_TAB
+    setActiveTab((currentTab) => (currentTab === tabFromQuery ? currentTab : tabFromQuery))
+  }, [searchParams])
 
   useEffect(() => {
     if (activeTab !== "bypass") return
@@ -225,6 +239,17 @@ export function OrgManageClient({
     await navigator.clipboard.writeText(url)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
+  }
+
+  function buildTabHref(tab: OrgManageTab) {
+    const nextParams = new URLSearchParams(searchParams.toString())
+    nextParams.set("tab", tab)
+    return `${pathname}?${nextParams.toString()}`
+  }
+
+  function handleTabChange(nextTab: OrgManageTab) {
+    if (nextTab === activeTab) return
+    router.push(buildTabHref(nextTab), { scroll: false })
   }
 
   function handleAddBypassAccount(suggestionOverride?: BypassSuggestion) {
@@ -475,7 +500,7 @@ export function OrgManageClient({
               ? "bg-background text-foreground shadow-sm"
               : "text-muted-foreground hover:text-foreground"
           }`}
-          onClick={() => setActiveTab("cla")}
+          onClick={() => handleTabChange("cla")}
         >
           <FileEdit className="h-4 w-4" />
           CLA Agreement
@@ -488,7 +513,7 @@ export function OrgManageClient({
               ? "bg-background text-foreground shadow-sm"
               : "text-muted-foreground hover:text-foreground"
           }`}
-          onClick={() => setActiveTab("signers")}
+          onClick={() => handleTabChange("signers")}
         >
           <Users className="h-4 w-4" />
           Signers ({signers.length})
@@ -501,7 +526,7 @@ export function OrgManageClient({
               ? "bg-background text-foreground shadow-sm"
               : "text-muted-foreground hover:text-foreground"
           }`}
-          onClick={() => setActiveTab("archives")}
+          onClick={() => handleTabChange("archives")}
         >
           <History className="h-4 w-4" />
           Archives ({archives.length})
@@ -514,7 +539,7 @@ export function OrgManageClient({
               ? "bg-background text-foreground shadow-sm"
               : "text-muted-foreground hover:text-foreground"
           }`}
-          onClick={() => setActiveTab("bypass")}
+          onClick={() => handleTabChange("bypass")}
         >
           <UserPlus className="h-4 w-4" />
           Bypass ({bypassAccounts.length})

@@ -109,7 +109,7 @@ This section is the behavior contract for UI routes.
 | `/auth/signin` | Start sign-in flow | Shows GitHub sign-in CTA | Same | Sends user to `/api/auth/github?returnTo=...`; `returnTo` is sanitized to internal paths only |
 | `/dashboard` | Mode selector page | Public page | Same + session shown in header | Navigate to `/admin` or `/contributor` |
 | `/admin` | Org admin overview | Shows "Sign in required" card | Lists organizations user can administer; shows install CTA when none are authorized | Install app (`/api/github/install`), open org manage pages |
-| `/admin/[orgSlug]` | Org CLA management | If data unavailable, shows "Organization not found" UI | Shows org details, CLA version, signers, archives, bypass list, branch-protection reminder | Edit/save CLA text, activate/deactivate bot, copy signing link, inspect signers/archives, manage bypass usernames, download current/archived CLA text |
+| `/admin/[orgSlug]` | Org CLA management | If data unavailable, shows "Organization not found" UI | Shows org details, CLA version, signers, archives, bypass list, branch-protection reminder | Edit/save CLA text, activate/deactivate bot, copy signing link, inspect signers/archives, manage bypass usernames, download current/archived CLA text, share tab links via `?tab=cla|signers|archives|bypass` |
 | `/contributor` | Contributor agreement dashboard | Shows "Sign in required" card | Lists signed CLA history grouped by org status | Re-sign prompts for outdated orgs, links to `/sign/[orgSlug]`, download previously signed CLA records |
 | `/sign/[orgSlug]` | CLA read/sign page | Shows sign-in required (or org not found) | Shows signed state, or sign/re-sign workflow | Requires scroll-to-bottom before sign button enables; handles inactive org warning |
 | `/terms` | Legal terms page | Public page | Same | Documents signing/enforcement terms and branch-protection requirement |
@@ -132,6 +132,7 @@ This section amends your scenario list and adds missing scenarios.
 - If signed in and authorized on at least one installed account: user sees the account list and install button.
 - If signed in but authorized on zero installed accounts: user sees install CTA for GitHub App flow.
 - Newly installed accounts start with no CLA text. Maintainers must publish their own CLA before external contributors can sign.
+- Org manage tabs are URL-synced (`/admin/[orgSlug]?tab=...`) so state is shareable and works with browser back/forward navigation.
 
 ### 3) User selects Contributor
 

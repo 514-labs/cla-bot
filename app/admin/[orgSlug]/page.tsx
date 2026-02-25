@@ -8,10 +8,20 @@ import {
   getSignerCountsByClaSha,
   getSignaturesByOrg,
 } from "@/lib/db/queries"
+import { ORG_MANAGE_DEFAULT_TAB, parseOrgManageTab } from "@/lib/admin/org-manage-tabs"
 import { authorizeOrgAccess } from "@/lib/server/org-access"
 
-export default async function OrgManagePage({ params }: { params: Promise<{ orgSlug: string }> }) {
+export default async function OrgManagePage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ orgSlug: string }>
+  searchParams?: Promise<{ tab?: string | string[] }> | { tab?: string | string[] }
+}) {
   const { orgSlug } = await params
+  const query = (await searchParams) ?? {}
+  const rawTab = Array.isArray(query.tab) ? query.tab[0] : query.tab
+  const initialTab = parseOrgManageTab(rawTab) ?? ORG_MANAGE_DEFAULT_TAB
   const access = await authorizeOrgAccess(orgSlug)
 
   if (!access.ok) {
@@ -80,6 +90,7 @@ export default async function OrgManagePage({ params }: { params: Promise<{ orgS
           bypassAccounts={bypassAccounts}
           currentClaMarkdown={org.claText}
           currentClaSha256={org.claTextSha256}
+          initialTab={initialTab}
         />
       </main>
     </div>
