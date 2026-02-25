@@ -24,6 +24,13 @@ import {
   webhookDeliveries,
 } from "./schema"
 import { sha256Hex } from "./sha256"
+import {
+  formatBypassActorLogin,
+  getBypassActorLoginCandidates,
+  normalizeBypassActorSlug,
+  normalizeBypassUsername,
+  type BypassKind,
+} from "@/lib/bypass"
 
 // ---------- Users ----------
 
@@ -182,10 +189,17 @@ export async function getBypassAccountsByOrg(orgId: string) {
     .select()
     .from(orgClaBypassAccounts)
     .where(eq(orgClaBypassAccounts.orgId, orgId))
-    .orderBy(orgClaBypassAccounts.githubUsername)
+    .orderBy(orgClaBypassAccounts.bypassKind, orgClaBypassAccounts.githubUsername)
 }
 
-export async function getBypassAccountByOrgAndGithubId(orgId: string, githubUserId: string) {
+export async function getBypassAccountByOrgAndGithubId(
+  orgId: string,
+  githubUserId: string,
+  bypassKind: BypassKind = "user"
+) {
+  const normalizedGithubUserId = githubUserId.trim()
+  if (!normalizedGithubUserId) return undefined
+
   const db = await ensureDbReady()
   const rows = await db
     .select()
@@ -193,7 +207,8 @@ export async function getBypassAccountByOrgAndGithubId(orgId: string, githubUser
     .where(
       and(
         eq(orgClaBypassAccounts.orgId, orgId),
-        eq(orgClaBypassAccounts.githubUserId, githubUserId)
+        eq(orgClaBypassAccounts.bypassKind, bypassKind),
+        eq(orgClaBypassAccounts.githubUserId, normalizedGithubUserId)
       )
     )
     .limit(1)
@@ -202,10 +217,11 @@ export async function getBypassAccountByOrgAndGithubId(orgId: string, githubUser
 
 export async function getBypassAccountByOrgAndGithubUsername(
   orgId: string,
-  githubUsername: string
+  githubUsername: string,
+  bypassKind: BypassKind = "user"
 ) {
   const db = await ensureDbReady()
-  const normalizedUsername = githubUsername.trim().toLowerCase()
+  const normalizedUsername = normalizeBypassUsername(githubUsername)
   if (!normalizedUsername) return undefined
 
   const rows = await db
@@ -214,7 +230,27 @@ export async function getBypassAccountByOrgAndGithubUsername(
     .where(
       and(
         eq(orgClaBypassAccounts.orgId, orgId),
+        eq(orgClaBypassAccounts.bypassKind, bypassKind),
         sql`lower(${orgClaBypassAccounts.githubUsername}) = ${normalizedUsername}`
+      )
+    )
+    .limit(1)
+  return rows[0] ?? undefined
+}
+
+export async function getBypassAccountByOrgAndActorSlug(orgId: string, actorSlug: string) {
+  const db = await ensureDbReady()
+  const normalizedActorSlug = normalizeBypassActorSlug(actorSlug)
+  if (!normalizedActorSlug) return undefined
+
+  const rows = await db
+    .select()
+    .from(orgClaBypassAccounts)
+    .where(
+      and(
+        eq(orgClaBypassAccounts.orgId, orgId),
+        eq(orgClaBypassAccounts.bypassKind, "app_bot"),
+        sql`lower(${orgClaBypassAccounts.actorSlug}) = ${normalizedActorSlug}`
       )
     )
     .limit(1)
@@ -232,37 +268,54 @@ export async function countBypassAccountsByOrg(orgId: string) {
 
 export async function addBypassAccount(data: {
   orgId: string
-  githubUserId: string
-  githubUsername: string
+  bypassKind: BypassKind
+  githubUserId?: string
+  githubUsername?: string
+  actorSlug?: string
   createdByUserId: string
 }) {
+  const bypassKind = data.bypassKind
+  const normalizedGithubUsername = normalizeBypassUsername(data.githubUsername ?? "")
+  const normalizedGithubUserId = data.githubUserId?.trim() ?? ""
+  const normalizedActorSlug = normalizeBypassActorSlug(data.actorSlug ?? data.githubUsername ?? "")
+
+  if (bypassKind === "user" && (!normalizedGithubUserId || !normalizedGithubUsername)) {
+    return undefined
+  }
+  if (bypassKind === "app_bot" && !normalizedActorSlug) {
+    return undefined
+  }
+
   const db = await ensureDbReady()
   const rows = await db
     .insert(orgClaBypassAccounts)
     .values({
       id: `bypass_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       orgId: data.orgId,
-      githubUserId: data.githubUserId,
-      githubUsername: data.githubUsername,
+      bypassKind,
+      githubUserId: bypassKind === "user" ? normalizedGithubUserId : null,
+      githubUsername:
+        bypassKind === "user"
+          ? normalizedGithubUsername
+          : normalizedGithubUsername || formatBypassActorLogin(normalizedActorSlug),
+      actorSlug: bypassKind === "app_bot" ? normalizedActorSlug : null,
       createdByUserId: data.createdByUserId,
       createdAt: new Date().toISOString(),
     })
-    .onConflictDoNothing({
-      target: [orgClaBypassAccounts.orgId, orgClaBypassAccounts.githubUserId],
-    })
+    .onConflictDoNothing()
     .returning()
 
   return rows[0] ?? undefined
 }
 
-export async function removeBypassAccount(params: { orgId: string; githubUserId: string }) {
+export async function removeBypassAccount(params: { orgId: string; bypassAccountId: string }) {
   const db = await ensureDbReady()
   const rows = await db
     .delete(orgClaBypassAccounts)
     .where(
       and(
         eq(orgClaBypassAccounts.orgId, params.orgId),
-        eq(orgClaBypassAccounts.githubUserId, params.githubUserId)
+        eq(orgClaBypassAccounts.id, params.bypassAccountId)
       )
     )
     .returning()
@@ -284,13 +337,30 @@ export async function isBypassAccountForOrg(params: {
   }
 
   const normalizedGithubUsername =
-    typeof params.githubUsername === "string" ? params.githubUsername.trim() : ""
+    typeof params.githubUsername === "string" ? normalizeBypassUsername(params.githubUsername) : ""
   if (normalizedGithubUsername) {
     const byUsername = await getBypassAccountByOrgAndGithubUsername(
       params.orgId,
-      normalizedGithubUsername
+      normalizedGithubUsername,
+      "user"
     )
     if (byUsername) return byUsername
+
+    const byActorSlug = await getBypassAccountByOrgAndActorSlug(
+      params.orgId,
+      normalizedGithubUsername
+    )
+    if (byActorSlug) return byActorSlug
+
+    const actorLoginCandidates = getBypassActorLoginCandidates(normalizedGithubUsername)
+    for (const actorLoginCandidate of actorLoginCandidates) {
+      const byActorLogin = await getBypassAccountByOrgAndGithubUsername(
+        params.orgId,
+        actorLoginCandidate,
+        "app_bot"
+      )
+      if (byActorLogin) return byActorLogin
+    }
   }
 
   return null

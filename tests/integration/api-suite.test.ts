@@ -103,29 +103,63 @@ async function setOrgActiveForTest(orgSlug: string, isActive: boolean) {
 
 async function addBypassAccountForOrg(params: {
   orgSlug: string
-  githubUserId: string
+  bypassKind?: "user" | "app_bot"
+  githubUserId?: string
   githubUsername: string
+  actorSlug?: string
 }) {
-  const rows = await sql`
-    INSERT INTO org_cla_bypass_accounts (id, org_id, github_user_id, github_username, created_by_user_id, created_at)
-    SELECT ${`bypass_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`}, id, ${params.githubUserId}, ${params.githubUsername}, 'user_1', NOW()::text
-    FROM organizations
-    WHERE github_org_slug = ${params.orgSlug}
-    ON CONFLICT (org_id, github_user_id) DO NOTHING
-    RETURNING id
-  `
+  const bypassKind = params.bypassKind ?? "user"
+  const githubUserId = params.githubUserId ?? null
+  const actorSlug = params.actorSlug ?? null
+
+  const rows =
+    bypassKind === "app_bot"
+      ? await sql`
+          INSERT INTO org_cla_bypass_accounts (id, org_id, bypass_kind, github_user_id, github_username, actor_slug, created_by_user_id, created_at)
+          SELECT ${`bypass_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`}, id, 'app_bot', ${null}, ${params.githubUsername}, ${actorSlug}, 'user_1', NOW()::text
+          FROM organizations
+          WHERE github_org_slug = ${params.orgSlug}
+          ON CONFLICT (org_id, bypass_kind, actor_slug) DO NOTHING
+          RETURNING id
+        `
+      : await sql`
+          INSERT INTO org_cla_bypass_accounts (id, org_id, bypass_kind, github_user_id, github_username, actor_slug, created_by_user_id, created_at)
+          SELECT ${`bypass_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`}, id, 'user', ${githubUserId}, ${params.githubUsername}, ${null}, 'user_1', NOW()::text
+          FROM organizations
+          WHERE github_org_slug = ${params.orgSlug}
+          ON CONFLICT (org_id, bypass_kind, github_user_id) DO NOTHING
+          RETURNING id
+        `
   assert(rows.length > 0, `bypass account inserted for ${params.orgSlug}`)
 }
 
-async function removeBypassAccountForOrg(params: { orgSlug: string; githubUserId: string }) {
-  const rows = await sql`
-    DELETE FROM org_cla_bypass_accounts
-    WHERE org_id = (
-      SELECT id FROM organizations WHERE github_org_slug = ${params.orgSlug}
-    )
-      AND github_user_id = ${params.githubUserId}
-    RETURNING id
-  `
+async function removeBypassAccountForOrg(params: {
+  orgSlug: string
+  bypassKind?: "user" | "app_bot"
+  githubUserId?: string
+  actorSlug?: string
+}) {
+  const bypassKind = params.bypassKind ?? "user"
+  const rows =
+    bypassKind === "app_bot"
+      ? await sql`
+          DELETE FROM org_cla_bypass_accounts
+          WHERE org_id = (
+            SELECT id FROM organizations WHERE github_org_slug = ${params.orgSlug}
+          )
+            AND bypass_kind = 'app_bot'
+            AND actor_slug = ${params.actorSlug ?? null}
+          RETURNING id
+        `
+      : await sql`
+          DELETE FROM org_cla_bypass_accounts
+          WHERE org_id = (
+            SELECT id FROM organizations WHERE github_org_slug = ${params.orgSlug}
+          )
+            AND bypass_kind = 'user'
+            AND github_user_id = ${params.githubUserId ?? null}
+          RETURNING id
+        `
   assert(rows.length > 0, `bypass account removed for ${params.orgSlug}`)
 }
 
@@ -1025,6 +1059,31 @@ test("Webhook: bypassed user opens PR -> green check, no CLA comment", async (ba
   assertEqual(data.check.status, "success", "check passes for bypassed user")
   assertEqual(data.bypassed, true, "response flags bypass")
   assertEqual(data.comment, null, "no CLA comment posted for bypassed user")
+})
+
+test("Webhook: bypassed app bot opens PR -> green check, no CLA comment", async (baseUrl) => {
+  await resetDb(baseUrl)
+  await addBypassAccountForOrg({
+    orgSlug: "fiveonefour",
+    bypassKind: "app_bot",
+    actorSlug: "dependabot",
+    githubUsername: "dependabot[bot]",
+  })
+
+  const { data } = await sendWebhook(
+    baseUrl,
+    "pull_request",
+    makePrPayload({
+      action: "opened",
+      prAuthor: "dependabot[bot]",
+      orgSlug: "fiveonefour",
+      repoName: "sdk",
+      prNumber: 112,
+    })
+  )
+  assertEqual(data.check.status, "success", "check passes for bypassed app bot")
+  assertEqual(data.bypassed, true, "response flags bypass")
+  assertEqual(data.comment, null, "no CLA comment posted for bypassed app bot")
 })
 
 test("Webhook: adding bypass then /recheck removes stale CLA comment", async (baseUrl) => {

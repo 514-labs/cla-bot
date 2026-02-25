@@ -8,7 +8,9 @@ import {
   addBypassAccount,
   countBypassAccountsByOrg,
   createAuditEvent,
+  getBypassAccountByOrgAndActorSlug,
   getBypassAccountByOrgAndGithubId,
+  getBypassAccountByOrgAndGithubUsername,
   removeBypassAccount,
   setOrganizationActive,
   updateOrganizationCla,
@@ -16,6 +18,7 @@ import {
 import { authorizeOrgAccess } from "@/lib/server/org-access"
 import { getBaseUrlFromHeaders } from "@/lib/cla/signing"
 import { runClaRecheckWorkflow } from "@/workflows/cla-recheck"
+import { formatBypassActorLogin, normalizeBypassActorSlug } from "@/lib/bypass"
 
 const MAX_ORG_BYPASS_ACCOUNTS = 50
 
@@ -31,13 +34,28 @@ const toggleActiveSchema = z.object({
 
 const addBypassSchema = z.object({
   orgSlug: z.string().min(1),
+})
+
+const addUserBypassSchema = addBypassSchema.extend({
+  bypassKind: z.literal("user"),
   githubUserId: z.string().trim().min(1, "GitHub user is required"),
   githubUsername: z.string().trim().min(1, "GitHub username is required"),
 })
 
+const addAppBotBypassSchema = addBypassSchema.extend({
+  bypassKind: z.literal("app_bot"),
+  actorSlug: z.string().trim().min(1, "App or bot slug is required"),
+  githubUsername: z.string().trim().optional(),
+})
+
+const addBypassInputSchema = z.discriminatedUnion("bypassKind", [
+  addUserBypassSchema,
+  addAppBotBypassSchema,
+])
+
 const removeBypassSchema = z.object({
   orgSlug: z.string().min(1),
-  githubUserId: z.string().trim().min(1, "GitHub user ID is required"),
+  bypassAccountId: z.string().trim().min(1, "Bypass account ID is required"),
 })
 
 type ActionResult = {
@@ -152,20 +170,15 @@ export async function toggleOrganizationActiveAction(input: unknown): Promise<Ac
 }
 
 export async function addBypassAccountAction(input: unknown): Promise<ActionResult> {
-  const parsed = addBypassSchema.safeParse(input)
+  const parsed = addBypassInputSchema.safeParse(input)
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" }
   }
 
-  const { orgSlug, githubUserId, githubUsername } = parsed.data
+  const { orgSlug } = parsed.data
   const access = await authorizeOrgAccess(orgSlug)
   if (!access.ok) {
     return { ok: false, error: access.message }
-  }
-
-  const existing = await getBypassAccountByOrgAndGithubId(access.org.id, githubUserId)
-  if (existing) {
-    return { ok: false, error: `@${existing.githubUsername} is already on the bypass list` }
   }
 
   const count = await countBypassAccountsByOrg(access.org.id)
@@ -173,12 +186,72 @@ export async function addBypassAccountAction(input: unknown): Promise<ActionResu
     return { ok: false, error: `Bypass list limit reached (${MAX_ORG_BYPASS_ACCOUNTS})` }
   }
 
-  const created = await addBypassAccount({
-    orgId: access.org.id,
-    githubUserId,
-    githubUsername,
-    createdByUserId: access.user.id,
-  })
+  let created: Awaited<ReturnType<typeof addBypassAccount>> | undefined | null = null
+  let payload: Record<string, unknown> = {}
+
+  if (parsed.data.bypassKind === "user") {
+    const { githubUserId, githubUsername } = parsed.data
+    const existingById = await getBypassAccountByOrgAndGithubId(access.org.id, githubUserId, "user")
+    if (existingById) {
+      return { ok: false, error: `@${existingById.githubUsername} is already on the bypass list` }
+    }
+
+    const existingByUsername = await getBypassAccountByOrgAndGithubUsername(
+      access.org.id,
+      githubUsername,
+      "user"
+    )
+    if (existingByUsername) {
+      return {
+        ok: false,
+        error: `@${existingByUsername.githubUsername} is already on the bypass list`,
+      }
+    }
+
+    created = await addBypassAccount({
+      orgId: access.org.id,
+      bypassKind: "user",
+      githubUserId,
+      githubUsername,
+      createdByUserId: access.user.id,
+    })
+    payload = {
+      bypassKind: "user",
+      githubUserId,
+      githubUsername,
+    }
+  } else {
+    const normalizedActorSlug = normalizeBypassActorSlug(parsed.data.actorSlug)
+    if (!normalizedActorSlug) {
+      return { ok: false, error: "App or bot slug is required" }
+    }
+    const actorLogin = formatBypassActorLogin(normalizedActorSlug)
+
+    const existingByActorSlug = await getBypassAccountByOrgAndActorSlug(
+      access.org.id,
+      normalizedActorSlug
+    )
+    if (existingByActorSlug) {
+      return {
+        ok: false,
+        error: `@${existingByActorSlug.githubUsername} is already on the app/bot bypass list`,
+      }
+    }
+
+    created = await addBypassAccount({
+      orgId: access.org.id,
+      bypassKind: "app_bot",
+      actorSlug: normalizedActorSlug,
+      githubUsername: actorLogin,
+      createdByUserId: access.user.id,
+    })
+    payload = {
+      bypassKind: "app_bot",
+      actorSlug: normalizedActorSlug,
+      githubUsername: actorLogin,
+    }
+  }
+
   if (!created) {
     return { ok: false, error: "Bypass account already exists" }
   }
@@ -204,8 +277,8 @@ export async function addBypassAccountAction(input: unknown): Promise<ActionResu
     actorGithubId: access.user.githubId ?? null,
     actorGithubUsername: access.user.githubUsername,
     payload: {
-      githubUserId,
-      githubUsername,
+      bypassAccountId: created.id,
+      ...payload,
       recheckScheduled: recheck.recheckScheduled,
       recheckRunId: recheck.recheckRunId,
       recheckScheduleError: recheck.recheckScheduleError,
@@ -224,7 +297,7 @@ export async function removeBypassAccountAction(input: unknown): Promise<ActionR
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" }
   }
 
-  const { orgSlug, githubUserId } = parsed.data
+  const { orgSlug, bypassAccountId } = parsed.data
   const access = await authorizeOrgAccess(orgSlug)
   if (!access.ok) {
     return { ok: false, error: access.message }
@@ -232,7 +305,7 @@ export async function removeBypassAccountAction(input: unknown): Promise<ActionR
 
   const removed = await removeBypassAccount({
     orgId: access.org.id,
-    githubUserId,
+    bypassAccountId,
   })
   if (!removed) {
     return { ok: false, error: "Bypass account not found" }
@@ -259,6 +332,9 @@ export async function removeBypassAccountAction(input: unknown): Promise<ActionR
     actorGithubId: access.user.githubId ?? null,
     actorGithubUsername: access.user.githubUsername,
     payload: {
+      bypassAccountId: removed.id,
+      bypassKind: removed.bypassKind,
+      actorSlug: removed.actorSlug,
       githubUserId: removed.githubUserId,
       githubUsername: removed.githubUsername,
       recheckScheduled: recheck.recheckScheduled,

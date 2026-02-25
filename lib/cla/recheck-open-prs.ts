@@ -114,6 +114,10 @@ export async function recheckOpenPullRequestsAfterClaUpdate(params: {
         githubUsername: pr.authorLogin,
       })
       if (bypassAccount) {
+        const bypassSummary =
+          bypassAccount.bypassKind === "app_bot"
+            ? `@${pr.authorLogin} matched app/bot bypass @${bypassAccount.githubUsername} for @${params.orgSlug}.`
+            : `@${pr.authorLogin} is on the CLA bypass list for @${params.orgSlug}.`
         await github.createCheckRun({
           owner: params.orgSlug,
           repo: pr.repoName,
@@ -123,7 +127,7 @@ export async function recheckOpenPullRequestsAfterClaUpdate(params: {
           conclusion: "success",
           output: {
             title: "CLA: Bypassed",
-            summary: `@${pr.authorLogin} is on the CLA bypass list for @${params.orgSlug}.`,
+            summary: bypassSummary,
           },
         })
         summary.passedBypassChecks += 1

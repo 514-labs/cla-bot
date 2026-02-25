@@ -22,6 +22,13 @@
       "when": 1771988475316,
       "tag": "0002_loud_speed",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1771999042524,
+      "tag": "0003_familiar_rogue",
+      "breakpoints": true
     }
   ]
 }

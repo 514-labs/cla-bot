@@ -65,16 +65,29 @@ type ManagedOrg = {
 
 type BypassAccount = {
   id: string
-  githubUserId: string
+  bypassKind: string
+  githubUserId: string | null
   githubUsername: string
+  actorSlug: string | null
   createdAt: string
 }
 
-type BypassSuggestion = {
+type UserBypassSuggestion = {
+  kind: "user"
   githubUserId: string
   githubUsername: string
   avatarUrl: string
   type: "User" | "Organization" | "Bot"
+  alreadyBypassed: boolean
+}
+
+type AppBotBypassSuggestion = {
+  kind: "app_bot"
+  actorSlug: string
+  githubUsername: string
+  avatarUrl: string
+  type: "Bot"
+  source: "github" | "manual"
   alreadyBypassed: boolean
 }
 
@@ -112,14 +125,24 @@ export function OrgManageClient({
   const [saved, setSaved] = useState(false)
   const [copied, setCopied] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [bypassQuery, setBypassQuery] = useState("")
-  const [selectedBypassSuggestion, setSelectedBypassSuggestion] = useState<BypassSuggestion | null>(
-    null
+  const [userBypassQuery, setUserBypassQuery] = useState("")
+  const [selectedUserBypassSuggestion, setSelectedUserBypassSuggestion] =
+    useState<UserBypassSuggestion | null>(null)
+  const [userBypassSuggestions, setUserBypassSuggestions] = useState<UserBypassSuggestion[]>([])
+  const [highlightedUserBypassSuggestionIndex, setHighlightedUserBypassSuggestionIndex] =
+    useState(-1)
+  const [isSearchingUserBypass, setIsSearchingUserBypass] = useState(false)
+  const [userBypassSuggestError, setUserBypassSuggestError] = useState<string | null>(null)
+  const [appBotBypassQuery, setAppBotBypassQuery] = useState("")
+  const [selectedAppBotBypassSuggestion, setSelectedAppBotBypassSuggestion] =
+    useState<AppBotBypassSuggestion | null>(null)
+  const [appBotBypassSuggestions, setAppBotBypassSuggestions] = useState<AppBotBypassSuggestion[]>(
+    []
   )
-  const [bypassSuggestions, setBypassSuggestions] = useState<BypassSuggestion[]>([])
-  const [highlightedBypassSuggestionIndex, setHighlightedBypassSuggestionIndex] = useState(-1)
-  const [isSearchingBypass, setIsSearchingBypass] = useState(false)
-  const [bypassSuggestError, setBypassSuggestError] = useState<string | null>(null)
+  const [highlightedAppBotBypassSuggestionIndex, setHighlightedAppBotBypassSuggestionIndex] =
+    useState(-1)
+  const [isSearchingAppBotBypass, setIsSearchingAppBotBypass] = useState(false)
+  const [appBotBypassSuggestError, setAppBotBypassSuggestError] = useState<string | null>(null)
   const [bypassNotice, setBypassNotice] = useState<{
     tone: "success" | "warning"
     message: string
@@ -142,6 +165,14 @@ export function OrgManageClient({
       signers.filter((signature) => !currentClaSha256 || signature.claSha256 !== currentClaSha256),
     [signers, currentClaSha256]
   )
+  const userBypassAccounts = useMemo(
+    () => bypassAccounts.filter((entry) => entry.bypassKind === "user"),
+    [bypassAccounts]
+  )
+  const appBotBypassAccounts = useMemo(
+    () => bypassAccounts.filter((entry) => entry.bypassKind === "app_bot"),
+    [bypassAccounts]
+  )
   const hasConfiguredCla = Boolean(currentClaSha256 && currentClaMarkdown.trim().length > 0)
   const isMutating = isSaving || isTogglingActive || isAddingBypass || isRemovingBypass
   const effectiveClaEditViewMode: ClaEditViewMode =
@@ -155,24 +186,22 @@ export function OrgManageClient({
   useEffect(() => {
     if (activeTab !== "bypass") return
 
-    const normalizedQuery = bypassQuery.trim().replace(/^@/, "")
+    const normalizedQuery = userBypassQuery.trim().replace(/^@/, "")
     if (normalizedQuery.length < 2) {
-      setBypassSuggestions([])
-      setBypassSuggestError(null)
-      setHighlightedBypassSuggestionIndex(-1)
-      setIsSearchingBypass(false)
+      setUserBypassSuggestions([])
+      setUserBypassSuggestError(null)
+      setHighlightedUserBypassSuggestionIndex(-1)
+      setIsSearchingUserBypass(false)
       return
     }
 
     const controller = new AbortController()
     const timer = window.setTimeout(async () => {
-      setIsSearchingBypass(true)
-      setBypassSuggestError(null)
+      setIsSearchingUserBypass(true)
+      setUserBypassSuggestError(null)
       try {
         const response = await fetch(
-          `/api/admin/orgs/${encodeURIComponent(org.githubOrgSlug)}/bypass/suggest?q=${encodeURIComponent(
-            normalizedQuery
-          )}`,
+          `/api/admin/orgs/${encodeURIComponent(org.githubOrgSlug)}/bypass/suggest?kind=user&q=${encodeURIComponent(normalizedQuery)}`,
           {
             method: "GET",
             signal: controller.signal,
@@ -181,24 +210,24 @@ export function OrgManageClient({
 
         const payload = (await response.json()) as {
           error?: string
-          suggestions?: BypassSuggestion[]
+          suggestions?: UserBypassSuggestion[]
         }
         if (!response.ok) {
-          setBypassSuggestions([])
-          setBypassSuggestError(payload.error ?? "Failed to load suggestions")
-          setHighlightedBypassSuggestionIndex(-1)
+          setUserBypassSuggestions([])
+          setUserBypassSuggestError(payload.error ?? "Failed to load suggestions")
+          setHighlightedUserBypassSuggestionIndex(-1)
           return
         }
         const suggestions = Array.isArray(payload.suggestions) ? payload.suggestions : []
-        setBypassSuggestions(suggestions)
-        setHighlightedBypassSuggestionIndex(suggestions.length > 0 ? 0 : -1)
+        setUserBypassSuggestions(suggestions)
+        setHighlightedUserBypassSuggestionIndex(suggestions.length > 0 ? 0 : -1)
       } catch (fetchError) {
         if ((fetchError as Error).name === "AbortError") return
-        setBypassSuggestions([])
-        setBypassSuggestError("Failed to load suggestions")
-        setHighlightedBypassSuggestionIndex(-1)
+        setUserBypassSuggestions([])
+        setUserBypassSuggestError("Failed to load suggestions")
+        setHighlightedUserBypassSuggestionIndex(-1)
       } finally {
-        setIsSearchingBypass(false)
+        setIsSearchingUserBypass(false)
       }
     }, 300)
 
@@ -206,7 +235,61 @@ export function OrgManageClient({
       window.clearTimeout(timer)
       controller.abort()
     }
-  }, [activeTab, bypassQuery, org.githubOrgSlug])
+  }, [activeTab, userBypassQuery, org.githubOrgSlug])
+
+  useEffect(() => {
+    if (activeTab !== "bypass") return
+
+    const normalizedQuery = appBotBypassQuery.trim().replace(/^@/, "")
+    if (normalizedQuery.length < 2) {
+      setAppBotBypassSuggestions([])
+      setAppBotBypassSuggestError(null)
+      setHighlightedAppBotBypassSuggestionIndex(-1)
+      setIsSearchingAppBotBypass(false)
+      return
+    }
+
+    const controller = new AbortController()
+    const timer = window.setTimeout(async () => {
+      setIsSearchingAppBotBypass(true)
+      setAppBotBypassSuggestError(null)
+      try {
+        const response = await fetch(
+          `/api/admin/orgs/${encodeURIComponent(org.githubOrgSlug)}/bypass/suggest?kind=app_bot&q=${encodeURIComponent(normalizedQuery)}`,
+          {
+            method: "GET",
+            signal: controller.signal,
+          }
+        )
+
+        const payload = (await response.json()) as {
+          error?: string
+          suggestions?: AppBotBypassSuggestion[]
+        }
+        if (!response.ok) {
+          setAppBotBypassSuggestions([])
+          setAppBotBypassSuggestError(payload.error ?? "Failed to load suggestions")
+          setHighlightedAppBotBypassSuggestionIndex(-1)
+          return
+        }
+        const suggestions = Array.isArray(payload.suggestions) ? payload.suggestions : []
+        setAppBotBypassSuggestions(suggestions)
+        setHighlightedAppBotBypassSuggestionIndex(suggestions.length > 0 ? 0 : -1)
+      } catch (fetchError) {
+        if ((fetchError as Error).name === "AbortError") return
+        setAppBotBypassSuggestions([])
+        setAppBotBypassSuggestError("Failed to load suggestions")
+        setHighlightedAppBotBypassSuggestionIndex(-1)
+      } finally {
+        setIsSearchingAppBotBypass(false)
+      }
+    }, 300)
+
+    return () => {
+      window.clearTimeout(timer)
+      controller.abort()
+    }
+  }, [activeTab, appBotBypassQuery, org.githubOrgSlug])
 
   function handleSave() {
     startSaveTransition(async () => {
@@ -268,8 +351,8 @@ export function OrgManageClient({
     router.push(buildTabHref(nextTab), { scroll: false })
   }
 
-  function handleAddBypassAccount(suggestionOverride?: BypassSuggestion) {
-    const suggestionToAdd = suggestionOverride ?? selectedBypassSuggestion
+  function handleAddUserBypassAccount(suggestionOverride?: UserBypassSuggestion) {
+    const suggestionToAdd = suggestionOverride ?? selectedUserBypassSuggestion
     if (!suggestionToAdd) {
       setError("Select a user from suggestions before adding to bypass")
       return
@@ -280,6 +363,7 @@ export function OrgManageClient({
       setBypassNotice(null)
       const result = await addBypassAccountAction({
         orgSlug: org.githubOrgSlug,
+        bypassKind: "user",
         githubUserId: suggestionToAdd.githubUserId,
         githubUsername: suggestionToAdd.githubUsername,
       })
@@ -289,41 +373,78 @@ export function OrgManageClient({
         return
       }
 
-      setBypassQuery("")
-      setSelectedBypassSuggestion(null)
-      setBypassSuggestions([])
-      setHighlightedBypassSuggestionIndex(-1)
-      setBypassSuggestError(null)
+      setUserBypassQuery("")
+      setSelectedUserBypassSuggestion(null)
+      setUserBypassSuggestions([])
+      setHighlightedUserBypassSuggestionIndex(-1)
+      setUserBypassSuggestError(null)
       setBypassNotice({
         tone: result.recheckScheduleError ? "warning" : "success",
         message: result.recheckScheduleError
-          ? "Bypass account added, but open PR recheck scheduling failed."
-          : "Bypass account added. Open PR checks/comments are updating in the background.",
+          ? "Bypass user added, but open PR recheck scheduling failed."
+          : "Bypass user added. Open PR checks/comments are updating in the background.",
       })
       router.refresh()
     })
   }
 
-  function handleBypassQueryKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
+  function handleAddAppBotBypassAccount(suggestionOverride?: AppBotBypassSuggestion) {
+    const suggestionToAdd = suggestionOverride ?? selectedAppBotBypassSuggestion
+    if (!suggestionToAdd) {
+      setError("Select an app or bot from suggestions before adding to bypass")
+      return
+    }
+
+    startAddBypassTransition(async () => {
+      setError(null)
+      setBypassNotice(null)
+      const result = await addBypassAccountAction({
+        orgSlug: org.githubOrgSlug,
+        bypassKind: "app_bot",
+        actorSlug: suggestionToAdd.actorSlug,
+        githubUsername: suggestionToAdd.githubUsername,
+      })
+
+      if (!result.ok) {
+        setError(result.error ?? "Failed to add bypass app/bot")
+        return
+      }
+
+      setAppBotBypassQuery("")
+      setSelectedAppBotBypassSuggestion(null)
+      setAppBotBypassSuggestions([])
+      setHighlightedAppBotBypassSuggestionIndex(-1)
+      setAppBotBypassSuggestError(null)
+      setBypassNotice({
+        tone: result.recheckScheduleError ? "warning" : "success",
+        message: result.recheckScheduleError
+          ? "Bypass app/bot added, but open PR recheck scheduling failed."
+          : "Bypass app/bot added. Open PR checks/comments are updating in the background.",
+      })
+      router.refresh()
+    })
+  }
+
+  function handleUserBypassQueryKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
     if (event.key === "ArrowDown") {
-      if (bypassSuggestions.length === 0) return
+      if (userBypassSuggestions.length === 0) return
       event.preventDefault()
       const nextIndex =
-        highlightedBypassSuggestionIndex < 0
+        highlightedUserBypassSuggestionIndex < 0
           ? 0
-          : Math.min(highlightedBypassSuggestionIndex + 1, bypassSuggestions.length - 1)
-      setHighlightedBypassSuggestionIndex(nextIndex)
-      setSelectedBypassSuggestion(bypassSuggestions[nextIndex] ?? null)
+          : Math.min(highlightedUserBypassSuggestionIndex + 1, userBypassSuggestions.length - 1)
+      setHighlightedUserBypassSuggestionIndex(nextIndex)
+      setSelectedUserBypassSuggestion(userBypassSuggestions[nextIndex] ?? null)
       return
     }
 
     if (event.key === "ArrowUp") {
-      if (bypassSuggestions.length === 0) return
+      if (userBypassSuggestions.length === 0) return
       event.preventDefault()
       const nextIndex =
-        highlightedBypassSuggestionIndex <= 0 ? 0 : highlightedBypassSuggestionIndex - 1
-      setHighlightedBypassSuggestionIndex(nextIndex)
-      setSelectedBypassSuggestion(bypassSuggestions[nextIndex] ?? null)
+        highlightedUserBypassSuggestionIndex <= 0 ? 0 : highlightedUserBypassSuggestionIndex - 1
+      setHighlightedUserBypassSuggestionIndex(nextIndex)
+      setSelectedUserBypassSuggestion(userBypassSuggestions[nextIndex] ?? null)
       return
     }
 
@@ -331,15 +452,53 @@ export function OrgManageClient({
     if (isMutating) return
 
     const highlightedSuggestion =
-      highlightedBypassSuggestionIndex >= 0
-        ? (bypassSuggestions[highlightedBypassSuggestionIndex] ?? null)
+      highlightedUserBypassSuggestionIndex >= 0
+        ? (userBypassSuggestions[highlightedUserBypassSuggestionIndex] ?? null)
         : null
 
-    const suggestionToAdd = highlightedSuggestion ?? selectedBypassSuggestion
+    const suggestionToAdd = highlightedSuggestion ?? selectedUserBypassSuggestion
     if (!suggestionToAdd) return
 
     event.preventDefault()
-    handleAddBypassAccount(suggestionToAdd)
+    handleAddUserBypassAccount(suggestionToAdd)
+  }
+
+  function handleAppBotBypassQueryKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
+    if (event.key === "ArrowDown") {
+      if (appBotBypassSuggestions.length === 0) return
+      event.preventDefault()
+      const nextIndex =
+        highlightedAppBotBypassSuggestionIndex < 0
+          ? 0
+          : Math.min(highlightedAppBotBypassSuggestionIndex + 1, appBotBypassSuggestions.length - 1)
+      setHighlightedAppBotBypassSuggestionIndex(nextIndex)
+      setSelectedAppBotBypassSuggestion(appBotBypassSuggestions[nextIndex] ?? null)
+      return
+    }
+
+    if (event.key === "ArrowUp") {
+      if (appBotBypassSuggestions.length === 0) return
+      event.preventDefault()
+      const nextIndex =
+        highlightedAppBotBypassSuggestionIndex <= 0 ? 0 : highlightedAppBotBypassSuggestionIndex - 1
+      setHighlightedAppBotBypassSuggestionIndex(nextIndex)
+      setSelectedAppBotBypassSuggestion(appBotBypassSuggestions[nextIndex] ?? null)
+      return
+    }
+
+    if (event.key !== "Enter") return
+    if (isMutating) return
+
+    const highlightedSuggestion =
+      highlightedAppBotBypassSuggestionIndex >= 0
+        ? (appBotBypassSuggestions[highlightedAppBotBypassSuggestionIndex] ?? null)
+        : null
+
+    const suggestionToAdd = highlightedSuggestion ?? selectedAppBotBypassSuggestion
+    if (!suggestionToAdd) return
+
+    event.preventDefault()
+    handleAddAppBotBypassAccount(suggestionToAdd)
   }
 
   function handleRemoveBypassAccount(account: BypassAccount) {
@@ -348,7 +507,7 @@ export function OrgManageClient({
       setBypassNotice(null)
       const result = await removeBypassAccountAction({
         orgSlug: org.githubOrgSlug,
-        githubUserId: account.githubUserId,
+        bypassAccountId: account.id,
       })
 
       if (!result.ok) {
@@ -995,13 +1154,13 @@ export function OrgManageClient({
       {activeTab === "bypass" && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Bypass Accounts</CardTitle>
+            <CardTitle className="text-base">Bypass Rules</CardTitle>
             <CardDescription>
-              Users on this list bypass CLA enforcement for this org. Their PR CLA check is marked
-              as passed automatically.
+              Accounts and automation actors on these lists bypass CLA enforcement for this org.
+              Their PR CLA check is marked as passed automatically.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-5">
             {bypassNotice && (
               <div
                 className={`rounded-lg border px-4 py-3 text-sm ${
@@ -1015,59 +1174,59 @@ export function OrgManageClient({
             )}
 
             <div className="rounded-lg border bg-secondary/30 p-4">
-              <label
-                htmlFor="bypass-query"
-                className="mb-2 block text-xs font-medium uppercase tracking-wider text-muted-foreground"
-              >
-                Add Bypass Account
-              </label>
+              <div className="mb-3 flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-foreground">Bypass Users</h3>
+                <Badge variant="outline">{userBypassAccounts.length}</Badge>
+              </div>
               <div className="flex flex-col gap-2 sm:flex-row">
                 <div className="relative flex-1">
                   <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <input
-                    id="bypass-query"
-                    value={bypassQuery}
+                    id="bypass-user-query"
+                    value={userBypassQuery}
                     onChange={(event) => {
-                      setBypassQuery(event.target.value)
-                      setSelectedBypassSuggestion(null)
-                      setHighlightedBypassSuggestionIndex(-1)
+                      setUserBypassQuery(event.target.value)
+                      setSelectedUserBypassSuggestion(null)
+                      setHighlightedUserBypassSuggestionIndex(-1)
                       setBypassNotice(null)
                     }}
-                    onKeyDown={handleBypassQueryKeyDown}
+                    onKeyDown={handleUserBypassQueryKeyDown}
                     placeholder="Search GitHub username..."
                     className="h-10 w-full rounded-md border bg-background pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                   />
 
-                  {(isSearchingBypass ||
-                    bypassSuggestions.length > 0 ||
-                    bypassSuggestError ||
-                    bypassQuery.trim().replace(/^@/, "").length >= 2) && (
+                  {(isSearchingUserBypass ||
+                    userBypassSuggestions.length > 0 ||
+                    userBypassSuggestError ||
+                    userBypassQuery.trim().replace(/^@/, "").length >= 2) && (
                     <div className="absolute z-10 mt-2 max-h-64 w-full overflow-auto rounded-md border bg-popover shadow-lg">
-                      {isSearchingBypass ? (
+                      {isSearchingUserBypass ? (
                         <div className="px-3 py-2 text-sm text-muted-foreground">Searching...</div>
-                      ) : bypassSuggestError ? (
+                      ) : userBypassSuggestError ? (
                         <div className="px-3 py-2 text-sm text-destructive">
-                          {bypassSuggestError}
+                          {userBypassSuggestError}
                         </div>
-                      ) : bypassSuggestions.length === 0 ? (
+                      ) : userBypassSuggestions.length === 0 ? (
                         <div className="px-3 py-2 text-sm text-muted-foreground">
                           No GitHub users found.
                         </div>
                       ) : (
                         <ul>
-                          {bypassSuggestions.map((suggestion, index) => (
+                          {userBypassSuggestions.map((suggestion, index) => (
                             <li key={suggestion.githubUserId}>
                               <button
                                 type="button"
                                 className={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm transition-colors hover:bg-secondary ${
-                                  index === highlightedBypassSuggestionIndex ? "bg-secondary" : ""
+                                  index === highlightedUserBypassSuggestionIndex
+                                    ? "bg-secondary"
+                                    : ""
                                 }`}
-                                onMouseEnter={() => setHighlightedBypassSuggestionIndex(index)}
+                                onMouseEnter={() => setHighlightedUserBypassSuggestionIndex(index)}
                                 onClick={() => {
-                                  setSelectedBypassSuggestion(suggestion)
-                                  setBypassQuery(suggestion.githubUsername)
-                                  setBypassSuggestions([])
-                                  setHighlightedBypassSuggestionIndex(-1)
+                                  setSelectedUserBypassSuggestion(suggestion)
+                                  setUserBypassQuery(suggestion.githubUsername)
+                                  setUserBypassSuggestions([])
+                                  setHighlightedUserBypassSuggestionIndex(-1)
                                 }}
                               >
                                 <span className="min-w-0 flex items-center gap-2">
@@ -1104,8 +1263,8 @@ export function OrgManageClient({
                 <Button
                   type="button"
                   className="gap-2"
-                  onClick={() => handleAddBypassAccount()}
-                  disabled={!selectedBypassSuggestion || isMutating}
+                  onClick={() => handleAddUserBypassAccount()}
+                  disabled={!selectedUserBypassSuggestion || isMutating}
                 >
                   {isAddingBypass ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -1115,14 +1274,11 @@ export function OrgManageClient({
                   Add
                 </Button>
               </div>
-              <p className="mt-2 text-xs text-muted-foreground">
-                Limit: 50 accounts per organization.
-              </p>
             </div>
 
-            {bypassAccounts.length === 0 ? (
-              <div className="rounded-lg border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
-                No bypass accounts configured.
+            {userBypassAccounts.length === 0 ? (
+              <div className="rounded-lg border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
+                No user bypass accounts configured.
               </div>
             ) : (
               <div className="space-y-1 rounded-lg border">
@@ -1131,7 +1287,7 @@ export function OrgManageClient({
                   <span>Added</span>
                   <span className="justify-self-end">Action</span>
                 </div>
-                {bypassAccounts.map((account) => (
+                {userBypassAccounts.map((account) => (
                   <div
                     key={account.id}
                     className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-4 px-4 py-3"
@@ -1172,6 +1328,170 @@ export function OrgManageClient({
                 ))}
               </div>
             )}
+
+            <div className="rounded-lg border bg-secondary/30 p-4">
+              <div className="mb-3 flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-foreground">Bypass GitHub Apps & Bots</h3>
+                <Badge variant="outline">{appBotBypassAccounts.length}</Badge>
+              </div>
+              <p className="mb-2 text-xs text-muted-foreground">
+                Add app/system bot slugs like <code>dependabot</code> or{" "}
+                <code>github-actions[bot]</code>. Matching applies to both slug and{" "}
+                <code>{`<slug>[bot]`}</code>.
+              </p>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <div className="relative flex-1">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    id="bypass-app-bot-query"
+                    value={appBotBypassQuery}
+                    onChange={(event) => {
+                      setAppBotBypassQuery(event.target.value)
+                      setSelectedAppBotBypassSuggestion(null)
+                      setHighlightedAppBotBypassSuggestionIndex(-1)
+                      setBypassNotice(null)
+                    }}
+                    onKeyDown={handleAppBotBypassQueryKeyDown}
+                    placeholder="Search or type app/bot slug..."
+                    className="h-10 w-full rounded-md border bg-background pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                  />
+
+                  {(isSearchingAppBotBypass ||
+                    appBotBypassSuggestions.length > 0 ||
+                    appBotBypassSuggestError ||
+                    appBotBypassQuery.trim().replace(/^@/, "").length >= 2) && (
+                    <div className="absolute z-10 mt-2 max-h-64 w-full overflow-auto rounded-md border bg-popover shadow-lg">
+                      {isSearchingAppBotBypass ? (
+                        <div className="px-3 py-2 text-sm text-muted-foreground">Searching...</div>
+                      ) : appBotBypassSuggestError ? (
+                        <div className="px-3 py-2 text-sm text-destructive">
+                          {appBotBypassSuggestError}
+                        </div>
+                      ) : appBotBypassSuggestions.length === 0 ? (
+                        <div className="px-3 py-2 text-sm text-muted-foreground">
+                          No app/bot matches found.
+                        </div>
+                      ) : (
+                        <ul>
+                          {appBotBypassSuggestions.map((suggestion, index) => (
+                            <li key={suggestion.actorSlug}>
+                              <button
+                                type="button"
+                                className={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm transition-colors hover:bg-secondary ${
+                                  index === highlightedAppBotBypassSuggestionIndex
+                                    ? "bg-secondary"
+                                    : ""
+                                }`}
+                                onMouseEnter={() =>
+                                  setHighlightedAppBotBypassSuggestionIndex(index)
+                                }
+                                onClick={() => {
+                                  setSelectedAppBotBypassSuggestion(suggestion)
+                                  setAppBotBypassQuery(suggestion.githubUsername)
+                                  setAppBotBypassSuggestions([])
+                                  setHighlightedAppBotBypassSuggestionIndex(-1)
+                                }}
+                              >
+                                <span className="min-w-0">
+                                  <span className="block truncate text-foreground">
+                                    @{suggestion.githubUsername}
+                                  </span>
+                                  <span className="block text-xs text-muted-foreground">
+                                    slug: {suggestion.actorSlug}
+                                  </span>
+                                </span>
+                                <div className="flex items-center gap-2">
+                                  {suggestion.source === "manual" && (
+                                    <Badge variant="outline" className="text-xs">
+                                      Manual
+                                    </Badge>
+                                  )}
+                                  {suggestion.alreadyBypassed && (
+                                    <Badge variant="outline" className="text-xs">
+                                      Already bypassed
+                                    </Badge>
+                                  )}
+                                </div>
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <Button
+                  type="button"
+                  className="gap-2"
+                  onClick={() => handleAddAppBotBypassAccount()}
+                  disabled={!selectedAppBotBypassSuggestion || isMutating}
+                >
+                  {isAddingBypass ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <UserPlus className="h-4 w-4" />
+                  )}
+                  Add
+                </Button>
+              </div>
+            </div>
+
+            {appBotBypassAccounts.length === 0 ? (
+              <div className="rounded-lg border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
+                No app/bot bypass accounts configured.
+              </div>
+            ) : (
+              <div className="space-y-1 rounded-lg border">
+                <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-4 border-b px-4 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                  <span>App / Bot</span>
+                  <span>Added</span>
+                  <span className="justify-self-end">Action</span>
+                </div>
+                {appBotBypassAccounts.map((account) => (
+                  <div
+                    key={account.id}
+                    className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-4 px-4 py-3"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-foreground">
+                        @{account.githubUsername}
+                      </p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        slug {account.actorSlug ?? "unknown"}
+                      </p>
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      {new Date(account.createdAt).toLocaleDateString("en-US", {
+                        year: "numeric",
+                        month: "short",
+                        day: "numeric",
+                      })}
+                    </div>
+                    <div className="justify-self-end">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8 gap-1 bg-transparent px-2 text-xs"
+                        onClick={() => handleRemoveBypassAccount(account)}
+                        disabled={isMutating}
+                      >
+                        {isRemovingBypass ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-3.5 w-3.5" />
+                        )}
+                        Remove
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <p className="text-xs text-muted-foreground">
+              Limit: 50 total bypass entries per organization (users + apps/bots).
+            </p>
           </CardContent>
         </Card>
       )}

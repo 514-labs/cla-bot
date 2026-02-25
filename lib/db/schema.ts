@@ -58,15 +58,26 @@ export const orgClaBypassAccounts = pgTable(
     orgId: text("org_id")
       .notNull()
       .references(() => organizations.id),
-    githubUserId: text("github_user_id").notNull(),
+    bypassKind: text("bypass_kind").notNull().default("user"),
+    githubUserId: text("github_user_id"),
     githubUsername: text("github_username").notNull(),
+    actorSlug: text("actor_slug"),
     createdByUserId: text("created_by_user_id")
       .notNull()
       .references(() => users.id),
     createdAt: text("created_at").notNull(),
   },
   (table) => [
-    uniqueIndex("org_cla_bypass_accounts_org_github_user_idx").on(table.orgId, table.githubUserId),
+    uniqueIndex("org_cla_bypass_accounts_org_kind_github_user_idx").on(
+      table.orgId,
+      table.bypassKind,
+      table.githubUserId
+    ),
+    uniqueIndex("org_cla_bypass_accounts_org_kind_actor_slug_idx").on(
+      table.orgId,
+      table.bypassKind,
+      table.actorSlug
+    ),
   ]
 )
 

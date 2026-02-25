@@ -441,6 +441,10 @@ async function handlePrCheck(params: {
     githubUsername: prAuthor,
   })
   if (bypassAccount) {
+    const bypassSummary =
+      bypassAccount.bypassKind === "app_bot"
+        ? `@${prAuthor} matched app/bot bypass @${bypassAccount.githubUsername} for @${orgSlug}.`
+        : `@${prAuthor} is on the CLA bypass list for @${orgSlug}.`
     const check = await github.createCheckRun({
       owner: orgSlug,
       repo: repoName,
@@ -450,7 +454,7 @@ async function handlePrCheck(params: {
       conclusion: "success",
       output: {
         title: "CLA: Bypassed",
-        summary: `@${prAuthor} is on the CLA bypass list for @${orgSlug}.`,
+        summary: bypassSummary,
       },
     })
 
@@ -476,6 +480,8 @@ async function handlePrCheck(params: {
         prNumber,
         decision: "bypass_list",
         checkConclusion: check.conclusion,
+        bypassKind: bypassAccount.bypassKind,
+        bypassActorSlug: bypassAccount.actorSlug,
         bypassGithubUserId: bypassAccount.githubUserId,
         bypassGithubUsername: bypassAccount.githubUsername,
         deletedCommentId,
@@ -483,7 +489,10 @@ async function handlePrCheck(params: {
     })
 
     return NextResponse.json({
-      message: `@${prAuthor} is on the bypass list. Check passed.`,
+      message:
+        bypassAccount.bypassKind === "app_bot"
+          ? `@${prAuthor} matched the app/bot bypass list. Check passed.`
+          : `@${prAuthor} is on the bypass list. Check passed.`,
       check: { id: check.id, status: "success", conclusion: check.conclusion },
       comment: null,
       orgMember: false,

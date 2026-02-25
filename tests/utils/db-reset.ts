@@ -238,8 +238,14 @@ async function ensureSchemaCompatibilityOnce() {
 async function ensureTestSchemaCompatibility() {
   await sql`CREATE TABLE IF NOT EXISTS webhook_deliveries (delivery_id text PRIMARY KEY NOT NULL, event text NOT NULL, received_at text NOT NULL)`
   await sql`CREATE TABLE IF NOT EXISTS audit_events (id text PRIMARY KEY NOT NULL, event_type text NOT NULL, org_id text, user_id text, actor_github_id text, actor_github_username text, payload jsonb DEFAULT '{}'::jsonb NOT NULL, created_at text NOT NULL)`
-  await sql`CREATE TABLE IF NOT EXISTS org_cla_bypass_accounts (id text PRIMARY KEY NOT NULL, org_id text NOT NULL, github_user_id text NOT NULL, github_username text NOT NULL, created_by_user_id text NOT NULL, created_at text NOT NULL)`
-  await sql`CREATE UNIQUE INDEX IF NOT EXISTS org_cla_bypass_accounts_org_github_user_idx ON org_cla_bypass_accounts (org_id, github_user_id)`
+  await sql`CREATE TABLE IF NOT EXISTS org_cla_bypass_accounts (id text PRIMARY KEY NOT NULL, org_id text NOT NULL, bypass_kind text NOT NULL DEFAULT 'user', github_user_id text, github_username text NOT NULL, actor_slug text, created_by_user_id text NOT NULL, created_at text NOT NULL)`
+  await sql`ALTER TABLE org_cla_bypass_accounts ADD COLUMN IF NOT EXISTS bypass_kind text DEFAULT 'user' NOT NULL`
+  await sql`ALTER TABLE org_cla_bypass_accounts ADD COLUMN IF NOT EXISTS actor_slug text`
+  await sql`ALTER TABLE org_cla_bypass_accounts ALTER COLUMN github_user_id DROP NOT NULL`
+  await sql`UPDATE org_cla_bypass_accounts SET bypass_kind = 'user' WHERE bypass_kind IS NULL OR bypass_kind = ''`
+  await sql`DROP INDEX IF EXISTS org_cla_bypass_accounts_org_github_user_idx`
+  await sql`CREATE UNIQUE INDEX IF NOT EXISTS org_cla_bypass_accounts_org_kind_github_user_idx ON org_cla_bypass_accounts (org_id, bypass_kind, github_user_id)`
+  await sql`CREATE UNIQUE INDEX IF NOT EXISTS org_cla_bypass_accounts_org_kind_actor_slug_idx ON org_cla_bypass_accounts (org_id, bypass_kind, actor_slug)`
 
   await sql`ALTER TABLE users DROP CONSTRAINT IF EXISTS users_github_username_unique`
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS github_id text`
