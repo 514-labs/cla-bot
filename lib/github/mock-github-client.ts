@@ -8,6 +8,7 @@
  */
 
 import type { GitHubClient } from "./client"
+import { findLatestManagedClaBotComment } from "./comment-ownership"
 import type {
   GitHubUser,
   OrgMembershipStatus,
@@ -262,17 +263,11 @@ export class MockGitHubClient implements GitHubClient {
     repo: string,
     issueNumber: number
   ): Promise<IssueComment | null> {
-    const prComments = comments.filter(
-      (c) =>
-        c.owner === owner &&
-        c.repo === repo &&
-        c.issue_number === issueNumber &&
-        c.user.type === "Bot"
-    )
-    if (prComments.length === 0) return null
-    const latest = prComments[prComments.length - 1]
-    const { owner: _o, repo: _r, issue_number: _i, ...rest } = latest
-    return { ...rest }
+    const prComments = comments
+      .filter((c) => c.owner === owner && c.repo === repo && c.issue_number === issueNumber)
+      .map(({ owner: _o, repo: _r, issue_number: _i, ...rest }) => ({ ...rest }))
+
+    return findLatestManagedClaBotComment(prComments)
   }
 
   // --- Pull Requests ---

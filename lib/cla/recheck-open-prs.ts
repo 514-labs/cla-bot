@@ -5,7 +5,7 @@ import {
   getSignatureStatusByUsername,
 } from "@/lib/db/queries"
 import { getGitHubClient } from "@/lib/github"
-import { generateUnsignedComment } from "@/lib/pr-comment-template"
+import { generateUnsignedComment, isClaBotManagedComment } from "@/lib/pr-comment-template"
 
 const CHECK_NAME = "CLA Bot / Contributor License Agreement"
 
@@ -217,6 +217,7 @@ function isPersonalAccountOwner(
 }
 
 function isRemovableClaPromptComment(commentBody: string) {
+  if (!isClaBotManagedComment(commentBody)) return false
   return (
     commentBody.includes("Contributor License Agreement Required") ||
     commentBody.includes("Re-signing Required") ||

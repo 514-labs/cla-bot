@@ -6,6 +6,7 @@
 import { Octokit } from "@octokit/rest"
 import { createAppAuth } from "@octokit/auth-app"
 import type { GitHubClient } from "./client"
+import { findLatestManagedClaBotComment } from "./comment-ownership"
 import type {
   GitHubUser,
   OrgMembershipStatus,
@@ -204,8 +205,7 @@ export class OctokitGitHubClient implements GitHubClient {
     issueNumber: number
   ): Promise<IssueComment | null> {
     const allComments = await this.listComments({ owner, repo, issue_number: issueNumber })
-    const botComment = allComments.find((c) => c.user.type === "Bot")
-    return botComment ?? null
+    return findLatestManagedClaBotComment(allComments)
   }
 
   // --- Pull Requests ---

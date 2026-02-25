@@ -21,7 +21,11 @@ import {
   reserveWebhookDelivery,
   createAuditEvent,
 } from "@/lib/db/queries"
-import { generateUnsignedComment } from "@/lib/pr-comment-template"
+import {
+  CLA_BOT_COMMENT_SIGNATURE,
+  generateUnsignedComment,
+  isClaBotManagedComment,
+} from "@/lib/pr-comment-template"
 import { verifyGitHubWebhookSignature } from "@/lib/github/webhook-signature"
 
 const CHECK_NAME = "CLA Bot / Contributor License Agreement"
@@ -825,7 +829,9 @@ function generateUnconfiguredClaComment(params: {
   const { prAuthor, orgName, orgSlug, appBaseUrl } = params
   const adminUrl = `${appBaseUrl}/admin/${encodeURIComponent(orgSlug)}`
 
-  return `### CLA setup in progress
+  return `${CLA_BOT_COMMENT_SIGNATURE}
+
+### CLA setup in progress
 
 Hey @${prAuthor}, thanks for contributing to **${orgName}**.
 
@@ -837,6 +843,7 @@ A maintainer must publish the CLA first: ${adminUrl}
 }
 
 function isRemovableClaPromptComment(commentBody: string) {
+  if (!isClaBotManagedComment(commentBody)) return false
   return (
     commentBody.includes("Contributor License Agreement Required") ||
     commentBody.includes("Re-signing Required") ||
