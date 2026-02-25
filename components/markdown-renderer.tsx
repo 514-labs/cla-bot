@@ -51,7 +51,7 @@ export function simpleMarkdownToHtml(md: string): string {
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
-    const olMatch = line.match(/^\d+\.\s+(.+)$/)
+    const olMatch = line.match(/^(\d+)\.\s+(.+)$/)
     const ulMatch = line.match(/^[-*]\s+(.+)$/)
     const bqMatch = line.match(/^>\s?(.*)$/)
 
@@ -68,7 +68,7 @@ export function simpleMarkdownToHtml(md: string): string {
         result.push("<ol>")
         inOl = true
       }
-      result.push(`<li>${olMatch[1]}</li>`)
+      result.push(`<li value="${olMatch[1]}">${olMatch[2]}</li>`)
     } else if (ulMatch) {
       if (inOl) {
         result.push("</ol>")

@@ -12,4 +12,16 @@ describe("simpleMarkdownToHtml", () => {
     const html = simpleMarkdownToHtml("[click](javascript:alert(1))")
     expect(html).toContain('href="#"')
   })
+
+  it("preserves authored ordered-list numbers", () => {
+    const html = simpleMarkdownToHtml("1. One\n2. Two\n7. Seven")
+    expect(html).toContain('<li value="1">One</li>')
+    expect(html).toContain('<li value="2">Two</li>')
+    expect(html).toContain('<li value="7">Seven</li>')
+  })
+
+  it("preserves non-1 list starts", () => {
+    const html = simpleMarkdownToHtml("4. Clause")
+    expect(html).toContain('<li value="4">Clause</li>')
+  })
 })

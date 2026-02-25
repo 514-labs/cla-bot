@@ -5,6 +5,7 @@ import Image from "next/image"
 import Link from "next/link"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { MarkdownRenderer } from "@/components/markdown-renderer"
+import { useIsMobile } from "@/hooks/use-mobile"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -77,6 +78,8 @@ type BypassSuggestion = {
   alreadyBypassed: boolean
 }
 
+type ClaEditViewMode = "edit" | "split" | "preview"
+
 type OrgManageClientProps = {
   org: ManagedOrg
   signers: Signer[]
@@ -99,10 +102,12 @@ export function OrgManageClient({
   initialTab,
 }: OrgManageClientProps) {
   const router = useRouter()
+  const isMobile = useIsMobile()
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const [activeTab, setActiveTab] = useState<OrgManageTab>(initialTab)
   const [isEditing, setIsEditing] = useState(false)
+  const [claEditViewMode, setClaEditViewMode] = useState<ClaEditViewMode>("split")
   const [claContent, setClaContent] = useState(currentClaMarkdown)
   const [saved, setSaved] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -139,6 +144,8 @@ export function OrgManageClient({
   )
   const hasConfiguredCla = Boolean(currentClaSha256 && currentClaMarkdown.trim().length > 0)
   const isMutating = isSaving || isTogglingActive || isAddingBypass || isRemovingBypass
+  const effectiveClaEditViewMode: ClaEditViewMode =
+    isMobile && claEditViewMode === "split" ? "edit" : claEditViewMode
 
   useEffect(() => {
     const tabFromQuery = parseOrgManageTab(searchParams.get("tab")) ?? ORG_MANAGE_DEFAULT_TAB
@@ -562,6 +569,7 @@ export function OrgManageClient({
                 {hasConfiguredCla
                   ? "This is the agreement contributors must sign before their PRs are accepted. Saving creates a new version; existing signers will need to re-sign."
                   : "No CLA is configured yet. Publish your own CLA below to start enforcement."}
+                {isEditing ? " Preview updates live as you type." : ""}
               </CardDescription>
             </div>
             {!isEditing ? (
@@ -570,7 +578,10 @@ export function OrgManageClient({
                 size="sm"
                 className="gap-2 bg-transparent"
                 data-testid="edit-cla-btn"
-                onClick={() => setIsEditing(true)}
+                onClick={() => {
+                  setIsEditing(true)
+                  setClaEditViewMode("split")
+                }}
               >
                 <FileEdit className="h-4 w-4" />
                 Edit
@@ -584,6 +595,7 @@ export function OrgManageClient({
                   onClick={() => {
                     setIsEditing(false)
                     setClaContent(currentClaMarkdown)
+                    setClaEditViewMode("split")
                   }}
                 >
                   Cancel
@@ -623,13 +635,91 @@ export function OrgManageClient({
             )}
 
             {isEditing ? (
-              <textarea
-                value={claContent}
-                onChange={(event) => setClaContent(event.target.value)}
-                data-testid="cla-editor"
-                className="min-h-[400px] w-full rounded-lg border bg-background p-4 font-mono text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                placeholder="Paste your CLA in Markdown format..."
-              />
+              <div className="space-y-4">
+                <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-secondary p-1">
+                  <button
+                    type="button"
+                    data-testid="cla-view-edit"
+                    className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                      effectiveClaEditViewMode === "edit"
+                        ? "bg-background text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                    onClick={() => setClaEditViewMode("edit")}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    data-testid="cla-view-split"
+                    className={`hidden rounded-md px-3 py-1.5 text-sm font-medium transition-colors md:inline-flex ${
+                      effectiveClaEditViewMode === "split"
+                        ? "bg-background text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                    onClick={() => setClaEditViewMode("split")}
+                  >
+                    Split
+                  </button>
+                  <button
+                    type="button"
+                    data-testid="cla-view-preview"
+                    className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                      effectiveClaEditViewMode === "preview"
+                        ? "bg-background text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                    onClick={() => setClaEditViewMode("preview")}
+                  >
+                    Preview
+                  </button>
+                </div>
+
+                {effectiveClaEditViewMode === "split" ? (
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <textarea
+                      value={claContent}
+                      onChange={(event) => setClaContent(event.target.value)}
+                      data-testid="cla-editor"
+                      className="min-h-[400px] w-full rounded-lg border bg-background p-4 font-mono text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                      placeholder="Paste your CLA in Markdown format..."
+                    />
+                    <div
+                      className="min-h-[400px] rounded-lg border bg-background p-6"
+                      data-testid="cla-preview-live"
+                    >
+                      {claContent.trim().length > 0 ? (
+                        <MarkdownRenderer content={claContent} />
+                      ) : (
+                        <p className="text-sm text-muted-foreground">
+                          Start typing your CLA markdown to preview it.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ) : effectiveClaEditViewMode === "edit" ? (
+                  <textarea
+                    value={claContent}
+                    onChange={(event) => setClaContent(event.target.value)}
+                    data-testid="cla-editor"
+                    className="min-h-[400px] w-full rounded-lg border bg-background p-4 font-mono text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                    placeholder="Paste your CLA in Markdown format..."
+                  />
+                ) : (
+                  <div
+                    className="min-h-[400px] rounded-lg border bg-background p-6"
+                    data-testid="cla-preview-live"
+                  >
+                    {claContent.trim().length > 0 ? (
+                      <MarkdownRenderer content={claContent} />
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        Start typing your CLA markdown to preview it.
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
             ) : (
               <div className="rounded-lg border bg-background p-6" data-testid="cla-preview">
                 {hasConfiguredCla ? (
