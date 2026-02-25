@@ -65,6 +65,10 @@ export function SignClaClient({
   const [justSigned, setJustSigned] = useState(false)
   const [scrolledToBottom, setScrolledToBottom] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
+  const [postSignNotice, setPostSignNotice] = useState<{
+    tone: "info" | "warning"
+    message: string
+  } | null>(null)
   const [isPending, startTransition] = useTransition()
 
   const hasConfiguredCla = Boolean(currentSha256 && org.claMarkdown.trim().length > 0)
@@ -95,6 +99,7 @@ export function SignClaClient({
 
     startTransition(async () => {
       setActionError(null)
+      setPostSignNotice(null)
       const result = await signClaAction({
         orgSlug,
         repoName,
@@ -105,6 +110,25 @@ export function SignClaClient({
       if (!result.ok) {
         setActionError(result.error ?? "Unable to sign right now")
         return
+      }
+
+      if (result.prSyncScheduled) {
+        setPostSignNotice({
+          tone: "info",
+          message: "Signed. Open PR checks will update automatically in the background.",
+        })
+      } else if (result.prSyncScheduleError) {
+        setPostSignNotice({
+          tone: "warning",
+          message:
+            "Signed, but background PR sync could not be scheduled. Use /recheck on open PRs if needed.",
+        })
+      } else if (result.prSyncSkippedReason === "missing_installation_id") {
+        setPostSignNotice({
+          tone: "warning",
+          message:
+            "Signed. PR sync was skipped because this org has no active GitHub installation.",
+        })
       }
 
       setJustSigned(true)
@@ -272,6 +296,18 @@ export function SignClaClient({
               {actionError && (
                 <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
                   {actionError}
+                </p>
+              )}
+
+              {postSignNotice && (
+                <p
+                  className={
+                    postSignNotice.tone === "warning"
+                      ? "rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-300"
+                      : "rounded-md border border-primary/30 bg-primary/10 px-3 py-2 text-xs text-primary"
+                  }
+                >
+                  {postSignNotice.message}
                 </p>
               )}
 

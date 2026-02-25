@@ -4,12 +4,8 @@ import { headers } from "next/headers"
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
 import { getSessionUser } from "@/lib/auth"
-import {
-  SignClaError,
-  getBaseUrlFromHeaders,
-  resolveRequestEvidenceFromHeaders,
-  signClaForUser,
-} from "@/lib/cla/signing"
+import { scheduleSignerPrSyncAfterSign } from "@/lib/cla/signer-pr-sync-scheduler"
+import { SignClaError, resolveRequestEvidenceFromHeaders, signClaForUser } from "@/lib/cla/signing"
 
 const signSchema = z.object({
   orgSlug: z.string().min(1),
@@ -22,6 +18,10 @@ type SignActionResult = {
   ok: boolean
   error?: string
   currentSha256?: string
+  prSyncScheduled?: boolean
+  prSyncRunId?: string | null
+  prSyncScheduleError?: string | null
+  prSyncSkippedReason?: string | null
 }
 
 export async function signClaAction(input: unknown): Promise<SignActionResult> {
@@ -41,19 +41,26 @@ export async function signClaAction(input: unknown): Promise<SignActionResult> {
   const headerStore = await headers()
 
   try {
-    await signClaForUser({
+    const result = await signClaForUser({
       ...parsed.data,
       user,
       assented: true,
       consentTextVersion: "v1",
       requestEvidence: resolveRequestEvidenceFromHeaders(headerStore),
-      appBaseUrl: getBaseUrlFromHeaders(headerStore),
+    })
+    const scheduleResult = await scheduleSignerPrSyncAfterSign({
+      signResult: result,
+      actor: {
+        userId: user.id,
+        githubId: user.githubId ?? null,
+        githubUsername: user.githubUsername ?? null,
+      },
     })
 
     revalidatePath(`/sign/${parsed.data.orgSlug}`)
     revalidatePath("/contributor")
 
-    return { ok: true }
+    return { ok: true, ...scheduleResult }
   } catch (error) {
     if (error instanceof SignClaError) {
       return {

@@ -1006,9 +1006,9 @@ test("Webhook: truly unsigned non-member gets failing check + CLA comment", asyn
   assert(data.comment.commentMarkdown.includes("fiveonefour.com"), "comment has branding")
 })
 
-// -- Scenario 2b: After signing, check auto-updates (no /recheck needed) --
+// -- Scenario 2b: After signing, async PR sync is scheduled --
 
-test("Webhook: after signing, check auto-updates to success (no /recheck needed)", async (baseUrl) => {
+test("Webhook: after signing, schedules async signer PR sync", async (baseUrl) => {
   await resetDb(baseUrl)
 
   // Step 1: Update CLA to v2 so contributor1's existing v1 sig is stale
@@ -1038,22 +1038,13 @@ test("Webhook: after signing, check auto-updates to success (no /recheck needed)
   const signData = await signRes.json()
   assertEqual(signRes.status, 200, "sign succeeded")
 
-  // Step 4: Verify check was auto-updated via GitHub client (no /recheck needed!)
-  assert(signData.updatedChecks !== undefined, "updatedChecks returned")
-  assert(signData.updatedChecks.length > 0, "at least one check was auto-updated")
-  assertEqual(signData.updatedChecks[0].conclusion, "success", "check auto-updated to success")
-  assert(Array.isArray(signData.deletedCommentIds), "deletedCommentIds returned")
-  assert(signData.deletedCommentIds.length > 0, "stale CLA prompt comment was deleted")
-
-  // Step 5: Verify stale CLA comment is deleted after signing.
-  const getRes = await fetch(
-    `${baseUrl}/api/webhook/github?orgSlug=fiveonefour&repoName=sdk&prNumber=20`
-  )
-  const getData = await getRes.json()
-  assertEqual(getData.comment, null, "stale comment deleted")
+  // Step 4: Verify async sync scheduling metadata is returned.
+  assertEqual(signData.prSyncScheduled, true, "sign schedules async PR sync")
+  assert(typeof signData.prSyncRunId === "string", "workflow run id returned")
+  assertEqual(signData.prSyncScheduleError, null, "no scheduling error")
 })
 
-test("Webhook: signing without repo/pr still updates open PR check and deletes stale comment", async (baseUrl) => {
+test("Webhook: signing without repo/pr still schedules async open PR sync", async (baseUrl) => {
   await resetDb(baseUrl)
 
   // Step 1: contributor1 opens PR while signed current -> success
@@ -1094,15 +1085,9 @@ test("Webhook: signing without repo/pr still updates open PR check and deletes s
   })
   const signData = await signRes.json()
   assertEqual(signRes.status, 200, "sign succeeded")
-  assert(signData.updatedChecks.length > 0, "open PR check auto-updated")
-  assert(signData.deletedCommentIds.length > 0, "stale comment deleted")
-
-  // Step 4: Verify no CLA bot comment remains on that PR.
-  const getRes = await fetch(
-    `${baseUrl}/api/webhook/github?orgSlug=fiveonefour&repoName=sdk&prNumber=77`
-  )
-  const getData = await getRes.json()
-  assertEqual(getData.comment, null, "no CLA comment remains after signing")
+  assertEqual(signData.prSyncScheduled, true, "sign schedules async sync without repo/pr")
+  assert(typeof signData.prSyncRunId === "string", "workflow run id returned")
+  assertEqual(signData.prSyncScheduleError, null, "no scheduling error")
 })
 
 // -- Scenario 3: Non-member, signed old version -> red check + re-sign comment --
@@ -1132,7 +1117,7 @@ test("Webhook: CLA updated -> contributor needs re-sign -> failing check", async
   assert(data.comment.commentMarkdown.includes("version"), "comment mentions version label")
 })
 
-test("Webhook: re-sign flow -- sign auto-updates check + comment", async (baseUrl) => {
+test("Webhook: re-sign flow -- sign schedules async check/comment sync", async (baseUrl) => {
   await resetDb(baseUrl)
 
   // Update CLA to v2
@@ -1162,15 +1147,9 @@ test("Webhook: re-sign flow -- sign auto-updates check + comment", async (baseUr
   })
   const signData = await signRes.json()
   assertEqual(signRes.status, 200, "re-sign succeeded")
-  assert(signData.updatedChecks.length > 0, "check auto-updated after re-sign")
-  assertEqual(signData.updatedChecks[0].conclusion, "success", "check is now success")
-  assert(signData.deletedCommentIds.length > 0, "re-sign prompt comment deleted")
-
-  const getRes = await fetch(
-    `${baseUrl}/api/webhook/github?orgSlug=fiveonefour&repoName=sdk&prNumber=30`
-  )
-  const getData = await getRes.json()
-  assertEqual(getData.comment, null, "stale re-sign comment removed")
+  assertEqual(signData.prSyncScheduled, true, "re-sign schedules async sync")
+  assert(typeof signData.prSyncRunId === "string", "workflow run id returned")
+  assertEqual(signData.prSyncScheduleError, null, "no scheduling error")
 })
 
 // -- Scenario 4: Non-member, signed latest version -> green check, NO comment --

@@ -1,11 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getSessionUser } from "@/lib/auth"
-import {
-  SignClaError,
-  getBaseUrlFromHeaders,
-  resolveRequestEvidenceFromHeaders,
-  signClaForUser,
-} from "@/lib/cla/signing"
+import { scheduleSignerPrSyncAfterSign } from "@/lib/cla/signer-pr-sync-scheduler"
+import { SignClaError, resolveRequestEvidenceFromHeaders, signClaForUser } from "@/lib/cla/signing"
 
 export async function POST(request: NextRequest) {
   const body = await request.json()
@@ -33,10 +29,20 @@ export async function POST(request: NextRequest) {
       assented,
       consentTextVersion,
       requestEvidence: resolveRequestEvidenceFromHeaders(request.headers),
-      appBaseUrl: getBaseUrlFromHeaders(request.headers),
+    })
+    const scheduleResult = await scheduleSignerPrSyncAfterSign({
+      signResult: result,
+      actor: {
+        userId: user.id,
+        githubId: user.githubId ?? null,
+        githubUsername: user.githubUsername ?? null,
+      },
     })
 
-    return NextResponse.json(result)
+    return NextResponse.json({
+      signature: result.signature,
+      ...scheduleResult,
+    })
   } catch (error) {
     if (error instanceof SignClaError) {
       return NextResponse.json(

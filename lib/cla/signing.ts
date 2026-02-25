@@ -5,9 +5,7 @@ import {
   getOrganizationBySlug,
   getSignatureStatus,
 } from "@/lib/db/queries"
-import { getGitHubClient, type CheckRun } from "@/lib/github"
 
-const CHECK_NAME = "CLA Bot / Contributor License Agreement"
 const DEFAULT_CONSENT_TEXT_VERSION = "v1"
 
 type SignClaUser = {
@@ -36,14 +34,20 @@ type SignClaInput = {
   assented?: boolean
   consentTextVersion?: string | null
   requestEvidence?: RequestEvidence
-  appBaseUrl?: string
 }
 
-type SignClaResult = {
+export type SignClaResult = {
   signature: Awaited<ReturnType<typeof createSignature>>
-  updatedChecks: CheckRun[]
-  deletedCommentIds: number[]
-  autoUpdateSkippedReason: string | null
+  org: {
+    id: string
+    orgSlug: string
+    installationId: number | null
+    claSha256: string
+  }
+  prSyncContext: {
+    repoName: string | null
+    prNumber: number | null
+  }
 }
 
 export async function signClaForUser(input: SignClaInput): Promise<SignClaResult> {
@@ -158,100 +162,18 @@ export async function signClaForUser(input: SignClaInput): Promise<SignClaResult
     },
   })
 
-  const versionLabel = org.claTextSha256.slice(0, 7)
-  const updatedChecks: CheckRun[] = []
-  const deletedCommentIds: number[] = []
-  let autoUpdateSkippedReason: string | null = null
-
-  if (!org.installationId) {
-    autoUpdateSkippedReason = "missing_installation_id"
-  } else {
-    try {
-      const github = getGitHubClient(org.installationId)
-      const targetPrs = new Map<
-        string,
-        {
-          repoName: string
-          prNumber: number
-          headSha: string
-        }
-      >()
-      const addTarget = (repoName: string, prNumber: number, headSha: string) => {
-        targetPrs.set(`${repoName}#${prNumber}`, { repoName, prNumber, headSha })
-      }
-
-      if (normalizedRepoName && parsedPrNumber) {
-        const pullRequest = await github.getPullRequest(orgSlug, normalizedRepoName, parsedPrNumber)
-        if (!pullRequest) {
-          autoUpdateSkippedReason = "pull_request_not_found"
-        } else if (!isSignerAuthorForPr(user, pullRequest.authorLogin, pullRequest.authorId)) {
-          autoUpdateSkippedReason = "signer_not_pr_author"
-        } else {
-          addTarget(normalizedRepoName, parsedPrNumber, pullRequest.headSha)
-        }
-      }
-
-      const openPrs = await github.listOpenPullRequestsForOrganization(orgSlug)
-      for (const pr of openPrs) {
-        if (!isSignerAuthorForPr(user, pr.authorLogin, pr.authorId)) continue
-        addTarget(pr.repoName, pr.number, pr.headSha)
-      }
-
-      if (targetPrs.size === 0 && !autoUpdateSkippedReason) {
-        autoUpdateSkippedReason = "no_open_prs_for_signer"
-      }
-
-      for (const target of targetPrs.values()) {
-        const latestClaCheck = (
-          await github.listCheckRunsForRef(orgSlug, target.repoName, target.headSha)
-        )
-          .filter((check) => check.name === CHECK_NAME)
-          .sort((a, b) => b.id - a.id)[0]
-
-        if (latestClaCheck && latestClaCheck.conclusion !== "success") {
-          const updated = await github.updateCheckRun({
-            owner: orgSlug,
-            repo: target.repoName,
-            check_run_id: latestClaCheck.id,
-            status: "completed",
-            conclusion: "success",
-            output: {
-              title: "CLA: Signed",
-              summary: `@${user.githubUsername} has signed CLA version \`${versionLabel}\`.`,
-            },
-          })
-          updatedChecks.push(updated)
-        }
-
-        const existingComment = await github.findBotComment(
-          orgSlug,
-          target.repoName,
-          target.prNumber
-        )
-        if (existingComment && isRemovableClaPromptComment(existingComment.body)) {
-          await github.deleteComment({
-            owner: orgSlug,
-            repo: target.repoName,
-            comment_id: existingComment.id,
-          })
-          deletedCommentIds.push(existingComment.id)
-        }
-      }
-
-      if (targetPrs.size > 0) {
-        autoUpdateSkippedReason = null
-      }
-    } catch (err) {
-      console.error("Failed to auto-update GitHub PR status after signing:", err)
-      autoUpdateSkippedReason = "auto_update_failed"
-    }
-  }
-
   return {
     signature,
-    updatedChecks,
-    deletedCommentIds,
-    autoUpdateSkippedReason,
+    org: {
+      id: org.id,
+      orgSlug: org.githubOrgSlug,
+      installationId: org.installationId ?? null,
+      claSha256: org.claTextSha256,
+    },
+    prSyncContext: {
+      repoName: normalizedRepoName,
+      prNumber: parsedPrNumber,
+    },
   }
 }
 
@@ -329,23 +251,4 @@ function hashIpAddress(source: string | null) {
   const secret = process.env.SESSION_SECRET
   if (!secret || !source) return null
   return createHmac("sha256", secret).update(source).digest("hex")
-}
-
-function isSignerAuthorForPr(
-  user: Pick<SignClaUser, "githubId" | "githubUsername">,
-  prAuthorLogin: string,
-  prAuthorId?: number
-) {
-  if (typeof prAuthorId === "number" && user.githubId) {
-    return String(prAuthorId) === String(user.githubId)
-  }
-  return prAuthorLogin.trim().toLowerCase() === user.githubUsername.trim().toLowerCase()
-}
-
-function isRemovableClaPromptComment(commentBody: string) {
-  return (
-    commentBody.includes("Contributor License Agreement Required") ||
-    commentBody.includes("Re-signing Required") ||
-    commentBody.includes("CLA Bot is not configured for this repository")
-  )
 }

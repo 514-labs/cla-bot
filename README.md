@@ -9,7 +9,7 @@ It gives org admins a place to manage CLA text and signing history, and gives co
 - If a contributor has signed a non-current CLA version, they must re-sign before being considered compliant.
 - Contributor compliance status is evaluated per org using the contributor's latest signed version for that org.
 - If a contributor has open pull requests and their signature becomes outdated after a CLA update, checks may need to be re-opened/re-evaluated and set to failing until re-signing is completed.
-- After a contributor signs/re-signs the latest CLA, the bot updates their open PR CLA checks back to success and removes stale CLA prompt comments.
+- After a contributor signs/re-signs the latest CLA, the app schedules an async workflow that updates their open PR CLA checks to success and removes stale CLA prompt comments.
 - GitHub is the user-management source of truth for the app.
 - The app has no local signup/password user-management system; DB user rows are GitHub-linked identity mirrors only.
 - Authentication/session management is stateless JWT-based (HTTP-only cookie + signed JWT with `jti`).
@@ -160,7 +160,7 @@ This section amends your scenario list and adds missing scenarios.
 
 - Signature is stored with org, user, full CLA hash, accepted hash, assent metadata, immutable GitHub ID at signing time, timestamp, email provenance, and session evidence fields.
 - If `repo` + `pr` is provided, the signer must match that PR author before targeted PR sync is applied.
-- After signing/re-signing, open PRs authored by that contributor in the org are auto-synced: the latest CLA check run is updated to success and stale CLA prompt comments are deleted.
+- After signing/re-signing, the app schedules an async workflow to sync open PRs authored by that contributor in the org: latest CLA check runs are updated to success and stale CLA prompt comments are deleted.
 
 ### 7) Signed CLA versions cannot be deleted
 
@@ -223,7 +223,7 @@ This section amends your scenario list and adds missing scenarios.
   - Signed current CLA: passing check, no CLA comment.
   - Unsigned/outdated signature: failing check + bot comment with signing URL.
 - When CLA text changes, contributors on older signatures are marked as requiring re-sign; open PRs may require check re-evaluation and failure until re-signing.
-- After signing/re-signing, CLA checks on signer-authored open PRs are auto-updated to success and stale CLA prompt comments are removed.
+- After signing/re-signing, an async workflow updates signer-authored open PR CLA checks to success and removes stale CLA prompt comments.
 - Repository maintainers must require `CLA Bot / Contributor License Agreement` in GitHub branch protection/rulesets for merge blocking to be enforced.
 
 ## End-to-End Test Coverage Around This Spec
