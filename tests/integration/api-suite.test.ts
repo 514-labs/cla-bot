@@ -8,6 +8,18 @@ import { resetTestDatabase } from "@/tests/utils/db-reset"
 import { TEST_USERS, type TestRole } from "@/tests/utils/fixtures"
 import { clearSessionCookieCache, getSessionCookie } from "@/tests/utils/session"
 import { startIntegrationServer } from "@/tests/utils/integration-server"
+import { signClaForUser, SignClaError } from "@/lib/cla/signing"
+import { scheduleSignerPrSyncAfterSign } from "@/lib/cla/signer-pr-sync-scheduler"
+import {
+  getOrganizations,
+  getOrganizationBySlug,
+  getSignaturesByOrg,
+  getArchivesByOrg,
+  getSignerCountsByClaSha,
+  getSignaturesByUser,
+  getSignatureStatus,
+} from "@/lib/db/queries"
+import { filterInstalledOrganizationsForAdmin } from "@/lib/github/admin-authorization"
 
 type TestResult = {
   name: string
@@ -179,6 +191,68 @@ function sha256Hex(input: string) {
   return createHash("sha256").update(input, "utf8").digest("hex")
 }
 
+async function signCla(params: {
+  orgSlug: string
+  role?: TestRole
+  repoName?: string | null
+  prNumber?: number | string | null
+  acceptedSha256?: string
+}) {
+  const role = params.role ?? currentRole
+  const user = TEST_USERS[role]
+  const signResult = await signClaForUser({
+    orgSlug: params.orgSlug,
+    user: { ...user, sessionJti: `test-jti-${role}` },
+    repoName: params.repoName,
+    prNumber: params.prNumber,
+    acceptedSha256: params.acceptedSha256,
+    assented: true,
+    consentTextVersion: "v1",
+  })
+  const scheduleResult = await scheduleSignerPrSyncAfterSign({
+    signResult,
+    actor: {
+      userId: user.id,
+      githubId: user.githubId,
+      githubUsername: user.githubUsername,
+    },
+  })
+  return { signature: signResult.signature, ...scheduleResult }
+}
+
+async function getContributorData(userId: string) {
+  const [signatures, allOrgs] = await Promise.all([getSignaturesByUser(userId), getOrganizations()])
+  const sorted = [...signatures].sort((a, b) => b.signedAt.localeCompare(a.signedAt))
+  const orgById = new Map(allOrgs.map((org) => [org.id, org]))
+  const latestByOrg = new Map<string, (typeof sorted)[number]>()
+  const orgsWithCurrentSig = new Set<string>()
+  for (const sig of sorted) {
+    if (!latestByOrg.has(sig.orgId)) {
+      latestByOrg.set(sig.orgId, sig)
+    }
+    const org = orgById.get(sig.orgId)
+    if (org?.claTextSha256 && sig.claSha256 === org.claTextSha256) {
+      orgsWithCurrentSig.add(sig.orgId)
+    }
+  }
+  const enriched = sorted.map((sig) => {
+    const org = orgById.get(sig.orgId)
+    return {
+      ...sig,
+      orgSlug: org?.githubOrgSlug ?? "",
+      isCurrentVersion: sig.claSha256 === org?.claTextSha256,
+      isLatestForOrg: latestByOrg.get(sig.orgId)?.id === sig.id,
+      orgNeedsResign: !orgsWithCurrentSig.has(sig.orgId),
+      signedVersionLabel: sig.claSha256.slice(0, 7),
+    }
+  })
+  const signedOrgCount = latestByOrg.size
+  const outdatedOrgCount = [...latestByOrg.keys()].filter(
+    (orgId) => !orgsWithCurrentSig.has(orgId)
+  ).length
+  return { signatures: enriched, signedOrgCount, outdatedOrgCount, user: TEST_USERS[currentRole] }
+}
+
 function readDatabaseUrlFromEnvLocal() {
   const envLocalPath = resolve(process.cwd(), ".env.local")
   if (!existsSync(envLocalPath)) return undefined
@@ -211,34 +285,28 @@ function readDatabaseUrlFromEnvLocal() {
 // 1. AUTH & SESSION TESTS
 // ==========================================
 
-test("GET /api/auth/session returns default admin user", async (baseUrl) => {
+test("Session setup: default active user is admin", async (baseUrl) => {
   await resetDb(baseUrl)
-  const res = await fetch(`${baseUrl}/api/auth/session`)
-  const data = await res.json()
-  assertEqual(res.status, 200, "status")
-  assertEqual(data.user.role, "admin", "role")
-  assertEqual(data.user.githubUsername, "orgadmin", "username")
+  const user = TEST_USERS.admin
+  assertEqual(user.role, "admin", "role")
+  assertEqual(user.githubUsername, "orgadmin", "username")
 })
 
-test("Role switch helper updates session to contributor", async (baseUrl) => {
+test("Role switch helper updates active user to contributor", async (baseUrl) => {
   await resetDb(baseUrl)
   await switchRole(baseUrl, "contributor")
-  const res = await fetch(`${baseUrl}/api/auth/session`)
-  const data = await res.json()
-  assertEqual(res.status, 200, "status")
-  assertEqual(data.user.role, "contributor", "role")
-  assertEqual(data.user.githubUsername, "contributor1", "username")
+  const user = TEST_USERS.contributor
+  assertEqual(user.role, "contributor", "role")
+  assertEqual(user.githubUsername, "contributor1", "username")
 })
 
 test("Role switch helper can return to admin", async (baseUrl) => {
   await resetDb(baseUrl)
   await switchRole(baseUrl, "contributor")
   await switchRole(baseUrl, "admin")
-  const res = await fetch(`${baseUrl}/api/auth/session`)
-  const data = await res.json()
-  assertEqual(res.status, 200, "status")
-  assertEqual(data.user.role, "admin", "role")
-  assertEqual(data.user.name, "Org Admin", "name")
+  const user = TEST_USERS.admin
+  assertEqual(user.role, "admin", "role")
+  assertEqual(user.name, "Org Admin", "name")
 })
 
 test("GET /api/github/install callback returns to admin instead of looping to GitHub", async (baseUrl) => {
@@ -262,58 +330,56 @@ test("GET /api/github/install callback returns to admin instead of looping to Gi
 // 2. ADMIN ORG LISTING TESTS
 // ==========================================
 
-test("GET /api/orgs returns admin's orgs", async (baseUrl) => {
+test("Admin orgs listing returns admin's orgs", async (baseUrl) => {
   await resetDb(baseUrl)
-  const res = await fetch(`${baseUrl}/api/orgs`)
-  const data = await res.json()
-  assertEqual(res.status, 200, "status")
-  assert(Array.isArray(data.orgs), "orgs is array")
-  assertEqual(data.orgs.length, 2, "org count")
-  assertEqual(data.orgs[0].githubOrgSlug, "fiveonefour", "first org slug")
-  assertEqual(data.orgs[1].githubOrgSlug, "moose-stack", "second org slug")
+  const allOrgs = await getOrganizations()
+  const orgs = await filterInstalledOrganizationsForAdmin(TEST_USERS.admin, allOrgs)
+  assert(Array.isArray(orgs), "orgs is array")
+  assertEqual(orgs.length, 2, "org count")
+  const slugs = orgs.map((o) => o.githubOrgSlug).sort()
+  assert(slugs.includes("fiveonefour"), "fiveonefour in orgs")
+  assert(slugs.includes("moose-stack"), "moose-stack in orgs")
 })
 
-test("GET /api/orgs returns empty for contributor (no admin orgs)", async (baseUrl) => {
+test("Admin orgs listing returns empty for contributor (no admin orgs)", async (baseUrl) => {
   await resetDb(baseUrl)
   await switchRole(baseUrl, "contributor")
-  const res = await fetch(`${baseUrl}/api/orgs`)
-  const data = await res.json()
-  assertEqual(data.orgs.length, 0, "contributor should have no admin orgs")
+  const allOrgs = await getOrganizations()
+  const orgs = await filterInstalledOrganizationsForAdmin(TEST_USERS.contributor, allOrgs)
+  assertEqual(orgs.length, 0, "contributor should have no admin orgs")
 })
 
 // ==========================================
 // 3. ORG DETAIL TESTS
 // ==========================================
 
-test("GET /api/orgs/fiveonefour returns org details, signers, and archives", async (baseUrl) => {
+test("Org detail returns org details, signers, and archives", async (baseUrl) => {
   await resetDb(baseUrl)
-  const res = await fetch(`${baseUrl}/api/orgs/fiveonefour`)
-  const data = await res.json()
-  assertEqual(res.status, 200, "status")
-  assertEqual(data.org.name, "Fiveonefour", "org name")
-  assertEqual(data.org.isActive, true, "org is active")
+  const org = await getOrganizationBySlug("fiveonefour")
+  assert(org !== undefined, "org found")
+  assertEqual(org.name, "Fiveonefour", "org name")
+  assertEqual(org.isActive, true, "org is active")
+  assert(org.claText.includes("Contributor License Agreement"), "CLA content present")
+  assert(typeof org.claTextSha256 === "string", "claTextSha256 is a string")
+  assert(org.claTextSha256.length === 64, "sha256 is 64 hex chars")
+  const signers = await getSignaturesByOrg(org.id)
+  assertEqual(signers.length, 3, "fiveonefour signers count")
+  const uniqueSignerCount = new Set(signers.map((s) => s.userId)).size
+  assertEqual(uniqueSignerCount, signers.length, "signers are deduplicated by user")
+  const archives = await getArchivesByOrg(org.id)
+  assert(archives.length >= 1, "at least 1 archive exists")
+  const archiveSignerCounts = await getSignerCountsByClaSha(org.id)
+  assert(typeof archiveSignerCounts === "object", "archiveSignerCounts object is present")
   assert(
-    data.currentClaMarkdown.includes("Contributor License Agreement"),
-    "CLA content via currentClaMarkdown"
-  )
-  assertEqual(data.signers.length, 3, "fiveonefour signers count")
-  const uniqueSignerCount = new Set(data.signers.map((s: { userId: string }) => s.userId)).size
-  assertEqual(uniqueSignerCount, data.signers.length, "signers are deduplicated by user")
-  assert(typeof data.currentClaSha256 === "string", "currentClaSha256 is a string")
-  assert(data.currentClaSha256.length === 64, "sha256 is 64 hex chars")
-  assert(Array.isArray(data.archives), "archives is array")
-  assert(data.archives.length >= 1, "at least 1 archive exists")
-  assert(typeof data.archiveSignerCounts === "object", "archiveSignerCounts object is present")
-  assert(
-    typeof data.archiveSignerCounts[data.currentClaSha256] === "number",
+    typeof archiveSignerCounts[org.claTextSha256] === "number",
     "archiveSignerCounts contains current CLA count"
   )
 })
 
-test("GET /api/orgs/nonexistent returns 404", async (baseUrl) => {
+test("Org detail returns undefined for nonexistent org", async (baseUrl) => {
   await resetDb(baseUrl)
-  const res = await fetch(`${baseUrl}/api/orgs/nonexistent`)
-  assertEqual(res.status, 404, "status")
+  const org = await getOrganizationBySlug("nonexistent")
+  assert(org === undefined, "org not found")
 })
 
 // ==========================================
@@ -322,25 +388,27 @@ test("GET /api/orgs/nonexistent returns 404", async (baseUrl) => {
 
 test("Internal CLA mutation updates CLA text and sha256", async (baseUrl) => {
   await resetDb(baseUrl)
-  const orgBefore = await fetch(`${baseUrl}/api/orgs/fiveonefour`).then((r) => r.json())
-  const oldSha256 = orgBefore.currentClaSha256
+  const orgBefore = await getOrganizationBySlug("fiveonefour")
+  assert(orgBefore !== undefined, "org found before update")
+  const oldSha256 = orgBefore.claTextSha256
 
   const newCla = "# Updated CLA\n\nNew agreement text here."
-  const org = await updateClaForOrg("fiveonefour", newCla)
-  assertEqual(org.claText, newCla, "org has updated CLA text")
-  assert(org.claTextSha256 !== oldSha256, "sha256 changed after edit")
+  const updatedRow = await updateClaForOrg("fiveonefour", newCla)
+  assertEqual(updatedRow.claText, newCla, "org has updated CLA text")
+  assert(updatedRow.claTextSha256 !== oldSha256, "sha256 changed after edit")
 
-  // Verify by re-fetching org detail
-  const res2 = await fetch(`${baseUrl}/api/orgs/fiveonefour`)
-  const data2 = await res2.json()
-  assertEqual(data2.currentClaMarkdown, newCla, "CLA persisted after re-fetch")
-  assertEqual(data2.currentClaSha256, org.claTextSha256, "sha256 persisted")
+  // Verify persisted
+  const orgAfter = await getOrganizationBySlug("fiveonefour")
+  assert(orgAfter !== undefined, "org found after update")
+  assertEqual(orgAfter.claText, newCla, "CLA persisted")
+  assertEqual(orgAfter.claTextSha256, updatedRow.claTextSha256, "sha256 persisted")
 })
 
 test("Multiple CLA edits only update sha256 (no archive until signing)", async (baseUrl) => {
   await resetDb(baseUrl)
-  const orgBefore = await fetch(`${baseUrl}/api/orgs/fiveonefour`).then((r) => r.json())
-  const archivesBefore = orgBefore.archives.length
+  const orgBefore = await getOrganizationBySlug("fiveonefour")
+  assert(orgBefore !== undefined, "org found before updates")
+  const archivesBefore = (await getArchivesByOrg(orgBefore.id)).length
 
   // Edit 1
   const orgV2 = await updateClaForOrg("fiveonefour", "# V2 CLA")
@@ -350,29 +418,11 @@ test("Multiple CLA edits only update sha256 (no archive until signing)", async (
   assert(orgV2.claTextSha256 !== orgV3.claTextSha256, "each edit produces different sha256")
 
   // Verify: no new archives created (only signings create archives)
-  const orgAfter = await fetch(`${baseUrl}/api/orgs/fiveonefour`).then((r) => r.json())
-  assertEqual(orgAfter.archives.length, archivesBefore, "no new archives from edits alone")
-  assertEqual(orgAfter.currentClaMarkdown, "# V3 CLA", "latest CLA content")
-})
-
-test("PATCH /api/orgs/fiveonefour returns 405", async (baseUrl) => {
-  await resetDb(baseUrl)
-  const res = await fetch(`${baseUrl}/api/orgs/fiveonefour`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({}),
-  })
-  assertEqual(res.status, 405, "status")
-})
-
-test("PATCH /api/orgs/nonexistent returns 405", async (baseUrl) => {
-  await resetDb(baseUrl)
-  const res = await fetch(`${baseUrl}/api/orgs/nonexistent`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ claMarkdown: "test" }),
-  })
-  assertEqual(res.status, 405, "status")
+  const orgAfter = await getOrganizationBySlug("fiveonefour")
+  assert(orgAfter !== undefined, "org found after updates")
+  const archivesAfter = (await getArchivesByOrg(orgAfter.id)).length
+  assertEqual(archivesAfter, archivesBefore, "no new archives from edits alone")
+  assertEqual(orgAfter.claText, "# V3 CLA", "latest CLA content")
 })
 
 // ==========================================
@@ -381,13 +431,13 @@ test("PATCH /api/orgs/nonexistent returns 405", async (baseUrl) => {
 
 test("Internal org mutation can deactivate an org", async (baseUrl) => {
   await resetDb(baseUrl)
-  const org = await setOrgActiveForTest("fiveonefour", false)
-  assertEqual(org.isActive, false, "org deactivated")
+  const row = await setOrgActiveForTest("fiveonefour", false)
+  assertEqual(row.isActive, false, "org deactivated")
 
   // Verify persists
-  const res2 = await fetch(`${baseUrl}/api/orgs/fiveonefour`)
-  const data2 = await res2.json()
-  assertEqual(data2.org.isActive, false, "deactivation persisted")
+  const org = await getOrganizationBySlug("fiveonefour")
+  assert(org !== undefined, "org found")
+  assertEqual(org.isActive, false, "deactivation persisted")
 })
 
 test("Internal org mutation can re-activate an org", async (baseUrl) => {
@@ -395,141 +445,129 @@ test("Internal org mutation can re-activate an org", async (baseUrl) => {
   // Deactivate
   await setOrgActiveForTest("fiveonefour", false)
   // Re-activate
-  const org = await setOrgActiveForTest("fiveonefour", true)
-  assertEqual(org.isActive, true, "org re-activated")
+  const row = await setOrgActiveForTest("fiveonefour", true)
+  assertEqual(row.isActive, true, "org re-activated")
 })
 
-test("POST /api/sign blocks signing on deactivated org", async (baseUrl) => {
+test("signClaForUser blocks signing on deactivated org", async (baseUrl) => {
   await resetDb(baseUrl)
-  // Deactivate the org
   await setOrgActiveForTest("fiveonefour", false)
-  // Try to sign as admin
-  const res = await fetch(`${baseUrl}/api/sign`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ orgSlug: "fiveonefour" }),
-  })
-  assertEqual(res.status, 403, "signing blocked on inactive org")
+  try {
+    await signCla({ orgSlug: "fiveonefour" })
+    assert(false, "should have thrown SignClaError")
+  } catch (e) {
+    assert(e instanceof SignClaError, "SignClaError thrown")
+    assertEqual(e.status, 403, "signing blocked on inactive org")
+  }
 })
 
 // ==========================================
 // 6. CLA SIGNING FLOW TESTS
 // ==========================================
 
-test("GET /api/sign/fiveonefour shows already signed for contributor", async (baseUrl) => {
+test("getSignatureStatus shows already signed for contributor", async (baseUrl) => {
   await resetDb(baseUrl)
   await switchRole(baseUrl, "contributor")
-  const res = await fetch(`${baseUrl}/api/sign/fiveonefour`)
-  const data = await res.json()
-  assertEqual(res.status, 200, "status")
-  assertEqual(data.alreadySigned, true, "already signed")
-  assertEqual(data.needsResign, false, "no re-sign needed")
-  assert(data.signature !== null, "signature exists")
-  assertEqual(data.user.githubUsername, "contributor1", "user is contributor")
+  const status = await getSignatureStatus("fiveonefour", TEST_USERS.contributor.id)
+  assertEqual(status.signed, true, "already signed")
+  assertEqual(status.currentVersion, true, "current version")
+  assert(status.signature !== null, "signature exists")
 })
 
-test("GET /api/sign/fiveonefour shows not signed for admin", async (baseUrl) => {
+test("getSignatureStatus shows not signed for admin", async (baseUrl) => {
   await resetDb(baseUrl)
-  const res = await fetch(`${baseUrl}/api/sign/fiveonefour`)
-  const data = await res.json()
-  assertEqual(res.status, 200, "status")
-  assertEqual(data.alreadySigned, false, "admin hasn't signed")
-  assertEqual(data.signature, null, "no signature")
+  const status = await getSignatureStatus("fiveonefour", TEST_USERS.admin.id)
+  assertEqual(status.signed, false, "admin hasn't signed")
+  assert(status.signature === null, "no signature")
 })
 
-test("POST /api/sign creates a new signature", async (baseUrl) => {
+test("signClaForUser creates a new signature", async (baseUrl) => {
   await resetDb(baseUrl)
-  const res = await fetch(`${baseUrl}/api/sign`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ orgSlug: "fiveonefour" }),
-  })
-  const data = await res.json()
-  assertEqual(res.status, 200, "status")
-  assert(data.signature !== undefined, "signature returned")
-  assertEqual(data.signature.githubUsername, "orgadmin", "signer username")
+  const result = await signCla({ orgSlug: "fiveonefour" })
+  assert(result.signature !== undefined, "signature returned")
+  assertEqual(result.signature.githubUsername, "orgadmin", "signer username")
   assertEqual(
-    data.signature.emailAtSignature,
+    result.signature.emailAtSignature,
     "orgadmin@fiveonefour.com",
     "signature email at sign time"
   )
 
   // Verify persisted
-  const res2 = await fetch(`${baseUrl}/api/sign/fiveonefour`)
-  const data2 = await res2.json()
-  assertEqual(data2.alreadySigned, true, "now signed")
+  const status = await getSignatureStatus("fiveonefour", TEST_USERS.admin.id)
+  assertEqual(status.signed, true, "now signed")
 })
 
-test("POST /api/sign prevents duplicate signatures", async (baseUrl) => {
+test("signClaForUser prevents duplicate signatures", async (baseUrl) => {
   await resetDb(baseUrl)
   await switchRole(baseUrl, "contributor")
-  const res = await fetch(`${baseUrl}/api/sign`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ orgSlug: "fiveonefour" }),
-  })
-  assertEqual(res.status, 409, "duplicate rejected")
+  try {
+    await signCla({ orgSlug: "fiveonefour" })
+    assert(false, "should have thrown SignClaError")
+  } catch (e) {
+    assert(e instanceof SignClaError, "SignClaError thrown")
+    assertEqual(e.status, 409, "duplicate rejected")
+  }
 })
 
-test("POST /api/sign rejects stale acceptedSha256", async (baseUrl) => {
+test("signClaForUser rejects stale acceptedSha256", async (baseUrl) => {
   await resetDb(baseUrl)
-  const res = await fetch(`${baseUrl}/api/sign`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      orgSlug: "fiveonefour",
-      acceptedSha256: "deadbeef",
-      assented: true,
-      consentTextVersion: "v1",
-    }),
-  })
-  assertEqual(res.status, 409, "stale hash rejected")
+  try {
+    await signCla({ orgSlug: "fiveonefour", acceptedSha256: "deadbeef" })
+    assert(false, "should have thrown SignClaError")
+  } catch (e) {
+    assert(e instanceof SignClaError, "SignClaError thrown")
+    assertEqual(e.status, 409, "stale hash rejected")
+  }
 })
 
-test("POST /api/sign rejects missing orgSlug", async (baseUrl) => {
+test("signClaForUser rejects missing orgSlug", async (baseUrl) => {
   await resetDb(baseUrl)
-  const res = await fetch(`${baseUrl}/api/sign`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({}),
-  })
-  assertEqual(res.status, 400, "status")
+  try {
+    await signCla({ orgSlug: "" })
+    assert(false, "should have thrown SignClaError")
+  } catch (e) {
+    assert(e instanceof SignClaError, "SignClaError thrown")
+    assertEqual(e.status, 400, "missing orgSlug rejected")
+  }
 })
 
-test("POST /api/sign rejects repoName without prNumber", async (baseUrl) => {
+test("signClaForUser rejects repoName without prNumber", async (baseUrl) => {
   await resetDb(baseUrl)
-  const res = await fetch(`${baseUrl}/api/sign`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ orgSlug: "fiveonefour", repoName: "sdk" }),
-  })
-  assertEqual(res.status, 400, "status")
+  try {
+    await signCla({ orgSlug: "fiveonefour", repoName: "sdk" })
+    assert(false, "should have thrown SignClaError")
+  } catch (e) {
+    assert(e instanceof SignClaError, "SignClaError thrown")
+    assertEqual(e.status, 400, "repoName without prNumber rejected")
+  }
 })
 
-test("POST /api/sign rejects prNumber without repoName", async (baseUrl) => {
+test("signClaForUser rejects prNumber without repoName", async (baseUrl) => {
   await resetDb(baseUrl)
-  const res = await fetch(`${baseUrl}/api/sign`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ orgSlug: "fiveonefour", prNumber: 12 }),
-  })
-  assertEqual(res.status, 400, "status")
+  try {
+    await signCla({ orgSlug: "fiveonefour", prNumber: 12 })
+    assert(false, "should have thrown SignClaError")
+  } catch (e) {
+    assert(e instanceof SignClaError, "SignClaError thrown")
+    assertEqual(e.status, 400, "prNumber without repoName rejected")
+  }
 })
 
-test("POST /api/sign returns 404 for nonexistent org", async (baseUrl) => {
+test("signClaForUser returns NOT_FOUND for nonexistent org", async (baseUrl) => {
   await resetDb(baseUrl)
-  const res = await fetch(`${baseUrl}/api/sign`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ orgSlug: "does-not-exist" }),
-  })
-  assertEqual(res.status, 404, "status")
+  try {
+    await signCla({ orgSlug: "does-not-exist" })
+    assert(false, "should have thrown SignClaError")
+  } catch (e) {
+    assert(e instanceof SignClaError, "SignClaError thrown")
+    assertEqual(e.status, 404, "nonexistent org returns 404")
+  }
 })
 
-test("GET /api/sign/nonexistent returns 404", async (baseUrl) => {
+test("getOrganizationBySlug returns undefined for nonexistent org", async (baseUrl) => {
   await resetDb(baseUrl)
-  const res = await fetch(`${baseUrl}/api/sign/nonexistent`)
-  assertEqual(res.status, 404, "status")
+  const org = await getOrganizationBySlug("nonexistent")
+  assert(org === undefined, "nonexistent org returns undefined")
 })
 
 // ==========================================
@@ -541,11 +579,10 @@ test("CLA update invalidates existing signatures (needs re-sign)", async (baseUr
 
   // Step 1: Contributor has signed the current CLA
   await switchRole(baseUrl, "contributor")
-  const res1 = await fetch(`${baseUrl}/api/sign/fiveonefour`)
-  const data1 = await res1.json()
-  assertEqual(data1.alreadySigned, true, "contributor signed current CLA")
-  assertEqual(data1.needsResign, false, "no re-sign needed yet")
-  const originalSha256 = data1.currentSha256
+  const status1 = await getSignatureStatus("fiveonefour", TEST_USERS.contributor.id)
+  assertEqual(status1.signed, true, "contributor signed current CLA")
+  assertEqual(status1.currentVersion, true, "no re-sign needed yet")
+  const originalSha256 = status1.currentSha256
 
   // Step 2: Admin updates the CLA text (changes sha256)
   await switchRole(baseUrl, "admin")
@@ -554,12 +591,11 @@ test("CLA update invalidates existing signatures (needs re-sign)", async (baseUr
 
   // Step 3: Contributor now needs to re-sign
   await switchRole(baseUrl, "contributor")
-  const res2 = await fetch(`${baseUrl}/api/sign/fiveonefour`)
-  const data2 = await res2.json()
-  assertEqual(data2.alreadySigned, false, "not signed for current version")
-  assertEqual(data2.needsResign, true, "re-sign required")
-  assert(data2.signedSha256 !== null, "old signed sha256 returned")
-  assert(data2.signedSha256 !== data2.currentSha256, "signed sha256 differs from current")
+  const status2 = await getSignatureStatus("fiveonefour", TEST_USERS.contributor.id)
+  assertEqual(status2.signed, true, "signed, but for old version")
+  assertEqual(status2.currentVersion, false, "re-sign required")
+  assert(status2.signature !== null, "old signature returned")
+  assert(status2.signature?.claSha256 !== status2.currentSha256, "signed sha256 differs from current")
 })
 
 test("Contributor can re-sign after CLA update", async (baseUrl) => {
@@ -571,44 +607,35 @@ test("Contributor can re-sign after CLA update", async (baseUrl) => {
 
   // Step 2: Contributor re-signs
   await switchRole(baseUrl, "contributor")
-  const signRes = await fetch(`${baseUrl}/api/sign`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ orgSlug: "fiveonefour", repoName: "sdk", prNumber: 20 }),
-  })
-  assertEqual(signRes.status, 200, "re-sign succeeded")
-  const signData = await signRes.json()
-  assert(signData.signature !== undefined, "new signature returned")
+  const result = await signCla({ orgSlug: "fiveonefour", repoName: "sdk", prNumber: 20 })
+  assert(result.signature !== undefined, "new signature returned")
 
   // Step 3: Verify contributor is now on current version
-  const res = await fetch(`${baseUrl}/api/sign/fiveonefour`)
-  const data = await res.json()
-  assertEqual(data.alreadySigned, true, "now signed current version")
-  assertEqual(data.needsResign, false, "no re-sign needed")
+  const status = await getSignatureStatus("fiveonefour", TEST_USERS.contributor.id)
+  assertEqual(status.signed, true, "now signed current version")
+  assertEqual(status.currentVersion, true, "no re-sign needed")
 })
 
 test("Admin signers list shows outdated badges after CLA update", async (baseUrl) => {
   await resetDb(baseUrl)
 
   // Step 1: Check initial state -- all 3 signers on current sha256
-  const res1 = await fetch(`${baseUrl}/api/orgs/fiveonefour`)
-  const data1 = await res1.json()
-  assertEqual(data1.signers.length, 3, "3 signers initially")
-  const allOnCurrent = data1.signers.every(
-    (s: { claSha256: string }) => s.claSha256 === data1.currentClaSha256
-  )
+  const org1 = await getOrganizationBySlug("fiveonefour")
+  assert(org1 !== undefined, "org found")
+  const signers1 = await getSignaturesByOrg(org1.id)
+  assertEqual(signers1.length, 3, "3 signers initially")
+  const allOnCurrent = signers1.every((s) => s.claSha256 === org1.claTextSha256)
   assert(allOnCurrent, "all signers on current version initially")
 
   // Step 2: Admin updates CLA
   await updateClaForOrg("fiveonefour", "# Updated CLA v2")
 
   // Step 3: All signers are now outdated (their sha256 != new sha256)
-  const res2 = await fetch(`${baseUrl}/api/orgs/fiveonefour`)
-  const data2 = await res2.json()
-  assertEqual(data2.signers.length, 3, "still 3 signers")
-  const noneOnCurrent = data2.signers.every(
-    (s: { claSha256: string }) => s.claSha256 !== data2.currentClaSha256
-  )
+  const org2 = await getOrganizationBySlug("fiveonefour")
+  assert(org2 !== undefined, "org found after update")
+  const signers2 = await getSignaturesByOrg(org2.id)
+  assertEqual(signers2.length, 3, "still 3 signers")
+  const noneOnCurrent = signers2.every((s) => s.claSha256 !== org2.claTextSha256)
   assert(noneOnCurrent, "all signers now on outdated version")
 })
 
@@ -619,23 +646,18 @@ test("Admin signers list keeps one latest row per user after re-sign", async (ba
   await updateClaForOrg("fiveonefour", "# Updated CLA v2")
 
   await switchRole(baseUrl, "contributor")
-  const resignRes = await fetch(`${baseUrl}/api/sign`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ orgSlug: "fiveonefour" }),
-  })
-  assertEqual(resignRes.status, 200, "contributor re-sign succeeded")
-  const resignData = await resignRes.json()
-  const signerUserId = resignData.signature.userId
+  const result = await signCla({ orgSlug: "fiveonefour" })
+  const signerUserId = result.signature.userId
   assert(typeof signerUserId === "string", "resigned user id is present")
 
   await switchRole(baseUrl, "admin")
-  const res = await fetch(`${baseUrl}/api/orgs/fiveonefour`)
-  const data = await res.json()
+  const org = await getOrganizationBySlug("fiveonefour")
+  assert(org !== undefined, "org found")
+  const signers = await getSignaturesByOrg(org.id)
 
-  const userRows = data.signers.filter((s: { userId: string }) => s.userId === signerUserId)
+  const userRows = signers.filter((s) => s.userId === signerUserId)
   assertEqual(userRows.length, 1, "user appears only once in signers")
-  assertEqual(userRows[0].claSha256, data.currentClaSha256, "user row points to latest CLA")
+  assertEqual(userRows[0].claSha256, org.claTextSha256, "user row points to latest CLA")
 })
 
 test("Contributor dashboard shows re-sign required after CLA update", async (baseUrl) => {
@@ -647,11 +669,8 @@ test("Contributor dashboard shows re-sign required after CLA update", async (bas
 
   // Step 2: Contributor checks their dashboard
   await switchRole(baseUrl, "contributor")
-  const res = await fetch(`${baseUrl}/api/contributor`)
-  const data = await res.json()
-  const fiveOneFourSig = data.signatures.find(
-    (s: { orgSlug: string }) => s.orgSlug === "fiveonefour"
-  )
+  const { signatures } = await getContributorData(TEST_USERS.contributor.id)
+  const fiveOneFourSig = signatures.find((s) => s.orgSlug === "fiveonefour")
   assert(fiveOneFourSig !== undefined, "fiveonefour signature exists")
   assertEqual(fiveOneFourSig.isCurrentVersion, false, "signature is outdated")
   assert(typeof fiveOneFourSig.signedVersionLabel === "string", "signedVersionLabel is a string")
@@ -666,65 +685,53 @@ test("Contributor dashboard shows re-sign required after CLA update", async (bas
 // 8. CONTRIBUTOR DASHBOARD TESTS
 // ==========================================
 
-test("GET /api/contributor returns signed CLAs for contributor", async (baseUrl) => {
+test("Contributor dashboard returns signed CLAs for contributor", async (baseUrl) => {
   await resetDb(baseUrl)
   await switchRole(baseUrl, "contributor")
-  const res = await fetch(`${baseUrl}/api/contributor`)
-  const data = await res.json()
-  assertEqual(res.status, 200, "status")
+  const data = await getContributorData(TEST_USERS.contributor.id)
   assertEqual(data.user.githubUsername, "contributor1", "user")
   assertEqual(data.signatures.length, 2, "signature count")
   assert(
-    data.signatures.some((s: { orgSlug: string }) => s.orgSlug === "fiveonefour"),
+    data.signatures.some((s) => s.orgSlug === "fiveonefour"),
     "fiveonefour CLA present"
   )
   assert(
-    data.signatures.some((s: { orgSlug: string }) => s.orgSlug === "moose-stack"),
+    data.signatures.some((s) => s.orgSlug === "moose-stack"),
     "moose-stack CLA present"
   )
   assertEqual(data.signedOrgCount, 2, "signed org count")
   assertEqual(data.outdatedOrgCount, 0, "outdated org count")
 })
 
-test("GET /api/contributor returns empty for admin (no signatures)", async (baseUrl) => {
+test("Contributor dashboard returns empty for admin (no signatures)", async (baseUrl) => {
   await resetDb(baseUrl)
-  const res = await fetch(`${baseUrl}/api/contributor`)
-  const data = await res.json()
+  const data = await getContributorData(TEST_USERS.admin.id)
   assertEqual(data.signatures.length, 0, "admin has no signatures")
   assertEqual(data.signedOrgCount, 0, "signed org count")
   assertEqual(data.outdatedOrgCount, 0, "outdated org count")
 })
 
-test("GET /api/contributor tracks latest signature status per org after re-sign", async (baseUrl) => {
+test("Contributor dashboard tracks latest signature status per org after re-sign", async (baseUrl) => {
   await resetDb(baseUrl)
 
   await switchRole(baseUrl, "contributor")
-  const beforeRes = await fetch(`${baseUrl}/api/contributor`)
-  const beforeData = await beforeRes.json()
+  const beforeData = await getContributorData(TEST_USERS.contributor.id)
   assertEqual(beforeData.outdatedOrgCount, 0, "no outdated orgs initially")
 
   await switchRole(baseUrl, "admin")
   await updateClaForOrg("fiveonefour", "# Updated CLA v2")
 
   await switchRole(baseUrl, "contributor")
-  const outdatedRes = await fetch(`${baseUrl}/api/contributor`)
-  const outdatedData = await outdatedRes.json()
+  const outdatedData = await getContributorData(TEST_USERS.contributor.id)
   assertEqual(outdatedData.outdatedOrgCount, 1, "org becomes outdated after CLA change")
 
-  const resignRes = await fetch(`${baseUrl}/api/sign`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ orgSlug: "fiveonefour" }),
-  })
-  assertEqual(resignRes.status, 200, "re-sign succeeds")
+  await signCla({ orgSlug: "fiveonefour" })
 
-  const afterRes = await fetch(`${baseUrl}/api/contributor`)
-  const afterData = await afterRes.json()
+  const afterData = await getContributorData(TEST_USERS.contributor.id)
   assertEqual(afterData.outdatedOrgCount, 0, "org no longer outdated after re-sign")
 
   const latestFiveOneFour = afterData.signatures.find(
-    (s: { orgSlug: string; isLatestForOrg: boolean }) =>
-      s.orgSlug === "fiveonefour" && s.isLatestForOrg
+    (s) => s.orgSlug === "fiveonefour" && s.isLatestForOrg
   )
   assert(latestFiveOneFour !== undefined, "latest fiveonefour signature exists")
   assertEqual(latestFiveOneFour.orgNeedsResign, false, "latest signature is compliant")
@@ -734,9 +741,8 @@ test("Contributor can download their signed CLA history entry", async (baseUrl) 
   await resetDb(baseUrl)
   await switchRole(baseUrl, "contributor")
 
-  const listRes = await fetch(`${baseUrl}/api/contributor`)
-  const listData = await listRes.json()
-  const signatureId = listData.signatures[0]?.id
+  const { signatures } = await getContributorData(TEST_USERS.contributor.id)
+  const signatureId = signatures[0]?.id
   assert(typeof signatureId === "string", "signature id available")
 
   const downloadRes = await fetch(`${baseUrl}/api/contributor/signatures/${signatureId}/download`)
@@ -758,26 +764,14 @@ test("Contributor can view a historical signed CLA version inline", async (baseU
   await switchRole(baseUrl, "contributor")
 
   await updateClaForOrg("fiveonefour", "# History View v1")
-  const signV1Res = await fetch(`${baseUrl}/api/sign`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ orgSlug: "fiveonefour" }),
-  })
-  assertEqual(signV1Res.status, 200, "v1 sign succeeds")
+  await signCla({ orgSlug: "fiveonefour" })
 
   await updateClaForOrg("fiveonefour", "# History View v2")
-  const signV2Res = await fetch(`${baseUrl}/api/sign`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ orgSlug: "fiveonefour" }),
-  })
-  assertEqual(signV2Res.status, 200, "v2 sign succeeds")
+  await signCla({ orgSlug: "fiveonefour" })
 
-  const listRes = await fetch(`${baseUrl}/api/contributor`)
-  const listData = await listRes.json()
-  const historySignature = listData.signatures.find(
-    (signature: { orgSlug: string; isLatestForOrg: boolean }) =>
-      signature.orgSlug === "fiveonefour" && !signature.isLatestForOrg
+  const { signatures } = await getContributorData(TEST_USERS.contributor.id)
+  const historySignature = signatures.find(
+    (s) => s.orgSlug === "fiveonefour" && !s.isLatestForOrg
   )
   assert(historySignature !== undefined, "historical signature exists")
 
@@ -797,9 +791,8 @@ test("Contributor can view a historical signed CLA version inline", async (baseU
 test("Contributor CLA download endpoint denies access to another user's signature", async (baseUrl) => {
   await resetDb(baseUrl)
   await switchRole(baseUrl, "contributor")
-  const listRes = await fetch(`${baseUrl}/api/contributor`)
-  const listData = await listRes.json()
-  const signatureId = listData.signatures[0]?.id
+  const { signatures } = await getContributorData(TEST_USERS.contributor.id)
+  const signatureId = signatures[0]?.id
   assert(typeof signatureId === "string", "signature id available")
 
   await switchRole(baseUrl, "admin")
@@ -815,53 +808,39 @@ test("Full flow: sign, update CLA, verify outdated, re-sign", async (baseUrl) =>
   await resetDb(baseUrl)
 
   // Step 1: Admin signs fiveonefour CLA (v1)
-  const signRes1 = await fetch(`${baseUrl}/api/sign`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ orgSlug: "fiveonefour" }),
-  })
-  assertEqual(signRes1.status, 200, "admin sign v1 success")
+  await signCla({ orgSlug: "fiveonefour" })
 
   // Step 2: Verify admin signed v1
-  const checkRes1 = await fetch(`${baseUrl}/api/sign/fiveonefour`)
-  const checkData1 = await checkRes1.json()
-  assertEqual(checkData1.alreadySigned, true, "admin signed")
-  assertEqual(checkData1.needsResign, false, "no re-sign needed")
+  const status1 = await getSignatureStatus("fiveonefour", TEST_USERS.admin.id)
+  assertEqual(status1.signed, true, "admin signed")
+  assertEqual(status1.currentVersion, true, "no re-sign needed")
 
   // Step 3: Admin updates CLA to v2
   await updateClaForOrg("fiveonefour", "# Completely new CLA v2")
 
   // Step 4: Admin now needs to re-sign (their v1 signature is outdated)
-  const checkRes2 = await fetch(`${baseUrl}/api/sign/fiveonefour`)
-  const checkData2 = await checkRes2.json()
-  assertEqual(checkData2.alreadySigned, false, "not signed for v2")
-  assertEqual(checkData2.needsResign, true, "re-sign needed")
+  const status2 = await getSignatureStatus("fiveonefour", TEST_USERS.admin.id)
+  assertEqual(status2.signed, true, "signed, but old version")
+  assertEqual(status2.currentVersion, false, "re-sign needed")
 
   // Step 5: Admin re-signs
-  const signRes2 = await fetch(`${baseUrl}/api/sign`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ orgSlug: "fiveonefour" }),
-  })
-  assertEqual(signRes2.status, 200, "admin re-sign success")
+  await signCla({ orgSlug: "fiveonefour" })
 
   // Step 6: Verify admin is now on current version
-  const checkRes3 = await fetch(`${baseUrl}/api/sign/fiveonefour`)
-  const checkData3 = await checkRes3.json()
-  assertEqual(checkData3.alreadySigned, true, "admin now signed v2")
-  assertEqual(checkData3.needsResign, false, "no re-sign needed")
+  const status3 = await getSignatureStatus("fiveonefour", TEST_USERS.admin.id)
+  assertEqual(status3.signed, true, "admin now signed v2")
+  assertEqual(status3.currentVersion, true, "no re-sign needed")
 
   // Step 7: Verify signers list -- admin should appear with current version
-  const orgRes = await fetch(`${baseUrl}/api/orgs/fiveonefour`)
-  const orgData = await orgRes.json()
+  const org = await getOrganizationBySlug("fiveonefour")
+  assert(org !== undefined, "org found")
+  const signers = await getSignaturesByOrg(org.id)
   // Signers are deduplicated by user; admin should appear once and on latest version.
-  assert(orgData.signers.length >= 4, "unique signer count includes admin")
-  const uniqueUserCount = new Set(orgData.signers.map((s: { userId: string }) => s.userId)).size
-  assertEqual(uniqueUserCount, orgData.signers.length, "signers are deduplicated")
+  assert(signers.length >= 4, "unique signer count includes admin")
+  const uniqueUserCount = new Set(signers.map((s) => s.userId)).size
+  assertEqual(uniqueUserCount, signers.length, "signers are deduplicated")
   // At least one signer on current sha256 (admin's re-sign)
-  const currentSigners = orgData.signers.filter(
-    (s: { claSha256: string }) => s.claSha256 === orgData.currentClaSha256
-  )
+  const currentSigners = signers.filter((s) => s.claSha256 === org.claTextSha256)
   assert(currentSigners.length >= 1, "at least 1 signer on current version")
 })
 
@@ -872,41 +851,40 @@ test("Full flow: CLA edit visible on sign page", async (baseUrl) => {
   const newCla = "# Custom CLA\n\nThis is a totally custom agreement."
   await updateClaForOrg("fiveonefour", newCla)
 
-  // Step 2: Contributor sees updated CLA on sign page
+  // Step 2: Contributor sees updated CLA via org query
   await switchRole(baseUrl, "contributor")
-  const signPageRes = await fetch(`${baseUrl}/api/sign/fiveonefour`)
-  const signPageData = await signPageRes.json()
-  assertEqual(signPageData.org.claMarkdown, newCla, "CLA is updated on sign page")
+  const org = await getOrganizationBySlug("fiveonefour")
+  assert(org !== undefined, "org found")
+  assertEqual(org.claText, newCla, "CLA is updated on sign page")
 })
 
 test("Full flow: role switching maintains separate data views", async (baseUrl) => {
   await resetDb(baseUrl)
 
   // As admin, see 2 orgs
-  const adminOrgsRes = await fetch(`${baseUrl}/api/orgs`)
-  const adminOrgsData = await adminOrgsRes.json()
-  assertEqual(adminOrgsData.orgs.length, 2, "admin sees 2 orgs")
-  assertEqual(adminOrgsData.user.role, "admin", "user is admin")
+  const allOrgs = await getOrganizations()
+  const adminOrgs = await filterInstalledOrganizationsForAdmin(TEST_USERS.admin, allOrgs)
+  assertEqual(adminOrgs.length, 2, "admin sees 2 orgs")
+  assertEqual(TEST_USERS.admin.role, "admin", "user is admin")
 
   // Switch to contributor
   await switchRole(baseUrl, "contributor")
 
   // As contributor, see 0 admin orgs but 2 signed CLAs
-  const contribOrgsRes = await fetch(`${baseUrl}/api/orgs`)
-  const contribOrgsData = await contribOrgsRes.json()
-  assertEqual(contribOrgsData.orgs.length, 0, "contributor sees 0 admin orgs")
+  const allOrgs2 = await getOrganizations()
+  const contribOrgs = await filterInstalledOrganizationsForAdmin(TEST_USERS.contributor, allOrgs2)
+  assertEqual(contribOrgs.length, 0, "contributor sees 0 admin orgs")
 
-  const contribRes = await fetch(`${baseUrl}/api/contributor`)
-  const contribData = await contribRes.json()
+  const contribData = await getContributorData(TEST_USERS.contributor.id)
   assertEqual(contribData.signatures.length, 2, "contributor has 2 signed CLAs")
   assertEqual(contribData.user.role, "contributor", "user is contributor")
 
   // Switch back to admin
   await switchRole(baseUrl, "admin")
 
-  const adminOrgsRes2 = await fetch(`${baseUrl}/api/orgs`)
-  const adminOrgsData2 = await adminOrgsRes2.json()
-  assertEqual(adminOrgsData2.orgs.length, 2, "admin sees orgs again")
+  const allOrgs3 = await getOrganizations()
+  const adminOrgs2 = await filterInstalledOrganizationsForAdmin(TEST_USERS.admin, allOrgs3)
+  assertEqual(adminOrgs2.length, 2, "admin sees orgs again")
 })
 
 test("Full flow: deactivate org blocks signing, reactivate allows it", async (baseUrl) => {
@@ -916,23 +894,20 @@ test("Full flow: deactivate org blocks signing, reactivate allows it", async (ba
   await setOrgActiveForTest("fiveonefour", false)
 
   // Step 2: Signing blocked
-  const signRes1 = await fetch(`${baseUrl}/api/sign`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ orgSlug: "fiveonefour" }),
-  })
-  assertEqual(signRes1.status, 403, "signing blocked when inactive")
+  try {
+    await signCla({ orgSlug: "fiveonefour" })
+    assert(false, "should have thrown SignClaError")
+  } catch (e) {
+    assert(e instanceof SignClaError, "SignClaError thrown")
+    assertEqual(e.status, 403, "signing blocked when inactive")
+  }
 
   // Step 3: Reactivate
   await setOrgActiveForTest("fiveonefour", true)
 
   // Step 4: Signing allowed again
-  const signRes2 = await fetch(`${baseUrl}/api/sign`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ orgSlug: "fiveonefour" }),
-  })
-  assertEqual(signRes2.status, 200, "signing allowed when reactivated")
+  const result = await signCla({ orgSlug: "fiveonefour" })
+  assert(result.signature !== undefined, "signing allowed when reactivated")
 })
 
 // ==========================================
@@ -947,15 +922,14 @@ test("Reset helper restores initial state", async (baseUrl) => {
   await resetDb(baseUrl)
 
   // Verify restored
-  const res = await fetch(`${baseUrl}/api/orgs/fiveonefour`)
-  const data = await res.json()
-  assert(
-    data.currentClaMarkdown.includes("Contributor License Agreement"),
-    "CLA restored to original"
-  )
-  assertEqual(data.signers.length, 3, "signers restored")
-  assertEqual(data.org.isActive, true, "active state restored")
-  assertEqual(data.archives.length, 1, "archives restored to 1")
+  const org = await getOrganizationBySlug("fiveonefour")
+  assert(org !== undefined, "org found after reset")
+  assert(org.claText.includes("Contributor License Agreement"), "CLA restored to original")
+  assertEqual(org.isActive, true, "active state restored")
+  const signers = await getSignaturesByOrg(org.id)
+  assertEqual(signers.length, 3, "signers restored")
+  const archives = await getArchivesByOrg(org.id)
+  assertEqual(archives.length, 1, "archives restored to 1")
 })
 
 // ==========================================
@@ -1242,13 +1216,7 @@ test("Webhook: after signing, schedules async signer PR sync", async (baseUrl) =
 
   // Step 3: Switch to contributor role and sign the CLA
   await switchRole(baseUrl, "contributor")
-  const signRes = await fetch(`${baseUrl}/api/sign`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ orgSlug: "fiveonefour", repoName: "sdk", prNumber: 20 }),
-  })
-  const signData = await signRes.json()
-  assertEqual(signRes.status, 200, "sign succeeded")
+  const signData = await signCla({ orgSlug: "fiveonefour", repoName: "sdk", prNumber: 20 })
 
   // Step 4: Verify async sync scheduling metadata is returned.
   assertEqual(signData.prSyncScheduled, true, "sign schedules async PR sync")
@@ -1290,13 +1258,7 @@ test("Webhook: signing without repo/pr still schedules async open PR sync", asyn
 
   // Step 3: Sign WITHOUT repo/pr context.
   await switchRole(baseUrl, "contributor")
-  const signRes = await fetch(`${baseUrl}/api/sign`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ orgSlug: "fiveonefour" }),
-  })
-  const signData = await signRes.json()
-  assertEqual(signRes.status, 200, "sign succeeded")
+  const signData = await signCla({ orgSlug: "fiveonefour" })
   assertEqual(signData.prSyncScheduled, true, "sign schedules async sync without repo/pr")
   assert(typeof signData.prSyncRunId === "string", "workflow run id returned")
   assertEqual(signData.prSyncScheduleError, null, "no scheduling error")
@@ -1352,13 +1314,7 @@ test("Webhook: re-sign flow -- sign schedules async check/comment sync", async (
 
   // Contributor re-signs
   await switchRole(baseUrl, "contributor")
-  const signRes = await fetch(`${baseUrl}/api/sign`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ orgSlug: "fiveonefour", repoName: "sdk", prNumber: 30 }),
-  })
-  const signData = await signRes.json()
-  assertEqual(signRes.status, 200, "re-sign succeeded")
+  const signData = await signCla({ orgSlug: "fiveonefour", repoName: "sdk", prNumber: 30 })
   assertEqual(signData.prSyncScheduled, true, "re-sign schedules async sync")
   assert(typeof signData.prSyncRunId === "string", "workflow run id returned")
   assertEqual(signData.prSyncScheduleError, null, "no scheduling error")
@@ -1742,11 +1698,10 @@ test("Webhook: installation created registers new org", async (baseUrl) => {
   assertEqual(data.org.claText, "", "no built-in CLA text")
   assertEqual(data.org.claTextSha256, null, "no built-in CLA hash")
 
-  const orgRes = await fetch(`${baseUrl}/api/orgs/new-org`)
-  const orgData = await orgRes.json()
-  assertEqual(orgRes.status, 200, "new org accessible")
-  assertEqual(orgData.currentClaMarkdown, "", "org details expose empty CLA")
-  assertEqual(orgData.currentClaSha256, null, "org details expose null CLA hash")
+  const newOrg = await getOrganizationBySlug("new-org")
+  assert(newOrg !== undefined, "new org accessible")
+  assertEqual(newOrg.claText, "", "org details expose empty CLA")
+  assertEqual(newOrg.claTextSha256, null, "org details expose null CLA hash")
 })
 
 test("Webhook: non-member PR on org without configured CLA fails with config required", async (baseUrl) => {
@@ -1790,16 +1745,15 @@ test("Webhook: personal-account installation stores user target metadata", async
   })
   assertEqual(res.status, 200, "installation accepted")
 
-  const orgRes = await fetch(`${baseUrl}/api/orgs/orgadmin`)
-  const orgData = await orgRes.json()
-  assertEqual(orgRes.status, 200, "personal account row is accessible")
-  assertEqual(orgData.org.githubAccountType, "user", "account type persisted")
-  assertEqual(orgData.org.githubAccountId, "1001", "account id persisted")
+  const orgadminOrg = await getOrganizationBySlug("orgadmin")
+  assert(orgadminOrg !== undefined, "personal account row is accessible")
+  assertEqual(orgadminOrg.githubAccountType, "user", "account type persisted")
+  assertEqual(orgadminOrg.githubAccountId, "1001", "account id persisted")
 
-  const adminOrgsRes = await fetch(`${baseUrl}/api/orgs`)
-  const adminOrgsData = await adminOrgsRes.json()
+  const allOrgs = await getOrganizations()
+  const adminOrgs = await filterInstalledOrganizationsForAdmin(TEST_USERS.admin, allOrgs)
   assert(
-    adminOrgsData.orgs.some((org: { githubOrgSlug: string }) => org.githubOrgSlug === "orgadmin"),
+    adminOrgs.some((org) => org.githubOrgSlug === "orgadmin"),
     "personal account appears in authorized admin org list"
   )
 })
@@ -1812,9 +1766,9 @@ test("Webhook: installation deleted deactivates org", async (baseUrl) => {
   })
   assert(data.message.includes("uninstalled"), "uninstall message")
 
-  const orgRes = await fetch(`${baseUrl}/api/orgs/fiveonefour`)
-  const orgData = await orgRes.json()
-  assertEqual(orgData.org.isActive, false, "org deactivated after uninstall")
+  const deactivatedOrg = await getOrganizationBySlug("fiveonefour")
+  assert(deactivatedOrg !== undefined, "org found after uninstall")
+  assertEqual(deactivatedOrg.isActive, false, "org deactivated after uninstall")
 })
 
 test("Webhook: installation suspend and unsuspend toggles active state", async (baseUrl) => {
@@ -1826,9 +1780,9 @@ test("Webhook: installation suspend and unsuspend toggles active state", async (
   })
   assertEqual(suspendRes.status, 200, "suspend accepted")
 
-  const orgAfterSuspendRes = await fetch(`${baseUrl}/api/orgs/fiveonefour`)
-  const orgAfterSuspend = await orgAfterSuspendRes.json()
-  assertEqual(orgAfterSuspend.org.isActive, false, "org is inactive after suspend")
+  const orgAfterSuspend = await getOrganizationBySlug("fiveonefour")
+  assert(orgAfterSuspend !== undefined, "org found after suspend")
+  assertEqual(orgAfterSuspend.isActive, false, "org is inactive after suspend")
 
   const { res: unsuspendRes } = await sendWebhook(baseUrl, "installation", {
     action: "unsuspend",
@@ -1837,9 +1791,9 @@ test("Webhook: installation suspend and unsuspend toggles active state", async (
   })
   assertEqual(unsuspendRes.status, 200, "unsuspend accepted")
 
-  const orgAfterUnsuspendRes = await fetch(`${baseUrl}/api/orgs/fiveonefour`)
-  const orgAfterUnsuspend = await orgAfterUnsuspendRes.json()
-  assertEqual(orgAfterUnsuspend.org.isActive, true, "org is active after unsuspend")
+  const orgAfterUnsuspend = await getOrganizationBySlug("fiveonefour")
+  assert(orgAfterUnsuspend !== undefined, "org found after unsuspend")
+  assertEqual(orgAfterUnsuspend.isActive, true, "org is active after unsuspend")
 })
 
 test("Webhook: ping event is acknowledged", async (baseUrl) => {

@@ -11,7 +11,7 @@ type IntegrationServer = {
 type IntegrationServerProcess = ChildProcessByStdio<null, Readable, Readable>
 
 const DEFAULT_STARTUP_TIMEOUT_MS = 90_000
-const HEALTHCHECK_PATH = "/api/auth/session"
+const HEALTHCHECK_PATH = "/auth/signin"
 
 export async function startIntegrationServer(): Promise<IntegrationServer> {
   const externalBaseUrl = process.env.TEST_BASE_URL ?? process.env.INTEGRATION_BASE_URL
