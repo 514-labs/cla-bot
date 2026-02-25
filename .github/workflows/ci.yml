@@ -81,28 +81,43 @@ jobs:
     # Add it under GitHub → Settings → Secrets and variables → Actions.
     # The app uses @neondatabase/serverless (HTTP-based), so a standard local
     # Postgres container is not sufficient — use a real Neon test database.
-    if: ${{ secrets.DATABASE_URL != '' }}
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       # SESSION_SECRET can be any string for test purposes
       SESSION_SECRET: ${{ secrets.SESSION_SECRET || 'ci-integration-test-secret' }}
     steps:
+      - name: Check for required secrets
+        id: check-secrets
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::Skipping integration tests — DATABASE_URL secret is not configured"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - uses: actions/checkout@v6
+        if: steps.check-secrets.outputs.skip != 'true'
 
       - uses: pnpm/action-setup@v4
+        if: steps.check-secrets.outputs.skip != 'true'
         with:
           version: latest
 
       - uses: actions/setup-node@v6
+        if: steps.check-secrets.outputs.skip != 'true'
         with:
           node-version: "20"
           cache: "pnpm"
 
       - name: Install dependencies
+        if: steps.check-secrets.outputs.skip != 'true'
         run: pnpm install --frozen-lockfile
 
       - name: Apply database migrations
+        if: steps.check-secrets.outputs.skip != 'true'
         run: pnpm db:migrate
 
       - name: Run integration tests
+        if: steps.check-secrets.outputs.skip != 'true'
         run: pnpm test:integration
