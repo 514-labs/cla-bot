@@ -45,29 +45,27 @@ export function simpleMarkdownToHtml(md: string): string {
   // Process lists and blockquotes
   const lines = html.split("\n")
   const result: string[] = []
-  let listState: {
-    kind: "ol" | "ul" | "ol-alpha-lower" | "ol-alpha-upper"
-    indent: number
-  } | null = null
+  type ListKind = "ol" | "ul" | "ol-alpha-lower" | "ol-alpha-upper"
+  type ListState = { kind: ListKind; indent: number }
+  let listState: ListState | null = null
   let inBlockquote = false
 
-  const closeList = () => {
-    if (!listState) return
-    result.push(listState.kind === "ul" ? "</ul>" : "</ol>")
-    listState = null
+  const closeList = (state: ListState | null) => {
+    if (!state) return null
+    result.push(state.kind === "ul" ? "</ul>" : "</ol>")
+    return null
   }
 
-  const openList = (kind: "ol" | "ul" | "ol-alpha-lower" | "ol-alpha-upper", indent: number) => {
+  const openList = (kind: ListKind, indent: number): ListState => {
     if (kind === "ul") {
       result.push(`<ul${listIndentStyle(indent)}>`)
-      listState = { kind, indent }
-      return
+      return { kind, indent }
     }
 
     const typeAttr =
       kind === "ol-alpha-lower" ? ' type="a"' : kind === "ol-alpha-upper" ? ' type="A"' : ""
     result.push(`<ol${typeAttr}${listIndentStyle(indent)}>`)
-    listState = { kind, indent }
+    return { kind, indent }
   }
 
   for (let i = 0; i < lines.length; i++) {
@@ -84,8 +82,8 @@ export function simpleMarkdownToHtml(md: string): string {
         inBlockquote = false
       }
       if (!listState || listState.kind !== "ol" || listState.indent !== indent) {
-        closeList()
-        openList("ol", indent)
+        listState = closeList(listState)
+        listState = openList("ol", indent)
       }
       result.push(`<li value="${olMatch[2]}">${olMatch[3]}</li>`)
     } else if (alphaMatch) {
@@ -99,8 +97,8 @@ export function simpleMarkdownToHtml(md: string): string {
         inBlockquote = false
       }
       if (!listState || listState.kind !== listKind || listState.indent !== indent) {
-        closeList()
-        openList(listKind, indent)
+        listState = closeList(listState)
+        listState = openList(listKind, indent)
       }
       result.push(`<li value="${markerValue}">${alphaMatch[3]}</li>`)
     } else if (ulMatch) {
@@ -110,12 +108,12 @@ export function simpleMarkdownToHtml(md: string): string {
         inBlockquote = false
       }
       if (!listState || listState.kind !== "ul" || listState.indent !== indent) {
-        closeList()
-        openList("ul", indent)
+        listState = closeList(listState)
+        listState = openList("ul", indent)
       }
       result.push(`<li>${ulMatch[2]}</li>`)
     } else if (bqMatch) {
-      closeList()
+      listState = closeList(listState)
       if (!inBlockquote) {
         result.push("<blockquote>")
         inBlockquote = true
@@ -124,7 +122,7 @@ export function simpleMarkdownToHtml(md: string): string {
         result.push(`<p>${bqMatch[1]}</p>`)
       }
     } else {
-      closeList()
+      listState = closeList(listState)
       if (inBlockquote) {
         result.push("</blockquote>")
         inBlockquote = false
@@ -145,7 +143,7 @@ export function simpleMarkdownToHtml(md: string): string {
     }
   }
 
-  closeList()
+  listState = closeList(listState)
   if (inBlockquote) result.push("</blockquote>")
 
   return result.join("\n")

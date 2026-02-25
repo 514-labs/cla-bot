@@ -14,6 +14,7 @@ export type ClaOpenPrRecheckSummary = {
   rechecked: number
   failedChecks: number
   passedBypassChecks: number
+  passedInactiveChecks: number
   commentsCreated: number
   commentsUpdated: number
   commentsDeleted: number
@@ -35,6 +36,7 @@ export async function recheckOpenPullRequestsAfterClaUpdate(params: {
     rechecked: 0,
     failedChecks: 0,
     passedBypassChecks: 0,
+    passedInactiveChecks: 0,
     commentsCreated: 0,
     commentsUpdated: 0,
     commentsDeleted: 0,
@@ -51,11 +53,7 @@ export async function recheckOpenPullRequestsAfterClaUpdate(params: {
     summary.error = `Organization "${params.orgSlug}" not found`
     return summary
   }
-
-  if (!org.isActive) {
-    summary.skippedInactive = true
-    return summary
-  }
+  summary.skippedInactive = !org.isActive
 
   const resolvedInstallationId = params.installationId ?? org.installationId ?? undefined
   let github: ReturnType<typeof getGitHubClient>
@@ -81,6 +79,35 @@ export async function recheckOpenPullRequestsAfterClaUpdate(params: {
 
   for (const pr of openPrs) {
     try {
+      if (!org.isActive) {
+        await github.createCheckRun({
+          owner: params.orgSlug,
+          repo: pr.repoName,
+          name: CHECK_NAME,
+          head_sha: pr.headSha,
+          status: "completed",
+          conclusion: "success",
+          output: {
+            title: "CLA: Bot deactivated",
+            summary: `CLA enforcement is currently deactivated for @${params.orgSlug}. This pull request is not blocked by CLA requirements.`,
+          },
+        })
+
+        const existingComment = await github.findBotComment(params.orgSlug, pr.repoName, pr.number)
+        if (existingComment && isRemovableClaPromptComment(existingComment.body)) {
+          await github.deleteComment({
+            owner: params.orgSlug,
+            repo: pr.repoName,
+            comment_id: existingComment.id,
+          })
+          summary.commentsDeleted += 1
+        }
+
+        summary.passedInactiveChecks += 1
+        summary.rechecked += 1
+        continue
+      }
+
       const bypassAccount = await isBypassAccountForOrg({
         orgId: org.id,
         githubUserId: pr.authorId,

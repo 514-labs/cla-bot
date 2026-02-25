@@ -117,19 +117,38 @@ export async function toggleOrganizationActiveAction(input: unknown): Promise<Ac
     return { ok: false, error: "Organization not found" }
   }
 
+  const headerStore = await headers()
+  const appBaseUrl = getBaseUrlFromHeaders(headerStore)
+  const recheck = await scheduleClaRecheckForOrg({
+    orgSlug,
+    orgId: org.id,
+    claSha256: org.claTextSha256,
+    appBaseUrl,
+    actor: {
+      userId: access.user.id,
+      githubId: access.user.githubId ?? null,
+      githubUsername: access.user.githubUsername ?? null,
+    },
+  })
+
   await createAuditEvent({
     eventType: "organization.activation_changed",
     orgId: org.id,
     userId: access.user.id,
     actorGithubId: access.user.githubId ?? null,
     actorGithubUsername: access.user.githubUsername,
-    payload: { isActive },
+    payload: {
+      isActive,
+      recheckScheduled: recheck.recheckScheduled,
+      recheckRunId: recheck.recheckRunId,
+      recheckScheduleError: recheck.recheckScheduleError,
+    },
   })
 
   revalidatePath(`/admin/${orgSlug}`)
   revalidatePath("/admin")
 
-  return { ok: true }
+  return { ok: true, ...recheck }
 }
 
 export async function addBypassAccountAction(input: unknown): Promise<ActionResult> {

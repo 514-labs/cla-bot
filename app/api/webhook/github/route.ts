@@ -312,13 +312,6 @@ async function handlePrCheck(params: {
     return NextResponse.json({ error: `Organization "${orgSlug}" not found` }, { status: 404 })
   }
 
-  if (!org.isActive) {
-    return NextResponse.json({
-      message: `CLA bot is deactivated for ${orgSlug}. No check or comment.`,
-      skipped: true,
-    })
-  }
-
   const resolvedInstallationId = installationId ?? org.installationId ?? undefined
   if (installationId && org.installationId !== installationId) {
     await updateOrganizationInstallationId(orgSlug, installationId)
@@ -337,6 +330,59 @@ async function handlePrCheck(params: {
   } catch (err) {
     console.error("Failed to initialize GitHub client:", err)
     return NextResponse.json({ error: "GitHub client is not configured" }, { status: 500 })
+  }
+
+  if (!org.isActive) {
+    const check = await github.createCheckRun({
+      owner: orgSlug,
+      repo: repoName,
+      name: CHECK_NAME,
+      head_sha: headSha,
+      status: "completed",
+      conclusion: "success",
+      output: {
+        title: "CLA: Bot deactivated",
+        summary: `CLA enforcement is currently deactivated for @${orgSlug}. This pull request is not blocked by CLA requirements.`,
+      },
+    })
+
+    const existingComment = await github.findBotComment(orgSlug, repoName, prNumber)
+    let deletedCommentId: number | null = null
+    if (existingComment && isRemovableClaPromptComment(existingComment.body)) {
+      await github.deleteComment({
+        owner: orgSlug,
+        repo: repoName,
+        comment_id: existingComment.id,
+      })
+      deletedCommentId = existingComment.id
+    }
+
+    await createAuditEvent({
+      eventType: "webhook.pr_check",
+      orgId: org.id,
+      actorGithubId: prAuthorId ? String(prAuthorId) : null,
+      actorGithubUsername: prAuthor,
+      payload: {
+        owner: orgSlug,
+        repo: repoName,
+        prNumber,
+        decision: "inactive",
+        checkConclusion: check.conclusion,
+        deletedCommentId,
+      },
+    })
+
+    return NextResponse.json({
+      message: `CLA bot is deactivated for ${orgSlug}. Check set to success and CLA prompts removed.`,
+      skipped: true,
+      check: { id: check.id, status: "success", conclusion: check.conclusion },
+      comment: null,
+      orgMember: false,
+      accountOwner: false,
+      signed: true,
+      needsResign: false,
+      inactive: true,
+    })
   }
 
   const bypassAccount = await isBypassAccountForOrg({

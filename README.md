@@ -11,6 +11,7 @@ It gives org admins a place to manage CLA text and signing history, and gives co
 - Admins can define an org-scoped bypass list of GitHub accounts that should always receive a passing CLA check.
 - If a contributor has open pull requests and their signature becomes outdated after a CLA update, checks may need to be re-opened/re-evaluated and set to failing until re-signing is completed.
 - After a contributor signs/re-signs the latest CLA, the app schedules an async workflow that updates their open PR CLA checks to success and removes stale CLA prompt comments.
+- When an org is activated/deactivated, the app schedules an async workflow to re-check open PRs for that org so checks converge to the new enforcement mode.
 - GitHub is the user-management source of truth for the app.
 - The app has no local signup/password user-management system; DB user rows are GitHub-linked identity mirrors only.
 - Authentication/session management is stateless JWT-based (HTTP-only cookie + signed JWT with `jti`).
@@ -179,7 +180,8 @@ This section amends your scenario list and adds missing scenarios.
 
 ### 9) Additional scenarios commonly missed
 
-- Org deactivated/uninstalled: signing blocked, webhook checks/comments skipped.
+- Org deactivated/uninstalled: signing blocked; webhook events set passing CLA checks and remove managed CLA prompts so PRs are not blocked by CLA while inactive.
+- Activating or deactivating an org schedules an async open-PR recheck workflow so existing PR checks/comments converge automatically.
 - Updating bypass list schedules async open-PR recheck so existing PRs converge to the latest policy.
 - `/recheck` authorization: allowed for PR author, org member, or maintainer; unauthorized users are blocked.
 - OAuth and install redirects sanitize `returnTo` to prevent open redirects.
@@ -230,6 +232,7 @@ This section amends your scenario list and adds missing scenarios.
   - Unsigned/outdated signature: failing check + bot comment with signing URL.
 - When CLA text changes, contributors on older signatures are marked as requiring re-sign; open PRs may require check re-evaluation and failure until re-signing.
 - After signing/re-signing, an async workflow updates signer-authored open PR CLA checks to success and removes stale CLA prompt comments.
+- Activating/deactivating CLA enforcement schedules async open-PR rechecks; inactive mode converges CLA checks to success and clears managed CLA prompt comments.
 - CLA bot comment updates/deletions are restricted to CLA-managed comments tagged with an internal signature marker, preventing edits to third-party bot comments.
 - Repository maintainers must require `CLA Bot / Contributor License Agreement` in GitHub branch protection/rulesets for merge blocking to be enforced.
 - Markdown ordered lists preserve explicit authored numbering (for example `1.`, `2.`, `7.` stays `1, 2, 7`), and legal alpha markers (`a.` / `a)`) render as ordered sub-clauses with indentation.

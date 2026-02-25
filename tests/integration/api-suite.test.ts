@@ -1403,9 +1403,9 @@ test("CLA update + /recheck command fails outdated contributors on open PRs", as
   )
 })
 
-// -- Scenario 5: Bot deactivated -> NO check, NO comment --
+// -- Scenario 5: Bot deactivated -> green check, NO comment --
 
-test("Webhook: inactive org -> no check, no comment, completely skipped", async (baseUrl) => {
+test("Webhook: inactive org -> green check, no comment, not blocking", async (baseUrl) => {
   await resetDb(baseUrl)
 
   // Deactivate org
@@ -1423,8 +1423,82 @@ test("Webhook: inactive org -> no check, no comment, completely skipped", async 
     })
   )
   assertEqual(data.skipped, true, "skipped flag is true")
-  assertEqual(data.check, undefined, "no check run created")
-  assertEqual(data.comment, undefined, "no comment posted")
+  assertEqual(data.check.status, "success", "check run created as success while deactivated")
+  assertEqual(data.comment, null, "no comment posted")
+  assertEqual(data.inactive, true, "inactive flag returned")
+})
+
+test("Deactivate + reactivate converges PR checks on /recheck", async (baseUrl) => {
+  await resetDb(baseUrl)
+
+  await sendWebhook(
+    baseUrl,
+    "pull_request",
+    makePrPayload({
+      action: "opened",
+      prAuthor: "new-contributor",
+      orgSlug: "fiveonefour",
+      repoName: "sdk",
+      prNumber: 51,
+    })
+  )
+
+  const beforeDeactivateRes = await fetch(
+    `${baseUrl}/api/webhook/github?orgSlug=fiveonefour&repoName=sdk&prNumber=51`
+  )
+  const beforeDeactivateData = await beforeDeactivateRes.json()
+  assert(beforeDeactivateData.comment !== null, "unsigned PR has initial CLA prompt comment")
+
+  await setOrgActiveForTest("fiveonefour", false)
+  const { data: inactiveRecheckData } = await sendWebhook(baseUrl, "issue_comment", {
+    action: "created",
+    comment: { body: "/recheck", user: { login: "orgadmin" } },
+    issue: {
+      number: 51,
+      user: { login: "new-contributor" },
+      pull_request: { url: "https://api.github.com/repos/fiveonefour/sdk/pulls/51" },
+    },
+    repository: { owner: { login: "fiveonefour" }, name: "sdk" },
+    installation: { id: 10001 },
+  })
+  assertEqual(
+    inactiveRecheckData.check.status,
+    "success",
+    "inactive /recheck marks PR checks as success"
+  )
+
+  const afterDeactivateRes = await fetch(
+    `${baseUrl}/api/webhook/github?orgSlug=fiveonefour&repoName=sdk&prNumber=51`
+  )
+  const afterDeactivateData = await afterDeactivateRes.json()
+  assertEqual(afterDeactivateData.comment, null, "CLA prompt comment removed after deactivate run")
+
+  await setOrgActiveForTest("fiveonefour", true)
+  const { data: activeRecheckData } = await sendWebhook(baseUrl, "issue_comment", {
+    action: "created",
+    comment: { body: "/recheck", user: { login: "orgadmin" } },
+    issue: {
+      number: 51,
+      user: { login: "new-contributor" },
+      pull_request: { url: "https://api.github.com/repos/fiveonefour/sdk/pulls/51" },
+    },
+    repository: { owner: { login: "fiveonefour" }, name: "sdk" },
+    installation: { id: 10001 },
+  })
+  assertEqual(
+    activeRecheckData.check.status,
+    "failure",
+    "active /recheck restores CLA enforcement failure"
+  )
+
+  const afterReactivateRes = await fetch(
+    `${baseUrl}/api/webhook/github?orgSlug=fiveonefour&repoName=sdk&prNumber=51`
+  )
+  const afterReactivateData = await afterReactivateRes.json()
+  assert(
+    afterReactivateData.comment !== null,
+    "CLA prompt comment restored after re-activation run"
+  )
 })
 
 // -- Additional webhook tests --

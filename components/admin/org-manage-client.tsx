@@ -227,14 +227,23 @@ export function OrgManageClient({
   function handleToggleActive() {
     startToggleActiveTransition(async () => {
       setError(null)
+      const nextIsActive = !org.isActive
       const result = await toggleOrganizationActiveAction({
         orgSlug: org.githubOrgSlug,
-        isActive: !org.isActive,
+        isActive: nextIsActive,
       })
 
       if (!result.ok) {
         setError(result.error ?? "Failed to update activation status")
         return
+      }
+
+      if (result.recheckScheduleError) {
+        setError(
+          nextIsActive
+            ? "Organization activated, but async PR recheck scheduling failed."
+            : "Organization deactivated, but async PR recheck scheduling failed."
+        )
       }
 
       router.refresh()
