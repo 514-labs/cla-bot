@@ -1,71 +1,33 @@
-<svg width="1024" height="1024" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="shieldOuter" x1="152" y1="62" x2="368" y2="458" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#0E3A45" />
-      <stop offset="0.56" stop-color="#115763" />
+    <linearGradient id="shieldOuter" x1="186" y1="98" x2="838" y2="934" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0E3944" />
+      <stop offset="0.56" stop-color="#105968" />
       <stop offset="1" stop-color="#0B2F3A" />
     </linearGradient>
-    <linearGradient id="shieldInner" x1="186" y1="104" x2="336" y2="402" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#F2FFFB" />
-      <stop offset="1" stop-color="#CBEFE4" />
+    <linearGradient id="shieldInner" x1="270" y1="190" x2="754" y2="842" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F3FFFB" />
+      <stop offset="1" stop-color="#CCF0E5" />
     </linearGradient>
-    <linearGradient id="checkGradient" x1="220" y1="300" x2="302" y2="356" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#22E0B1" />
-      <stop offset="1" stop-color="#41C9EE" />
+    <linearGradient id="checkGradient" x1="426" y1="620" x2="596" y2="740" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#20E0AF" />
+      <stop offset="1" stop-color="#42CAEE" />
     </linearGradient>
-    <radialGradient id="glow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(202 136) rotate(42) scale(210)">
-      <stop stop-color="#63F0C6" stop-opacity="0.36" />
-      <stop offset="1" stop-color="#63F0C6" stop-opacity="0" />
-    </radialGradient>
-    <filter id="drop" x="80" y="16" width="352" height="476" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
-      <feDropShadow dx="0" dy="14" stdDeviation="16" flood-color="#02151C" flood-opacity="0.34" />
-    </filter>
   </defs>
 
-  <ellipse cx="256" cy="426" rx="108" ry="24" fill="#00141C" fill-opacity="0.16" />
+  <path d="M512 64L140 220V506C140 748 296 904 512 960C728 904 884 748 884 506V220L512 64Z" fill="url(#shieldOuter)"/>
+  <path d="M512 96L172 238V504C172 726 312 866 512 920C712 866 852 726 852 504V238L512 96Z" stroke="white" stroke-opacity="0.22" stroke-width="10"/>
 
-  <g filter="url(#drop)">
-    <path
-      d="M256 44L118 104V234C118 347 185 430 256 468C327 430 394 347 394 234V104L256 44Z"
-      fill="url(#shieldOuter)"
-    />
-    <path
-      d="M256 62L134 114V232C134 333 193 408 256 446C319 408 378 333 378 232V114L256 62Z"
-      stroke="white"
-      stroke-opacity="0.22"
-      stroke-width="2"
-    />
-    <path
-      d="M256 76L147 123V228C147 316 195 382 256 420C317 382 365 316 365 228V123L256 76Z"
-      fill="url(#shieldInner)"
-    />
-    <path
-      d="M256 90L160 132V227C160 305 202 364 256 399C310 364 352 305 352 227V132L256 90Z"
-      stroke="#0B2F3A"
-      stroke-opacity="0.2"
-      stroke-width="2"
-    />
+  <path d="M512 128L206 256V500C206 706 330 834 512 888C694 834 818 706 818 500V256L512 128Z" fill="url(#shieldInner)"/>
+  <path d="M512 156L236 272V498C236 684 346 800 512 852C678 800 788 684 788 498V272L512 156Z" stroke="#0D3440" stroke-opacity="0.22" stroke-width="8"/>
 
-    <path d="M207 182H285L326 223V322C326 331.941 317.941 340 308 340H207C197.059 340 189 331.941 189 322V200C189 190.059 197.059 182 207 182Z" fill="#F9FFFC" />
-    <path d="M285 182V208C285 216.837 292.163 224 301 224H326L285 182Z" fill="#D8F2E9" />
-    <path d="M285 182V208C285 216.837 292.163 224 301 224H326" stroke="#103D49" stroke-opacity="0.24" stroke-width="3" />
+  <path d="M396 358H588L676 446V682C676 701.882 659.882 718 640 718H396C376.118 718 360 701.882 360 682V394C360 374.118 376.118 358 396 358Z" fill="#F8FFFC"/>
+  <path d="M588 358V414C588 431.673 602.327 446 620 446H676L588 358Z" fill="#D6F1E8"/>
+  <path d="M588 358V414C588 431.673 602.327 446 620 446H676" stroke="#123F4B" stroke-opacity="0.24" stroke-width="6"/>
 
-    <path d="M220 242H287" stroke="#184E5A" stroke-opacity="0.54" stroke-width="8" stroke-linecap="round" />
-    <path d="M220 272H278" stroke="#184E5A" stroke-opacity="0.38" stroke-width="8" stroke-linecap="round" />
-    <path d="M220 302H266" stroke="#184E5A" stroke-opacity="0.28" stroke-width="8" stroke-linecap="round" />
+  <path d="M426 478H596" stroke="#1A4D59" stroke-opacity="0.56" stroke-width="20" stroke-linecap="round"/>
+  <path d="M426 542H574" stroke="#1A4D59" stroke-opacity="0.40" stroke-width="20" stroke-linecap="round"/>
+  <path d="M426 606H540" stroke="#1A4D59" stroke-opacity="0.28" stroke-width="20" stroke-linecap="round"/>
 
-    <path
-      d="M222 307L246 331L292 279"
-      fill="none"
-      stroke="url(#checkGradient)"
-      stroke-width="14"
-      stroke-linecap="round"
-      stroke-linejoin="round"
-    />
-  </g>
-
-  <path
-    d="M143 116C175 79 221 56 256 44L118 104V234C118 279 129 321 147 356C143 303 143 226 143 116Z"
-    fill="url(#glow)"
-  />
+  <path d="M430 622L490 682L610 568" fill="none" stroke="url(#checkGradient)" stroke-width="32" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>
