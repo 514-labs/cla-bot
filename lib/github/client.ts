@@ -18,6 +18,7 @@ import type {
   IssueComment,
   CreateCommentParams,
   UpdateCommentParams,
+  DeleteCommentParams,
   ListCommentsParams,
   PullRequestRef,
   OpenOrganizationPullRequestRef,
@@ -63,6 +64,9 @@ export interface GitHubClient {
 
   /** Update an existing comment. */
   updateComment(params: UpdateCommentParams): Promise<IssueComment>
+
+  /** Delete an existing comment. */
+  deleteComment(params: DeleteCommentParams): Promise<void>
 
   /** List all comments on a PR/issue. */
   listComments(params: ListCommentsParams): Promise<IssueComment[]>

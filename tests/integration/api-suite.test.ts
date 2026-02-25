@@ -1042,16 +1042,67 @@ test("Webhook: after signing, check auto-updates to success (no /recheck needed)
   assert(signData.updatedChecks !== undefined, "updatedChecks returned")
   assert(signData.updatedChecks.length > 0, "at least one check was auto-updated")
   assertEqual(signData.updatedChecks[0].conclusion, "success", "check auto-updated to success")
+  assert(Array.isArray(signData.deletedCommentIds), "deletedCommentIds returned")
+  assert(signData.deletedCommentIds.length > 0, "stale CLA prompt comment was deleted")
 
-  // Step 5: Verify the bot comment was also updated to show "CLA Signed"
+  // Step 5: Verify stale CLA comment is deleted after signing.
   const getRes = await fetch(
     `${baseUrl}/api/webhook/github?orgSlug=fiveonefour&repoName=sdk&prNumber=20`
   )
   const getData = await getRes.json()
-  assert(
-    getData.comment === null || getData.comment.commentMarkdown.includes("CLA Signed"),
-    "comment updated to signed status"
+  assertEqual(getData.comment, null, "stale comment deleted")
+})
+
+test("Webhook: signing without repo/pr still updates open PR check and deletes stale comment", async (baseUrl) => {
+  await resetDb(baseUrl)
+
+  // Step 1: contributor1 opens PR while signed current -> success
+  await sendWebhook(
+    baseUrl,
+    "pull_request",
+    makePrPayload({
+      action: "opened",
+      prAuthor: "contributor1",
+      orgSlug: "fiveonefour",
+      repoName: "sdk",
+      prNumber: 77,
+    })
   )
+
+  // Step 2: CLA update makes signature stale, /recheck forces failure + prompt comment.
+  await updateClaForOrg("fiveonefour", "# Updated CLA v2 for global sign sync")
+  const { data: recheckData } = await sendWebhook(baseUrl, "issue_comment", {
+    action: "created",
+    comment: { body: "/recheck", user: { login: "orgadmin" } },
+    issue: {
+      number: 77,
+      user: { login: "contributor1", id: 1002 },
+      pull_request: { url: "https://api.github.com/repos/fiveonefour/sdk/pulls/77" },
+    },
+    repository: { owner: { login: "fiveonefour" }, name: "sdk" },
+    installation: { id: 11111 },
+  })
+  assertEqual(recheckData.check.status, "failure", "recheck fails after CLA update")
+  assert(recheckData.comment?.id, "stale comment is present before signing")
+
+  // Step 3: Sign WITHOUT repo/pr context.
+  await switchRole(baseUrl, "contributor")
+  const signRes = await fetch(`${baseUrl}/api/sign`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ orgSlug: "fiveonefour" }),
+  })
+  const signData = await signRes.json()
+  assertEqual(signRes.status, 200, "sign succeeded")
+  assert(signData.updatedChecks.length > 0, "open PR check auto-updated")
+  assert(signData.deletedCommentIds.length > 0, "stale comment deleted")
+
+  // Step 4: Verify no CLA bot comment remains on that PR.
+  const getRes = await fetch(
+    `${baseUrl}/api/webhook/github?orgSlug=fiveonefour&repoName=sdk&prNumber=77`
+  )
+  const getData = await getRes.json()
+  assertEqual(getData.comment, null, "no CLA comment remains after signing")
 })
 
 // -- Scenario 3: Non-member, signed old version -> red check + re-sign comment --
@@ -1113,6 +1164,13 @@ test("Webhook: re-sign flow -- sign auto-updates check + comment", async (baseUr
   assertEqual(signRes.status, 200, "re-sign succeeded")
   assert(signData.updatedChecks.length > 0, "check auto-updated after re-sign")
   assertEqual(signData.updatedChecks[0].conclusion, "success", "check is now success")
+  assert(signData.deletedCommentIds.length > 0, "re-sign prompt comment deleted")
+
+  const getRes = await fetch(
+    `${baseUrl}/api/webhook/github?orgSlug=fiveonefour&repoName=sdk&prNumber=30`
+  )
+  const getData = await getRes.json()
+  assertEqual(getData.comment, null, "stale re-sign comment removed")
 })
 
 // -- Scenario 4: Non-member, signed latest version -> green check, NO comment --

@@ -18,6 +18,7 @@ import type {
   IssueComment,
   CreateCommentParams,
   UpdateCommentParams,
+  DeleteCommentParams,
   ListCommentsParams,
   PullRequestRef,
   OpenOrganizationPullRequestRef,
@@ -237,6 +238,12 @@ export class MockGitHubClient implements GitHubClient {
     comments[idx].updated_at = new Date().toISOString()
     const { owner, repo, issue_number, ...rest } = comments[idx]
     return { ...rest }
+  }
+
+  async deleteComment(params: DeleteCommentParams): Promise<void> {
+    const idx = comments.findIndex((c) => c.id === params.comment_id)
+    if (idx === -1) throw new Error(`Comment ${params.comment_id} not found`)
+    comments.splice(idx, 1)
   }
 
   async listComments(params: ListCommentsParams): Promise<IssueComment[]> {

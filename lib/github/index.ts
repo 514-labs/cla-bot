@@ -23,6 +23,7 @@ export type {
   UpdateCheckRunParams,
   CreateCommentParams,
   UpdateCommentParams,
+  DeleteCommentParams,
   ListCommentsParams,
   PullRequestRef,
   OpenOrganizationPullRequestRef,

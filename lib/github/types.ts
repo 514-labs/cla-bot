@@ -96,6 +96,12 @@ export type UpdateCommentParams = {
   body: string
 }
 
+export type DeleteCommentParams = {
+  owner: string
+  repo: string
+  comment_id: number
+}
+
 export type ListCommentsParams = {
   owner: string
   repo: string

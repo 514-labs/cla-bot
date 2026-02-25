@@ -16,6 +16,7 @@ import type {
   IssueComment,
   CreateCommentParams,
   UpdateCommentParams,
+  DeleteCommentParams,
   ListCommentsParams,
   PullRequestRef,
   OpenOrganizationPullRequestRef,
@@ -177,6 +178,14 @@ export class OctokitGitHubClient implements GitHubClient {
       body: params.body,
     })
     return this.mapComment(data)
+  }
+
+  async deleteComment(params: DeleteCommentParams): Promise<void> {
+    await this.octokit.rest.issues.deleteComment({
+      owner: params.owner,
+      repo: params.repo,
+      comment_id: params.comment_id,
+    })
   }
 
   async listComments(params: ListCommentsParams): Promise<IssueComment[]> {
