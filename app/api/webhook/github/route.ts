@@ -52,12 +52,20 @@ type PullRequestPayload = {
   action?: string
   number?: number
   installation?: { id?: number }
+  sender?: {
+    login?: string
+    id?: number
+    type?: string
+  }
   pull_request?: {
-    user?: { login?: string; id?: number }
-    head?: { sha?: string }
+    user?: { login?: string; id?: number; type?: string }
+    head?: { sha?: string; ref?: string }
+    base?: { ref?: string }
+    author_association?: string
   }
   repository?: {
     name?: string
+    full_name?: string
     owner?: { login?: string }
   }
 }
@@ -161,6 +169,48 @@ export async function POST(request: NextRequest) {
         { error: "Missing required pull_request payload fields" },
         { status: 400 }
       )
+    }
+
+    if (isDependabotLikePullRequest(prPayload)) {
+      const author = prPayload.pull_request?.user
+      const sender = prPayload.sender
+      const headRef = prPayload.pull_request?.head?.ref ?? null
+      console.info("[webhook][dependabot-like] pull_request event received", {
+        deliveryId,
+        action,
+        installationId: prPayload.installation?.id ?? null,
+        repository: {
+          owner: orgSlug,
+          name: repoName,
+          fullName: prPayload.repository?.full_name ?? null,
+        },
+        prNumber,
+        author: {
+          login: author?.login ?? null,
+          id: author?.id ?? null,
+          type: author?.type ?? null,
+        },
+        sender: {
+          login: sender?.login ?? null,
+          id: sender?.id ?? null,
+          type: sender?.type ?? null,
+        },
+        head: {
+          ref: headRef,
+          sha: headSha.slice(0, 12),
+        },
+        baseRef: prPayload.pull_request?.base?.ref ?? null,
+        authorAssociation: prPayload.pull_request?.author_association ?? null,
+        heuristics: {
+          authorLoginLooksDependabot: (author?.login ?? "").toLowerCase().includes("dependabot"),
+          senderLoginLooksDependabot: (sender?.login ?? "").toLowerCase().includes("dependabot"),
+          authorLooksBot:
+            author?.type === "Bot" || (author?.login ?? "").toLowerCase().endsWith("[bot]"),
+          senderLooksBot:
+            sender?.type === "Bot" || (sender?.login ?? "").toLowerCase().endsWith("[bot]"),
+          headRefLooksDependabot: (headRef ?? "").toLowerCase().startsWith("dependabot/"),
+        },
+      })
     }
 
     if (process.env.NODE_ENV !== "production") {
@@ -864,6 +914,24 @@ function normalizeWebhookSecret(secret: string): string {
 function getBaseUrl(request: NextRequest): string {
   const url = new URL(request.url)
   return `${url.protocol}//${url.host}`
+}
+
+function isDependabotLikePullRequest(payload: PullRequestPayload) {
+  const authorLogin = payload.pull_request?.user?.login?.toLowerCase() ?? ""
+  const senderLogin = payload.sender?.login?.toLowerCase() ?? ""
+  const headRef = payload.pull_request?.head?.ref?.toLowerCase() ?? ""
+  const authorType = payload.pull_request?.user?.type ?? ""
+  const senderType = payload.sender?.type ?? ""
+
+  return (
+    authorLogin.includes("dependabot") ||
+    senderLogin.includes("dependabot") ||
+    headRef.startsWith("dependabot/") ||
+    authorType === "Bot" ||
+    senderType === "Bot" ||
+    authorLogin.endsWith("[bot]") ||
+    senderLogin.endsWith("[bot]")
+  )
 }
 
 function generateUnconfiguredClaComment(params: {
