@@ -1,5 +1,7 @@
 # CLA Bot
 
+![Coverage](https://raw.githubusercontent.com/514-labs/cla-bot/badges/coverage.svg)
+
 CLA Bot is a Next.js app that automates Contributor License Agreement (CLA) workflows for GitHub organizations and personal accounts.
 
 It gives org admins a place to manage CLA text and signing history, and gives contributors a place to review/sign/re-sign agreements. A GitHub webhook handler enforces CLA status on pull requests by creating checks/comments.
