@@ -2,6 +2,7 @@ import { createHash } from "node:crypto"
 import { existsSync, readFileSync } from "node:fs"
 import { resolve } from "node:path"
 import { neon } from "@neondatabase/serverless"
+import postgres from "postgres"
 import { afterAll, beforeAll, expect, test as vitestTest } from "vitest"
 import { resetTestDatabase } from "@/tests/utils/db-reset"
 import { TEST_USERS, type TestRole } from "@/tests/utils/fixtures"
@@ -31,7 +32,18 @@ const TEST_DATABASE_URL = process.env.DATABASE_URL ?? readDatabaseUrlFromEnvLoca
 if (!TEST_DATABASE_URL) {
   throw new Error("DATABASE_URL is required to run integration tests")
 }
-const sql = neon(TEST_DATABASE_URL)
+function isNeonUrl(url: string): boolean {
+  return /neon\.tech|neondb\.net/.test(url)
+}
+
+type RawSqlFn = (
+  strings: TemplateStringsArray,
+  ...values: unknown[]
+) => Promise<Record<string, unknown>[]>
+
+const sql: RawSqlFn = isNeonUrl(TEST_DATABASE_URL)
+  ? (neon(TEST_DATABASE_URL) as unknown as RawSqlFn)
+  : (postgres(TEST_DATABASE_URL) as unknown as RawSqlFn)
 
 beforeAll(async () => {
   const server = await startIntegrationServer()

@@ -2,6 +2,7 @@ import { createHash } from "node:crypto"
 import { existsSync, readFileSync } from "node:fs"
 import { resolve } from "node:path"
 import { neon } from "@neondatabase/serverless"
+import postgres from "postgres"
 import { resetMockGitHub } from "@/lib/github/mock-github-client"
 
 const DATABASE_URL = process.env.DATABASE_URL ?? readDatabaseUrlFromEnvLocal()
@@ -9,7 +10,19 @@ if (!DATABASE_URL) {
   throw new Error("DATABASE_URL is required for integration/e2e tests")
 }
 
-const sql = neon(DATABASE_URL)
+// Both neon() and postgres() support tagged-template SQL; pick the right driver.
+type RawSqlFn = (
+  strings: TemplateStringsArray,
+  ...values: unknown[]
+) => Promise<Record<string, unknown>[]>
+
+function isNeonUrl(url: string): boolean {
+  return /neon\.tech|neondb\.net/.test(url)
+}
+
+const sql: RawSqlFn = isNeonUrl(DATABASE_URL)
+  ? (neon(DATABASE_URL) as unknown as RawSqlFn)
+  : (postgres(DATABASE_URL) as unknown as RawSqlFn)
 let schemaCompatibilityReady: Promise<void> | null = null
 
 const DEFAULT_CLA_MARKDOWN = `# Contributor License Agreement
