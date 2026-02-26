@@ -361,7 +361,9 @@ test("Org detail returns org details, signers, and archives", async (baseUrl) =>
   assertEqual(org.isActive, true, "org is active")
   assert(org.claText.includes("Contributor License Agreement"), "CLA content present")
   assert(typeof org.claTextSha256 === "string", "claTextSha256 is a string")
-  assert(org.claTextSha256.length === 64, "sha256 is 64 hex chars")
+  if (org.claTextSha256 === null) throw new Error("claTextSha256 is null")
+  const claTextSha256 = org.claTextSha256
+  assert(claTextSha256.length === 64, "sha256 is 64 hex chars")
   const signers = await getSignaturesByOrg(org.id)
   assertEqual(signers.length, 3, "fiveonefour signers count")
   const uniqueSignerCount = new Set(signers.map((s) => s.userId)).size
@@ -371,7 +373,7 @@ test("Org detail returns org details, signers, and archives", async (baseUrl) =>
   const archiveSignerCounts = await getSignerCountsByClaSha(org.id)
   assert(typeof archiveSignerCounts === "object", "archiveSignerCounts object is present")
   assert(
-    typeof archiveSignerCounts[org.claTextSha256] === "number",
+    typeof archiveSignerCounts[claTextSha256] === "number",
     "archiveSignerCounts contains current CLA count"
   )
 })
@@ -456,7 +458,7 @@ test("signClaForUser blocks signing on deactivated org", async (baseUrl) => {
     await signCla({ orgSlug: "fiveonefour" })
     assert(false, "should have thrown SignClaError")
   } catch (e) {
-    assert(e instanceof SignClaError, "SignClaError thrown")
+    if (!(e instanceof SignClaError)) throw e
     assertEqual(e.status, 403, "signing blocked on inactive org")
   }
 })
@@ -504,7 +506,7 @@ test("signClaForUser prevents duplicate signatures", async (baseUrl) => {
     await signCla({ orgSlug: "fiveonefour" })
     assert(false, "should have thrown SignClaError")
   } catch (e) {
-    assert(e instanceof SignClaError, "SignClaError thrown")
+    if (!(e instanceof SignClaError)) throw e
     assertEqual(e.status, 409, "duplicate rejected")
   }
 })
@@ -515,7 +517,7 @@ test("signClaForUser rejects stale acceptedSha256", async (baseUrl) => {
     await signCla({ orgSlug: "fiveonefour", acceptedSha256: "deadbeef" })
     assert(false, "should have thrown SignClaError")
   } catch (e) {
-    assert(e instanceof SignClaError, "SignClaError thrown")
+    if (!(e instanceof SignClaError)) throw e
     assertEqual(e.status, 409, "stale hash rejected")
   }
 })
@@ -526,7 +528,7 @@ test("signClaForUser rejects missing orgSlug", async (baseUrl) => {
     await signCla({ orgSlug: "" })
     assert(false, "should have thrown SignClaError")
   } catch (e) {
-    assert(e instanceof SignClaError, "SignClaError thrown")
+    if (!(e instanceof SignClaError)) throw e
     assertEqual(e.status, 400, "missing orgSlug rejected")
   }
 })
@@ -537,7 +539,7 @@ test("signClaForUser rejects repoName without prNumber", async (baseUrl) => {
     await signCla({ orgSlug: "fiveonefour", repoName: "sdk" })
     assert(false, "should have thrown SignClaError")
   } catch (e) {
-    assert(e instanceof SignClaError, "SignClaError thrown")
+    if (!(e instanceof SignClaError)) throw e
     assertEqual(e.status, 400, "repoName without prNumber rejected")
   }
 })
@@ -548,7 +550,7 @@ test("signClaForUser rejects prNumber without repoName", async (baseUrl) => {
     await signCla({ orgSlug: "fiveonefour", prNumber: 12 })
     assert(false, "should have thrown SignClaError")
   } catch (e) {
-    assert(e instanceof SignClaError, "SignClaError thrown")
+    if (!(e instanceof SignClaError)) throw e
     assertEqual(e.status, 400, "prNumber without repoName rejected")
   }
 })
@@ -559,7 +561,7 @@ test("signClaForUser returns NOT_FOUND for nonexistent org", async (baseUrl) => 
     await signCla({ orgSlug: "does-not-exist" })
     assert(false, "should have thrown SignClaError")
   } catch (e) {
-    assert(e instanceof SignClaError, "SignClaError thrown")
+    if (!(e instanceof SignClaError)) throw e
     assertEqual(e.status, 404, "nonexistent org returns 404")
   }
 })
@@ -675,6 +677,7 @@ test("Contributor dashboard shows re-sign required after CLA update", async (bas
   const { signatures } = await getContributorData(TEST_USERS.contributor.id)
   const fiveOneFourSig = signatures.find((s) => s.orgSlug === "fiveonefour")
   assert(fiveOneFourSig !== undefined, "fiveonefour signature exists")
+  if (fiveOneFourSig === undefined) throw new Error("fiveonefour signature missing")
   assertEqual(fiveOneFourSig.isCurrentVersion, false, "signature is outdated")
   assert(typeof fiveOneFourSig.signedVersionLabel === "string", "signedVersionLabel is a string")
   assertEqual(
@@ -737,6 +740,7 @@ test("Contributor dashboard tracks latest signature status per org after re-sign
     (s) => s.orgSlug === "fiveonefour" && s.isLatestForOrg
   )
   assert(latestFiveOneFour !== undefined, "latest fiveonefour signature exists")
+  if (latestFiveOneFour === undefined) throw new Error("latest fiveonefour signature missing")
   assertEqual(latestFiveOneFour.orgNeedsResign, false, "latest signature is compliant")
 })
 
@@ -775,6 +779,7 @@ test("Contributor can view a historical signed CLA version inline", async (baseU
   const { signatures } = await getContributorData(TEST_USERS.contributor.id)
   const historySignature = signatures.find((s) => s.orgSlug === "fiveonefour" && !s.isLatestForOrg)
   assert(historySignature !== undefined, "historical signature exists")
+  if (historySignature === undefined) throw new Error("historical signature missing")
 
   const viewRes = await fetch(
     `${baseUrl}/api/contributor/signatures/${historySignature.id}/download?disposition=inline`
@@ -899,7 +904,7 @@ test("Full flow: deactivate org blocks signing, reactivate allows it", async (ba
     await signCla({ orgSlug: "fiveonefour" })
     assert(false, "should have thrown SignClaError")
   } catch (e) {
-    assert(e instanceof SignClaError, "SignClaError thrown")
+    if (!(e instanceof SignClaError)) throw e
     assertEqual(e.status, 403, "signing blocked when inactive")
   }
 
