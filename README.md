@@ -10,7 +10,6 @@
 
 <p align="center">
   <a href="https://github.com/514-labs/cla-bot/actions/workflows/ci.yml"><img src="https://github.com/514-labs/cla-bot/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
-  <a href="https://raw.githubusercontent.com/514-labs/cla-bot/badges/coverage.svg"><img src="https://raw.githubusercontent.com/514-labs/cla-bot/badges/coverage.svg" alt="Coverage" /></a>
   <a href="https://github.com/514-labs/cla-bot/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT" /></a>
   <img src="https://img.shields.io/badge/node-%3E%3D20-brightgreen" alt="Node.js >= 20" />
   <img src="https://img.shields.io/badge/Next.js-16-black?logo=next.js" alt="Next.js 16" />
