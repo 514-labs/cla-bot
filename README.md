@@ -1,269 +1,213 @@
-# CLA Bot
+<p align="center">
+  <img src="public/brand/cla-bot-github-app-logo.svg" alt="CLA Bot" width="120" />
+</p>
 
-![Coverage](https://raw.githubusercontent.com/514-labs/cla-bot/badges/coverage.svg)
+<h1 align="center">CLA Bot</h1>
 
-CLA Bot is a Next.js app that automates Contributor License Agreement (CLA) workflows for GitHub organizations and personal accounts.
+<p align="center">
+  Automate Contributor License Agreement workflows for your GitHub repos.
+</p>
 
-It gives org admins a place to manage CLA text and signing history, and gives contributors a place to review/sign/re-sign agreements. A GitHub webhook handler enforces CLA status on pull requests by creating checks/comments.
+<p align="center">
+  <a href="https://github.com/514-labs/cla-bot/actions/workflows/ci.yml"><img src="https://github.com/514-labs/cla-bot/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
+  <a href="https://raw.githubusercontent.com/514-labs/cla-bot/badges/coverage.svg"><img src="https://raw.githubusercontent.com/514-labs/cla-bot/badges/coverage.svg" alt="Coverage" /></a>
+  <a href="https://github.com/514-labs/cla-bot/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT" /></a>
+  <img src="https://img.shields.io/badge/node-%3E%3D20-brightgreen" alt="Node.js >= 20" />
+  <img src="https://img.shields.io/badge/Next.js-16-black?logo=next.js" alt="Next.js 16" />
+  <img src="https://img.shields.io/badge/TypeScript-5.7-3178c6?logo=typescript&logoColor=white" alt="TypeScript" />
+</p>
 
-## Product Requirements (Authoritative)
+---
 
-- If a contributor has signed a non-current CLA version, they must re-sign before being considered compliant.
-- Contributor compliance status is evaluated per org using the contributor's latest signed version for that org.
-- Admins can define org-scoped bypass lists for both GitHub users and GitHub Apps/system bots that should always receive a passing CLA check.
-- If a contributor has open pull requests and their signature becomes outdated after a CLA update, checks may need to be re-opened/re-evaluated and set to failing until re-signing is completed.
-- After a contributor signs/re-signs the latest CLA, the app schedules an async workflow that updates their open PR CLA checks to success and removes stale CLA prompt comments.
-- When an org is activated/deactivated, the app schedules an async workflow to re-check open PRs for that org so checks converge to the new enforcement mode.
-- GitHub is the user-management source of truth for the app.
-- The app has no local signup/password user-management system; DB user rows are GitHub-linked identity mirrors only.
-- Authentication/session management is stateless JWT-based (HTTP-only cookie + signed JWT with `jti`).
-- Users can only log in via GitHub OAuth.
-- Contributors can view and download every CLA version they have signed.
-- Admins can download both current and archived CLA versions for managed orgs.
+CLA Bot is a self-hostable GitHub App that manages Contributor License Agreements for organizations and personal accounts. It enforces CLA compliance on pull requests, lets contributors sign and re-sign agreements, and gives admins full control over CLA text, versioning, and bypass lists.
 
-## What The App Is For
+## Features
 
-- Keep legal contributor agreements tied to each installed GitHub account.
-- Automatically block/allow PRs based on CLA status.
-- Reduce maintainer overhead by automating "please sign the CLA" comments/checks.
-- Let contributors re-sign when CLA text changes (versioned by SHA-256 hash).
+- **Automated PR enforcement** — GitHub checks and comments block merging until the CLA is signed
+- **CLA versioning** — text changes are tracked by SHA-256 hash; contributors are prompted to re-sign when the CLA is updated
+- **Admin dashboard** — manage CLA text with live markdown preview, view signing history, configure bypass lists
+- **Contributor dashboard** — view, sign, and download every CLA version
+- **Org-scoped bypass lists** — exempt specific GitHub users, bots, and apps from CLA requirements
+- **Async PR sync** — after signing, open PRs are automatically updated to passing
+- **GitHub-native auth** — OAuth login, no separate account system
+- **Stateless sessions** — JWT-based with HTTP-only cookies
 
-## Requirements (Local Dev)
+## How It Works
 
-- Node.js `>=20` (recommended: latest LTS)
-- `pnpm`
-- Postgres database (Neon or compatible) reachable via `DATABASE_URL`
-
-Required environment variables (minimum to run app + local test auth):
-
-- `DATABASE_URL`
-- `SESSION_SECRET`
-- `ENCRYPTION_KEY`
-
-Environment variables for full GitHub OAuth + App installation flows:
-
-- `GITHUB_CLIENT_ID`
-- `GITHUB_CLIENT_SECRET`
-- `GITHUB_APP_SLUG`
-- `GITHUB_WEBHOOK_SECRET` (for signed webhook validation)
-- `GITHUB_APP_ID`, `GITHUB_PRIVATE_KEY` (for real GitHub App API calls)
-
-Optional:
-
-- `NEXT_PUBLIC_APP_URL`
-- `SEED_DATABASE=true` to auto-seed local data on startup
-- `DRIZZLE_MIGRATIONS_SCHEMA` (default: `drizzle`)
-- `DRIZZLE_MIGRATIONS_TABLE` (default: `__drizzle_migrations`)
-
-For browser UI tests, install Playwright browsers once:
-
-```bash
-pnpm exec playwright install chromium
+```
+Contributor opens PR
+        │
+        ▼
+  GitHub webhook fires
+        │
+        ▼
+  CLA Bot checks signature status
+        │
+   ┌────┴────┐
+   │         │
+Signed    Not signed
+   │         │
+   ▼         ▼
+ ✅ Pass   ❌ Fail + comment with signing link
+              │
+              ▼
+        Contributor signs CLA
+              │
+              ▼
+        ✅ PR checks updated to pass
 ```
 
-If you set custom migration metadata location, configure the same values in both build and runtime environments.
+## Quick Start
 
-## Dev Setup
+### Prerequisites
 
-1. Install dependencies:
+- Node.js >= 20
+- pnpm
+- PostgreSQL database
+
+### 1. Install dependencies
 
 ```bash
 pnpm install
 ```
 
-2. Create `.env.local` with required variables.
+### 2. Configure environment
 
-3. Apply DB migrations:
+Create a `.env.local` file:
+
+```bash
+# Required
+DATABASE_URL=postgres://user:pass@localhost:5432/clabot
+SESSION_SECRET=your-secret-key
+ENCRYPTION_KEY=your-encryption-key
+
+# GitHub OAuth
+GITHUB_CLIENT_ID=...
+GITHUB_CLIENT_SECRET=...
+
+# GitHub App
+GITHUB_APP_SLUG=...
+GITHUB_APP_ID=...
+GITHUB_PRIVATE_KEY=...
+GITHUB_WEBHOOK_SECRET=...
+```
+
+### 3. Run database migrations
 
 ```bash
 pnpm db:migrate
 ```
 
-4. Start the app:
+### 4. Start the dev server
 
 ```bash
 pnpm dev
 ```
 
-## Lifecycle Commands
+The app will be available at `http://localhost:3000`.
 
-| Command | Purpose |
+## Commands
+
+| Command | Description |
 | --- | --- |
-| `pnpm dev` | Start local dev server |
-| `pnpm build` | Production build + TypeScript checks |
-| `pnpm start` | Run built app |
-| `pnpm lint` | Biome checks |
-| `pnpm test` | Run unit + integration tests (fast default) |
-| `pnpm test:all` | Run unit + integration + browser e2e tests |
-| `pnpm test:unit` | Run Vitest unit tests |
-| `pnpm test:integration` | Run Vitest API integration suite |
-| `pnpm test:e2e` | Run Playwright browser/page tests |
+| `pnpm dev` | Start development server |
+| `pnpm build` | Production build |
+| `pnpm start` | Run production server |
+| `pnpm lint` | Lint and format check (Biome) |
+| `pnpm test` | Unit + integration tests |
+| `pnpm test:all` | Unit + integration + E2E tests |
+| `pnpm test:unit` | Unit tests (Vitest) |
+| `pnpm test:integration` | Integration tests (Vitest + PostgreSQL) |
+| `pnpm test:e2e` | Browser tests (Playwright) |
 | `pnpm db:generate` | Generate Drizzle migrations |
 | `pnpm db:migrate` | Apply migrations |
 | `pnpm db:studio` | Open Drizzle Studio |
 
-## Page Spec (Reference)
+## Tech Stack
 
-This section is the behavior contract for UI routes.
+| Layer | Technology |
+| --- | --- |
+| Framework | Next.js 16 (App Router) |
+| Language | TypeScript 5.7 (strict) |
+| Database | PostgreSQL + Drizzle ORM |
+| UI | Tailwind CSS, Radix UI, shadcn/ui |
+| Auth | GitHub OAuth, JWT (jose) |
+| GitHub API | Octokit |
+| Testing | Vitest, Playwright |
+| Linting | Biome |
+| Deployment | Vercel |
 
-| Route | Purpose | Signed-out behavior | Signed-in behavior | Key actions |
-| --- | --- | --- | --- | --- |
-| `/` | Marketing landing page | Public page | Same | CTA to `/auth/signin`, example CLA link to `/sign/fiveonefour` |
-| `/auth/signin` | Start sign-in flow | Shows GitHub sign-in CTA | Same | Sends user to `/api/auth/github?returnTo=...`; `returnTo` is sanitized to internal paths only |
-| `/dashboard` | Mode selector page | Public page | Same + session shown in header | Navigate to `/admin` or `/contributor` |
-| `/admin` | Org admin overview | Shows "Sign in required" card | Lists organizations user can administer; shows install CTA when none are authorized | Install app (`/api/github/install`), open org manage pages |
-| `/admin/[orgSlug]` | Org CLA management | If data unavailable, shows "Organization not found" UI | Shows org details, CLA version, signers, archives, bypass list, branch-protection reminder | Edit/save CLA text with live markdown preview modes (`Edit`, `Split`, `Preview`), activate/deactivate bot, copy signing link, inspect signers/archives, manage bypass users and app/bot slugs, download current/archived CLA text, share tab links via `?tab=cla|signers|archives|bypass` |
-| `/contributor` | Contributor agreement dashboard | Shows "Sign in required" card | Lists signed CLA history grouped by org status | Re-sign prompts for outdated orgs, links to `/sign/[orgSlug]`, download previously signed CLA records |
-| `/sign/[orgSlug]` | CLA read/sign page | Shows sign-in required (or org not found) | Shows signed state, or sign/re-sign workflow | Requires scroll-to-bottom before sign button enables; handles inactive org warning |
-| `/terms` | Legal terms page | Public page | Same | Documents signing/enforcement terms and branch-protection requirement |
-| `/privacy` | Privacy policy page | Public page | Same | Documents collected data, retention, and rights workflow |
+## Architecture
 
-## Scenario Catalog (Amended + Expanded)
+```
+app/
+├── api/              # API routes (webhooks, auth, signing)
+├── admin/            # Admin dashboard pages
+├── contributor/      # Contributor dashboard pages
+├── sign/             # CLA signing flow
+└── auth/             # Authentication pages
 
-This section amends your scenario list and adds missing scenarios.
+lib/
+├── db/               # Schema, queries, migrations
+├── github/           # GitHub API client and webhook handling
+├── cla/              # CLA signing and recheck workflows
+├── security/         # Security utilities
+└── auth.ts           # Session management
 
-### 1) First login with the app
+components/
+├── admin/            # Admin UI components
+├── sign/             # Signing flow components
+└── ui/               # Design system (shadcn/ui)
 
-- Users can only authenticate via GitHub OAuth.
-- OAuth flow validates `state` and redirects back to a sanitized internal `returnTo`.
-- Session is maintained with an HTTP-only cookie containing a JWT payload (`userId`, `githubUsername`, `role`, `jti`).
-- GitHub remains the source of truth for identity. The DB stores app-side profile/session linkage metadata, not standalone account management.
+tests/
+├── unit/             # Vitest unit tests
+├── integration/      # API integration tests
+└── e2e/              # Playwright browser tests
+```
 
-### 2) User selects Admin
+## Configuration Reference
 
-- If signed out: user sees auth-required state and can start GitHub login.
-- If signed in and authorized on at least one installed account: user sees the account list and install button.
-- If signed in but authorized on zero installed accounts: user sees install CTA for GitHub App flow.
-- Newly installed accounts start with no CLA text. Maintainers must publish their own CLA before external contributors can sign.
-- Org manage tabs are URL-synced (`/admin/[orgSlug]?tab=...`) so state is shareable and works with browser back/forward navigation.
+### Required
 
-### 3) User selects Contributor
+| Variable | Description |
+| --- | --- |
+| `DATABASE_URL` | PostgreSQL connection string |
+| `SESSION_SECRET` | JWT signing key |
+| `ENCRYPTION_KEY` | OAuth token encryption key |
 
-- User sees signed CLA records including org, version label/hash prefix, and signed timestamp.
-- User can view full signing history and download each signed record they own.
-- Org compliance status uses the latest signature per org; older historical rows do not keep an org in a warning state once the latest version is signed.
-- User can open a CLA from the list and view full language on `/sign/[orgSlug]`.
-- Data detail: full SHA-256 hash is persisted in DB; UI currently shows the short 7-character version label.
+### GitHub Integration
 
-### 4) Admin creates a new CLA version
+| Variable | Description |
+| --- | --- |
+| `GITHUB_CLIENT_ID` | OAuth app client ID |
+| `GITHUB_CLIENT_SECRET` | OAuth app client secret |
+| `GITHUB_APP_SLUG` | GitHub App slug |
+| `GITHUB_APP_ID` | GitHub App ID |
+| `GITHUB_PRIVATE_KEY` | GitHub App private key |
+| `GITHUB_WEBHOOK_SECRET` | Webhook signature verification secret |
 
-- Saving CLA updates current text/hash.
-- While editing, maintainers can preview rendering before save (`Edit`, `Split`, `Preview` modes; desktop defaults to split view).
-- Existing signatures remain historical; users on previous hash are treated as outdated and must re-sign.
-- If no one has signed prior versions, only current hash/text changes.
-- If prior versions were signed, historical signed versions remain in archives/signatures.
-- Saving CLA schedules an async workflow recheck of open pull requests; non-member contributors with missing/outdated signatures receive failing checks and updated signing comments once the workflow run completes.
+### Optional
 
-### 5) Contributor opens a PR
+| Variable | Default | Description |
+| --- | --- | --- |
+| `NEXT_PUBLIC_APP_URL` | Auto-detected | Override app base URL |
+| `SEED_DATABASE` | `false` | Auto-seed test data on startup |
+| `DRIZZLE_MIGRATIONS_SCHEMA` | `drizzle` | Migrations schema name |
+| `DRIZZLE_MIGRATIONS_TABLE` | `__drizzle_migrations` | Migrations table name |
 
-- Org member: check passes, no CLA comment.
-- Personal-account repository owner: check passes, no CLA comment.
-- User or app/bot on org bypass list: check passes, no CLA comment.
-- Non-member + current signature: check passes, no CLA comment.
-- Non-member + outdated signature: check fails, re-sign comment posted.
-- Non-member + never signed: check fails, sign prompt comment posted.
+## Branch Protection
 
-### 6) Contributor signs/re-signs CLA
+For CLA enforcement to block merging, add **CLA Bot / Contributor License Agreement** as a required status check in your GitHub branch protection rules or rulesets.
 
-- Signature is stored with org, user, full CLA hash, accepted hash, assent metadata, immutable GitHub ID at signing time, timestamp, email provenance, and session evidence fields.
-- If `repo` + `pr` is provided, the signer must match that PR author before targeted PR sync is applied.
-- After signing/re-signing, the app schedules an async workflow to sync open PRs authored by that contributor in the org: latest CLA check runs are updated to success and stale CLA prompt comments are deleted.
+## Contributing
 
-### 7) Signed CLA versions cannot be deleted
+Contributions are welcome! Please open an issue or pull request.
 
-- There is no route to delete signed CLA archives/signature history.
-- Signed version history behaves as append-only.
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/my-feature`)
+3. Run tests before submitting (`pnpm test && pnpm build`)
+4. Open a pull request
 
-### 8) CLA downloads
+## License
 
-- Contributors can download CLA versions from their own signing history.
-- Admins can download both current and archived CLA versions for orgs they administer.
-- Download endpoints enforce ownership/authorization and do not expose records across users/orgs.
-
-### 9) Additional scenarios commonly missed
-
-- Org deactivated/uninstalled: signing blocked; webhook events set passing CLA checks and remove managed CLA prompts so PRs are not blocked by CLA while inactive.
-- Activating or deactivating an org schedules an async open-PR recheck workflow so existing PR checks/comments converge automatically.
-- Updating either bypass section (users or app/bots) schedules async open-PR recheck so existing PRs converge to the latest policy.
-- `/recheck` authorization: allowed for PR author, org member, or maintainer; unauthorized users are blocked.
-- OAuth and install redirects sanitize `returnTo` to prevent open redirects.
-- Webhook hardening: production signature verification and delivery de-duplication.
-- Standard error paths: unauthorized, forbidden, missing org, invalid payload combinations.
-
-### 10) OAuth/session lifecycle edge cases
-
-- OAuth callback state mismatch/expired state cookie: sign-in fails safely and redirects back to `/auth/signin?error=...`.
-- GitHub token exchange or profile fetch failure: sign-in fails safely and no session cookie is issued.
-- Explicit logout clears JWT cookie; expired/invalid JWT is treated as signed-out.
-
-### 11) `/recheck` command behavior edge cases
-
-- `/recheck` is only processed on PR issue comments; non-PR issue comments are ignored.
-- Non-command comments (or non-created comment events) are ignored.
-- If PR head SHA cannot be resolved in production, `/recheck` fails with an error instead of guessing.
-
-### 12) Webhook delivery/idempotency scenarios
-
-- Duplicate `x-github-delivery` IDs are ignored via persistent DB-backed delivery tracking to reduce duplicate check/comment churn across process restarts.
-- Missing/invalid webhook signature is rejected in production when `GITHUB_WEBHOOK_SECRET` is configured.
-- Missing required payload fields return `400` and do not mutate DB/check state.
-
-### 13) Installation lifecycle scenarios
-
-- Installation `created` or `unsuspend`: account row is created/reactivated, installation ID refreshed, and installation target metadata (`organization` vs `user`) is persisted.
-- New installations are initialized with empty CLA text and `cla_text_sha256 = null` (no built-in agreement/template is auto-published).
-- Installation `deleted` or `suspend`: account is deactivated and installation ID cleared.
-- Installation repository-change events refresh installation linkage.
-
-### 14) Access-control scenarios
-
-- In production, org installs require live GitHub org-admin verification.
-- In production, personal-account installs are authorized when the signed-in GitHub user matches the installation target account.
-- In local dev/test, org-admin verification is relaxed to keep tests deterministic.
-- `/admin/[orgSlug]` and `/sign/[orgSlug]` handle unknown orgs with explicit not-found states.
-
-## System Behavior Spec (PR/Webhook Flow)
-
-- Pull request webhook checks whether PR author is an org member or has signed current CLA.
-- PR signature resolution is keyed by immutable GitHub user ID when available (username is fallback only).
-- Contributor dashboard status uses the latest stored signature per org to determine current/outdated state in UI.
-- Outcomes:
-  - Org member: passing check, no CLA comment.
-  - Bypass-listed user/app/bot: passing check, no CLA comment.
-  - Signed current CLA: passing check, no CLA comment.
-  - Unsigned/outdated signature: failing check + bot comment with signing URL.
-- App/bot bypass matching is slug-based and treats `<slug>` and `<slug>[bot]` as equivalent actor forms.
-- When CLA text changes, contributors on older signatures are marked as requiring re-sign; open PRs may require check re-evaluation and failure until re-signing.
-- After signing/re-signing, an async workflow updates signer-authored open PR CLA checks to success and removes stale CLA prompt comments.
-- Activating/deactivating CLA enforcement schedules async open-PR rechecks; inactive mode converges CLA checks to success and clears managed CLA prompt comments.
-- CLA bot comment updates/deletions are restricted to CLA-managed comments tagged with an internal signature marker, preventing edits to third-party bot comments.
-- Repository maintainers must require `CLA Bot / Contributor License Agreement` in GitHub branch protection/rulesets for merge blocking to be enforced.
-- Markdown ordered lists preserve explicit authored numbering (for example `1.`, `2.`, `7.` stays `1, 2, 7`), and legal alpha markers (`a.` / `a)`) render as ordered sub-clauses with indentation.
-
-## End-to-End Test Coverage Around This Spec
-
-Reference UI coverage:
-
-- `tests/e2e/pages-reference.spec.ts`
-  - `home and dashboard pages render core navigation`
-  - `sign-in page sanitizes external returnTo`
-  - `admin page shows auth-gated state when signed out`
-  - `admin list and org detail pages render for signed-in admin`
-  - `contributor page shows auth-gated state when signed out`
-  - `contributor page shows signed agreements when signed in`
-  - `sign page handles auth-gated and not-found states`
-  - `sign page supports re-sign flow after CLA update`
-
-Reference API/flow coverage:
-
-- `tests/integration/api-suite.test.ts`
-  - Broad integration flow coverage for auth/session APIs, org management, signing/re-signing, webhook checks/comments, install/uninstall/suspend lifecycle, and `/recheck` authorization.
-  - Includes edge cases like stale-signature detection after CLA updates, `/recheck` handling/authorization on open PRs, malformed webhook payload rejection, and duplicate webhook delivery de-duplication.
-
-## Keeping Spec And Tests In Sync
-
-When behavior changes:
-
-1. Update this README page/spec sections.
-2. Update or add coverage in `tests/integration/api-suite.test.ts` and/or `tests/e2e/pages-reference.spec.ts` as appropriate.
-3. Run `pnpm test` and `pnpm build` before merging. Run `pnpm test:all` when UI/browser behavior changes.
+[MIT](LICENSE) &copy; [fiveonefour](https://github.com/514-labs)
