@@ -57,7 +57,7 @@
     "cmdk": "1.1.1",
     "date-fns": "4.1.0",
     "drizzle-orm": "^0.44.0",
-    "embla-carousel-react": "8.5.1",
+    "embla-carousel-react": "8.6.0",
     "flags": "^4.0.0",
     "input-otp": "1.4.1",
     "jose": "^5.2.0",
