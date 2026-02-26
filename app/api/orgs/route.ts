@@ -41,6 +41,7 @@ export async function GET() {
     return NextResponse.json({
       orgs,
       user: toSessionUserDto(user),
+      installedOrgsCount: orgs.length,
     })
   } catch (err) {
     console.error("Failed to list authorized organizations:", err)
