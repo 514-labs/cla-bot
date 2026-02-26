@@ -32,7 +32,9 @@ describe("getGitHubClient", () => {
     delete process.env.GITHUB_APP_ID
     delete process.env.GITHUB_PRIVATE_KEY
 
-    expect(() => getGitHubClient()).toThrow("GitHub App credentials are not configured in production")
+    expect(() => getGitHubClient()).toThrow(
+      "GitHub App credentials are not configured in production"
+    )
   })
 
   it("throws in production without installation ID", () => {

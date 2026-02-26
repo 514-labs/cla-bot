@@ -77,17 +77,11 @@ describe("formatBypassActorLogin", () => {
 
 describe("getBypassActorLoginCandidates", () => {
   it("returns both slug and login for regular user", () => {
-    expect(getBypassActorLoginCandidates("dependabot")).toEqual([
-      "dependabot",
-      "dependabot[bot]",
-    ])
+    expect(getBypassActorLoginCandidates("dependabot")).toEqual(["dependabot", "dependabot[bot]"])
   })
 
   it("returns both for bot input with [bot] suffix", () => {
-    expect(getBypassActorLoginCandidates("renovate[bot]")).toEqual([
-      "renovate",
-      "renovate[bot]",
-    ])
+    expect(getBypassActorLoginCandidates("renovate[bot]")).toEqual(["renovate", "renovate[bot]"])
   })
 
   it("returns empty array for empty input", () => {

@@ -59,11 +59,7 @@ describe("searchGitHubUsersWithOAuth", () => {
     global.fetch = vi.fn().mockResolvedValue(
       new Response(
         JSON.stringify({
-          items: [
-            { id: 1001, login: "valid" },
-            { login: "no-id" },
-            { id: 1002 },
-          ],
+          items: [{ id: 1001, login: "valid" }, { login: "no-id" }, { id: 1002 }],
         }),
         { status: 200, headers: { "Content-Type": "application/json" } }
       )
@@ -78,9 +74,9 @@ describe("searchGitHubUsersWithOAuth", () => {
   })
 
   it("throws on non-OK response", async () => {
-    global.fetch = vi.fn().mockResolvedValue(
-      new Response("Unauthorized", { status: 401 })
-    ) as typeof global.fetch
+    global.fetch = vi
+      .fn()
+      .mockResolvedValue(new Response("Unauthorized", { status: 401 })) as typeof global.fetch
 
     await expect(
       searchGitHubUsersWithOAuth({ accessToken: "bad-token", query: "test" })
@@ -89,7 +85,10 @@ describe("searchGitHubUsersWithOAuth", () => {
 
   it("handles missing items in response", async () => {
     global.fetch = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({}), { status: 200, headers: { "Content-Type": "application/json" } })
+      new Response(JSON.stringify({}), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      })
     ) as typeof global.fetch
 
     const result = await searchGitHubUsersWithOAuth({
@@ -113,7 +112,7 @@ describe("searchGitHubUsersWithOAuth", () => {
       limit: 100,
     })
 
-    const callUrl = (global.fetch as any).mock.calls[0][0] as URL
+    const callUrl = vi.mocked(global.fetch).mock.calls[0][0] as URL
     expect(callUrl.searchParams.get("per_page")).toBe("20")
   })
 

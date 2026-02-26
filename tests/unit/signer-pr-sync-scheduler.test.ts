@@ -22,7 +22,10 @@ afterEach(() => {
 })
 
 const baseSignResult: SignClaResult = {
-  signature: { id: "sig_1", githubUsername: "contributor1" } as any,
+  signature: {
+    id: "sig_1",
+    githubUsername: "contributor1",
+  } as unknown as SignClaResult["signature"],
   org: {
     id: "org_1",
     orgSlug: "fiveonefour",
@@ -55,7 +58,9 @@ describe("scheduleSignerPrSyncAfterSign", () => {
   })
 
   it("schedules workflow and returns run ID", async () => {
-    vi.mocked(start).mockResolvedValue({ runId: "run_123" } as any)
+    vi.mocked(start).mockResolvedValue({ runId: "run_123" } as unknown as Awaited<
+      ReturnType<typeof start>
+    >)
 
     const result = await scheduleSignerPrSyncAfterSign({
       signResult: baseSignResult,
@@ -71,7 +76,9 @@ describe("scheduleSignerPrSyncAfterSign", () => {
 
   it("handles workflow scheduling failure", async () => {
     vi.mocked(start).mockRejectedValue(new Error("Workflow engine unavailable"))
-    vi.mocked(createAuditEvent).mockResolvedValue(undefined as any)
+    vi.mocked(createAuditEvent).mockResolvedValue(
+      undefined as unknown as Awaited<ReturnType<typeof createAuditEvent>>
+    )
 
     const result = await scheduleSignerPrSyncAfterSign({
       signResult: baseSignResult,
@@ -93,7 +100,9 @@ describe("scheduleSignerPrSyncAfterSign", () => {
 
   it("handles non-Error scheduling failure", async () => {
     vi.mocked(start).mockRejectedValue("string error")
-    vi.mocked(createAuditEvent).mockResolvedValue(undefined as any)
+    vi.mocked(createAuditEvent).mockResolvedValue(
+      undefined as unknown as Awaited<ReturnType<typeof createAuditEvent>>
+    )
 
     const result = await scheduleSignerPrSyncAfterSign({
       signResult: baseSignResult,

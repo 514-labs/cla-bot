@@ -31,8 +31,8 @@ describe("MockGitHubClient", () => {
       client = getMockGitHubClient()
       const user = await client.getUser("orgadmin")
       expect(user).not.toBeNull()
-      expect(user!.login).toBe("orgadmin")
-      expect(user!.id).toBe(1001)
+      expect(user?.login).toBe("orgadmin")
+      expect(user?.id).toBe(1001)
     })
 
     it("returns null for unknown user", async () => {
@@ -88,7 +88,7 @@ describe("MockGitHubClient", () => {
 
       const found = await client.getCheckRunForPr("fiveonefour", "sdk", "abc123", "CLA Check")
       expect(found).not.toBeNull()
-      expect(found!.id).toBe(1)
+      expect(found?.id).toBe(1)
     })
 
     it("updates check run", async () => {
@@ -258,7 +258,7 @@ describe("MockGitHubClient", () => {
 
       const found = await client.findBotComment("fiveonefour", "sdk", 1)
       expect(found).not.toBeNull()
-      expect(found!.body).toContain("Second CLA comment")
+      expect(found?.body).toContain("Second CLA comment")
     })
 
     it("findBotComment returns null when no managed comments", async () => {
@@ -303,9 +303,9 @@ describe("MockGitHubClient", () => {
 
       const pr = await client.getPullRequest("fiveonefour", "sdk", 10)
       expect(pr).not.toBeNull()
-      expect(pr!.number).toBe(10)
-      expect(pr!.headSha).toBe("def456")
-      expect(pr!.authorLogin).toBe("contributor1")
+      expect(pr?.number).toBe(10)
+      expect(pr?.headSha).toBe("def456")
+      expect(pr?.authorLogin).toBe("contributor1")
     })
 
     it("getPullRequest returns null for unknown PR", async () => {
@@ -397,7 +397,7 @@ describe("MockGitHubClient", () => {
       })
 
       const pr = await client.getPullRequest("fiveonefour", "sdk", 1)
-      expect(pr!.authorId).toBe(1002)
+      expect(pr?.authorId).toBe(1002)
     })
   })
 
@@ -474,9 +474,9 @@ describe("MockGitHubClient", () => {
 
     it("throws when PR not found and no check runs", async () => {
       client = getMockGitHubClient()
-      await expect(
-        client.getPullRequestHeadSha("fiveonefour", "sdk", 99)
-      ).rejects.toThrow("Pull request #99 not found")
+      await expect(client.getPullRequestHeadSha("fiveonefour", "sdk", 99)).rejects.toThrow(
+        "Pull request #99 not found"
+      )
     })
   })
 })

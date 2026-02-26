@@ -54,9 +54,7 @@ const mockUser = {
 
 describe("signClaForUser", () => {
   it("throws BAD_REQUEST when orgSlug is empty", async () => {
-    await expect(
-      signClaForUser({ orgSlug: "", user: mockUser })
-    ).rejects.toThrow(SignClaError)
+    await expect(signClaForUser({ orgSlug: "", user: mockUser })).rejects.toThrow(SignClaError)
 
     try {
       await signClaForUser({ orgSlug: "", user: mockUser })
@@ -69,11 +67,19 @@ describe("signClaForUser", () => {
 
   it("throws UNAUTHORIZED when user is invalid", async () => {
     await expect(
-      signClaForUser({ orgSlug: "fiveonefour", user: {} as any })
+      signClaForUser({
+        orgSlug: "fiveonefour",
+        user: {} as unknown as Parameters<typeof signClaForUser>[0]["user"],
+      })
     ).rejects.toThrow(SignClaError)
 
     try {
-      await signClaForUser({ orgSlug: "fiveonefour", user: { id: "", githubUsername: "" } as any })
+      await signClaForUser({
+        orgSlug: "fiveonefour",
+        user: { id: "", githubUsername: "" } as unknown as Parameters<
+          typeof signClaForUser
+        >[0]["user"],
+      })
     } catch (e) {
       expect((e as SignClaError).code).toBe("UNAUTHORIZED")
     }
@@ -89,19 +95,30 @@ describe("signClaForUser", () => {
   })
 
   it("throws BAD_REQUEST when repoName is provided without prNumber", async () => {
-    vi.mocked(getOrganizationBySlug).mockResolvedValue(mockOrg as any)
+    vi.mocked(getOrganizationBySlug).mockResolvedValue(
+      mockOrg as unknown as Awaited<ReturnType<typeof getOrganizationBySlug>>
+    )
     vi.mocked(getSignatureStatus).mockResolvedValue({ signed: false, currentVersion: false })
 
     try {
-      await signClaForUser({ orgSlug: "fiveonefour", user: mockUser, repoName: "sdk", prNumber: null })
+      await signClaForUser({
+        orgSlug: "fiveonefour",
+        user: mockUser,
+        repoName: "sdk",
+        prNumber: null,
+      })
     } catch (e) {
       expect((e as SignClaError).code).toBe("BAD_REQUEST")
-      expect((e as SignClaError).message).toContain("repoName and prNumber must be provided together")
+      expect((e as SignClaError).message).toContain(
+        "repoName and prNumber must be provided together"
+      )
     }
   })
 
   it("throws NOT_FOUND when org does not exist", async () => {
-    vi.mocked(getOrganizationBySlug).mockResolvedValue(null as any)
+    vi.mocked(getOrganizationBySlug).mockResolvedValue(
+      null as unknown as Awaited<ReturnType<typeof getOrganizationBySlug>>
+    )
 
     try {
       await signClaForUser({ orgSlug: "unknown", user: mockUser })
@@ -112,7 +129,10 @@ describe("signClaForUser", () => {
   })
 
   it("throws FORBIDDEN when org is not active", async () => {
-    vi.mocked(getOrganizationBySlug).mockResolvedValue({ ...mockOrg, isActive: false } as any)
+    vi.mocked(getOrganizationBySlug).mockResolvedValue({
+      ...mockOrg,
+      isActive: false,
+    } as unknown as Awaited<ReturnType<typeof getOrganizationBySlug>>)
 
     try {
       await signClaForUser({ orgSlug: "fiveonefour", user: mockUser })
@@ -123,7 +143,10 @@ describe("signClaForUser", () => {
   })
 
   it("throws BAD_REQUEST when no CLA configured", async () => {
-    vi.mocked(getOrganizationBySlug).mockResolvedValue({ ...mockOrg, claTextSha256: null } as any)
+    vi.mocked(getOrganizationBySlug).mockResolvedValue({
+      ...mockOrg,
+      claTextSha256: null,
+    } as unknown as Awaited<ReturnType<typeof getOrganizationBySlug>>)
 
     try {
       await signClaForUser({ orgSlug: "fiveonefour", user: mockUser })
@@ -134,7 +157,9 @@ describe("signClaForUser", () => {
   })
 
   it("throws VERSION_MISMATCH when acceptedSha256 doesn't match", async () => {
-    vi.mocked(getOrganizationBySlug).mockResolvedValue(mockOrg as any)
+    vi.mocked(getOrganizationBySlug).mockResolvedValue(
+      mockOrg as unknown as Awaited<ReturnType<typeof getOrganizationBySlug>>
+    )
 
     try {
       await signClaForUser({
@@ -150,12 +175,14 @@ describe("signClaForUser", () => {
   })
 
   it("throws ALREADY_SIGNED when user already signed current version", async () => {
-    vi.mocked(getOrganizationBySlug).mockResolvedValue(mockOrg as any)
+    vi.mocked(getOrganizationBySlug).mockResolvedValue(
+      mockOrg as unknown as Awaited<ReturnType<typeof getOrganizationBySlug>>
+    )
     vi.mocked(getSignatureStatus).mockResolvedValue({
       signed: true,
       currentVersion: true,
       signature: { id: "sig_1" },
-    } as any)
+    } as unknown as Awaited<ReturnType<typeof getSignatureStatus>>)
 
     try {
       await signClaForUser({ orgSlug: "fiveonefour", user: mockUser })
@@ -166,7 +193,9 @@ describe("signClaForUser", () => {
   })
 
   it("throws UNAUTHORIZED when sessionJti is missing", async () => {
-    vi.mocked(getOrganizationBySlug).mockResolvedValue(mockOrg as any)
+    vi.mocked(getOrganizationBySlug).mockResolvedValue(
+      mockOrg as unknown as Awaited<ReturnType<typeof getOrganizationBySlug>>
+    )
     vi.mocked(getSignatureStatus).mockResolvedValue({ signed: false, currentVersion: false })
 
     try {
@@ -181,11 +210,17 @@ describe("signClaForUser", () => {
   })
 
   it("successfully signs CLA and returns result", async () => {
-    vi.mocked(getOrganizationBySlug).mockResolvedValue(mockOrg as any)
+    vi.mocked(getOrganizationBySlug).mockResolvedValue(
+      mockOrg as unknown as Awaited<ReturnType<typeof getOrganizationBySlug>>
+    )
     vi.mocked(getSignatureStatus).mockResolvedValue({ signed: false, currentVersion: false })
     const mockSignature = { id: "sig_1", githubUsername: "contributor1" }
-    vi.mocked(createSignature).mockResolvedValue(mockSignature as any)
-    vi.mocked(createAuditEvent).mockResolvedValue(undefined as any)
+    vi.mocked(createSignature).mockResolvedValue(
+      mockSignature as unknown as Awaited<ReturnType<typeof createSignature>>
+    )
+    vi.mocked(createAuditEvent).mockResolvedValue(
+      undefined as unknown as Awaited<ReturnType<typeof createAuditEvent>>
+    )
 
     const result = await signClaForUser({
       orgSlug: "fiveonefour",
@@ -214,10 +249,17 @@ describe("signClaForUser", () => {
   })
 
   it("uses fallback email when user email is empty", async () => {
-    vi.mocked(getOrganizationBySlug).mockResolvedValue(mockOrg as any)
+    vi.mocked(getOrganizationBySlug).mockResolvedValue(
+      mockOrg as unknown as Awaited<ReturnType<typeof getOrganizationBySlug>>
+    )
     vi.mocked(getSignatureStatus).mockResolvedValue({ signed: false, currentVersion: false })
-    vi.mocked(createSignature).mockResolvedValue({ id: "sig_1", githubUsername: "contributor1" } as any)
-    vi.mocked(createAuditEvent).mockResolvedValue(undefined as any)
+    vi.mocked(createSignature).mockResolvedValue({
+      id: "sig_1",
+      githubUsername: "contributor1",
+    } as unknown as Awaited<ReturnType<typeof createSignature>>)
+    vi.mocked(createAuditEvent).mockResolvedValue(
+      undefined as unknown as Awaited<ReturnType<typeof createAuditEvent>>
+    )
 
     await signClaForUser({
       orgSlug: "fiveonefour",
@@ -234,10 +276,17 @@ describe("signClaForUser", () => {
   })
 
   it("handles string prNumber correctly", async () => {
-    vi.mocked(getOrganizationBySlug).mockResolvedValue(mockOrg as any)
+    vi.mocked(getOrganizationBySlug).mockResolvedValue(
+      mockOrg as unknown as Awaited<ReturnType<typeof getOrganizationBySlug>>
+    )
     vi.mocked(getSignatureStatus).mockResolvedValue({ signed: false, currentVersion: false })
-    vi.mocked(createSignature).mockResolvedValue({ id: "sig_1", githubUsername: "contributor1" } as any)
-    vi.mocked(createAuditEvent).mockResolvedValue(undefined as any)
+    vi.mocked(createSignature).mockResolvedValue({
+      id: "sig_1",
+      githubUsername: "contributor1",
+    } as unknown as Awaited<ReturnType<typeof createSignature>>)
+    vi.mocked(createAuditEvent).mockResolvedValue(
+      undefined as unknown as Awaited<ReturnType<typeof createAuditEvent>>
+    )
 
     const result = await signClaForUser({
       orgSlug: "fiveonefour",
@@ -250,10 +299,17 @@ describe("signClaForUser", () => {
   })
 
   it("uses default consent text version when not provided", async () => {
-    vi.mocked(getOrganizationBySlug).mockResolvedValue(mockOrg as any)
+    vi.mocked(getOrganizationBySlug).mockResolvedValue(
+      mockOrg as unknown as Awaited<ReturnType<typeof getOrganizationBySlug>>
+    )
     vi.mocked(getSignatureStatus).mockResolvedValue({ signed: false, currentVersion: false })
-    vi.mocked(createSignature).mockResolvedValue({ id: "sig_1", githubUsername: "contributor1" } as any)
-    vi.mocked(createAuditEvent).mockResolvedValue(undefined as any)
+    vi.mocked(createSignature).mockResolvedValue({
+      id: "sig_1",
+      githubUsername: "contributor1",
+    } as unknown as Awaited<ReturnType<typeof createSignature>>)
+    vi.mocked(createAuditEvent).mockResolvedValue(
+      undefined as unknown as Awaited<ReturnType<typeof createAuditEvent>>
+    )
 
     await signClaForUser({ orgSlug: "fiveonefour", user: mockUser })
 

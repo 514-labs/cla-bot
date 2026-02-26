@@ -37,7 +37,9 @@ const mockUser = {
 
 describe("authorizeOrgAccess", () => {
   it("returns 404 when org not found", async () => {
-    vi.mocked(getOrganizationBySlug).mockResolvedValue(null as any)
+    vi.mocked(getOrganizationBySlug).mockResolvedValue(
+      null as unknown as Awaited<ReturnType<typeof getOrganizationBySlug>>
+    )
 
     const result = await authorizeOrgAccess("unknown")
     expect(result.ok).toBe(false)
@@ -48,7 +50,9 @@ describe("authorizeOrgAccess", () => {
   })
 
   it("returns 401 when user not authenticated", async () => {
-    vi.mocked(getOrganizationBySlug).mockResolvedValue(mockOrg as any)
+    vi.mocked(getOrganizationBySlug).mockResolvedValue(
+      mockOrg as unknown as Awaited<ReturnType<typeof getOrganizationBySlug>>
+    )
     vi.mocked(getSessionUser).mockResolvedValue(null)
 
     const result = await authorizeOrgAccess("fiveonefour")
@@ -59,8 +63,12 @@ describe("authorizeOrgAccess", () => {
   })
 
   it("returns success when user is GitHub admin", async () => {
-    vi.mocked(getOrganizationBySlug).mockResolvedValue(mockOrg as any)
-    vi.mocked(getSessionUser).mockResolvedValue(mockUser as any)
+    vi.mocked(getOrganizationBySlug).mockResolvedValue(
+      mockOrg as unknown as Awaited<ReturnType<typeof getOrganizationBySlug>>
+    )
+    vi.mocked(getSessionUser).mockResolvedValue(
+      mockUser as unknown as Awaited<ReturnType<typeof getSessionUser>>
+    )
     vi.mocked(isGitHubInstallationAccountAdmin).mockResolvedValue(true)
 
     const result = await authorizeOrgAccess("fiveonefour")
@@ -73,8 +81,13 @@ describe("authorizeOrgAccess", () => {
 
   it("returns 403 when user is not admin in production", async () => {
     vi.stubEnv("NODE_ENV", "production")
-    vi.mocked(getOrganizationBySlug).mockResolvedValue(mockOrg as any)
-    vi.mocked(getSessionUser).mockResolvedValue({ ...mockUser, id: "user_other" } as any)
+    vi.mocked(getOrganizationBySlug).mockResolvedValue(
+      mockOrg as unknown as Awaited<ReturnType<typeof getOrganizationBySlug>>
+    )
+    vi.mocked(getSessionUser).mockResolvedValue({
+      ...mockUser,
+      id: "user_other",
+    } as unknown as Awaited<ReturnType<typeof getSessionUser>>)
     vi.mocked(isGitHubInstallationAccountAdmin).mockResolvedValue(false)
 
     const result = await authorizeOrgAccess("fiveonefour")
@@ -86,8 +99,12 @@ describe("authorizeOrgAccess", () => {
 
   it("allows DB admin fallback in non-production", async () => {
     vi.stubEnv("NODE_ENV", "development")
-    vi.mocked(getOrganizationBySlug).mockResolvedValue(mockOrg as any)
-    vi.mocked(getSessionUser).mockResolvedValue(mockUser as any)
+    vi.mocked(getOrganizationBySlug).mockResolvedValue(
+      mockOrg as unknown as Awaited<ReturnType<typeof getOrganizationBySlug>>
+    )
+    vi.mocked(getSessionUser).mockResolvedValue(
+      mockUser as unknown as Awaited<ReturnType<typeof getSessionUser>>
+    )
     vi.mocked(isGitHubInstallationAccountAdmin).mockResolvedValue(false)
 
     const result = await authorizeOrgAccess("fiveonefour")
@@ -96,8 +113,13 @@ describe("authorizeOrgAccess", () => {
 
   it("returns 403 in non-production when not DB admin either", async () => {
     vi.stubEnv("NODE_ENV", "development")
-    vi.mocked(getOrganizationBySlug).mockResolvedValue(mockOrg as any)
-    vi.mocked(getSessionUser).mockResolvedValue({ ...mockUser, id: "user_other" } as any)
+    vi.mocked(getOrganizationBySlug).mockResolvedValue(
+      mockOrg as unknown as Awaited<ReturnType<typeof getOrganizationBySlug>>
+    )
+    vi.mocked(getSessionUser).mockResolvedValue({
+      ...mockUser,
+      id: "user_other",
+    } as unknown as Awaited<ReturnType<typeof getSessionUser>>)
     vi.mocked(isGitHubInstallationAccountAdmin).mockResolvedValue(false)
 
     const result = await authorizeOrgAccess("fiveonefour")
@@ -108,11 +130,13 @@ describe("authorizeOrgAccess", () => {
   })
 
   it("returns 502 when GitHub admin check throws", async () => {
-    vi.mocked(getOrganizationBySlug).mockResolvedValue(mockOrg as any)
-    vi.mocked(getSessionUser).mockResolvedValue(mockUser as any)
-    vi.mocked(isGitHubInstallationAccountAdmin).mockRejectedValue(
-      new Error("GitHub API error")
+    vi.mocked(getOrganizationBySlug).mockResolvedValue(
+      mockOrg as unknown as Awaited<ReturnType<typeof getOrganizationBySlug>>
     )
+    vi.mocked(getSessionUser).mockResolvedValue(
+      mockUser as unknown as Awaited<ReturnType<typeof getSessionUser>>
+    )
+    vi.mocked(isGitHubInstallationAccountAdmin).mockRejectedValue(new Error("GitHub API error"))
 
     const result = await authorizeOrgAccess("fiveonefour")
     expect(result.ok).toBe(false)

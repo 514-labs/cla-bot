@@ -30,12 +30,17 @@ describe("isGitHubOrgAdmin", () => {
   })
 
   it("returns false on 404 response", async () => {
-    global.fetch = vi.fn().mockResolvedValue(
-      new Response("Not Found", { status: 404 })
-    ) as typeof global.fetch
+    global.fetch = vi
+      .fn()
+      .mockResolvedValue(new Response("Not Found", { status: 404 })) as typeof global.fetch
 
     const result = await isGitHubOrgAdmin(
-      { id: "user_1", githubId: "1001", githubUsername: "orgadmin", githubAccessTokenEncrypted: "enc-token" },
+      {
+        id: "user_1",
+        githubId: "1001",
+        githubUsername: "orgadmin",
+        githubAccessTokenEncrypted: "enc-token",
+      },
       "fiveonefour"
     )
     expect(result).toBe(false)
@@ -50,7 +55,12 @@ describe("isGitHubOrgAdmin", () => {
     ) as typeof global.fetch
 
     const result = await isGitHubOrgAdmin(
-      { id: "user_1", githubId: "1001", githubUsername: "orgadmin", githubAccessTokenEncrypted: "enc-token" },
+      {
+        id: "user_1",
+        githubId: "1001",
+        githubUsername: "orgadmin",
+        githubAccessTokenEncrypted: "enc-token",
+      },
       "fiveonefour"
     )
     expect(result).toBe(true)
@@ -65,20 +75,30 @@ describe("isGitHubOrgAdmin", () => {
     ) as typeof global.fetch
 
     const result = await isGitHubOrgAdmin(
-      { id: "user_1", githubId: "1001", githubUsername: "orgadmin", githubAccessTokenEncrypted: "enc-token" },
+      {
+        id: "user_1",
+        githubId: "1001",
+        githubUsername: "orgadmin",
+        githubAccessTokenEncrypted: "enc-token",
+      },
       "fiveonefour"
     )
     expect(result).toBe(false)
   })
 
   it("throws on non-OK non-404 response", async () => {
-    global.fetch = vi.fn().mockResolvedValue(
-      new Response("Server Error", { status: 500 })
-    ) as typeof global.fetch
+    global.fetch = vi
+      .fn()
+      .mockResolvedValue(new Response("Server Error", { status: 500 })) as typeof global.fetch
 
     await expect(
       isGitHubOrgAdmin(
-        { id: "user_1", githubId: "1001", githubUsername: "orgadmin", githubAccessTokenEncrypted: "enc-token" },
+        {
+          id: "user_1",
+          githubId: "1001",
+          githubUsername: "orgadmin",
+          githubAccessTokenEncrypted: "enc-token",
+        },
         "fiveonefour"
       )
     ).rejects.toThrow("Failed GitHub org membership check: 500")

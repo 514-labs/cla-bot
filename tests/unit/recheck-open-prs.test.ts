@@ -51,7 +51,9 @@ function createMockGitHubClient() {
 
 describe("recheckOpenPullRequestsAfterClaUpdate", () => {
   it("returns error when org not found", async () => {
-    vi.mocked(getOrganizationBySlug).mockResolvedValue(null as any)
+    vi.mocked(getOrganizationBySlug).mockResolvedValue(
+      null as unknown as Awaited<ReturnType<typeof getOrganizationBySlug>>
+    )
 
     const result = await recheckOpenPullRequestsAfterClaUpdate({
       orgSlug: "unknown",
@@ -63,7 +65,9 @@ describe("recheckOpenPullRequestsAfterClaUpdate", () => {
   })
 
   it("returns error when GitHub client fails", async () => {
-    vi.mocked(getOrganizationBySlug).mockResolvedValue(mockOrg as any)
+    vi.mocked(getOrganizationBySlug).mockResolvedValue(
+      mockOrg as unknown as Awaited<ReturnType<typeof getOrganizationBySlug>>
+    )
     vi.mocked(getGitHubClient).mockImplementation(() => {
       throw new Error("No credentials")
     })
@@ -77,10 +81,14 @@ describe("recheckOpenPullRequestsAfterClaUpdate", () => {
   })
 
   it("returns error when listing PRs fails", async () => {
-    vi.mocked(getOrganizationBySlug).mockResolvedValue(mockOrg as any)
+    vi.mocked(getOrganizationBySlug).mockResolvedValue(
+      mockOrg as unknown as Awaited<ReturnType<typeof getOrganizationBySlug>>
+    )
     const mockClient = createMockGitHubClient()
     mockClient.listOpenPullRequestsForOrganization.mockRejectedValue(new Error("API rate limited"))
-    vi.mocked(getGitHubClient).mockReturnValue(mockClient as any)
+    vi.mocked(getGitHubClient).mockReturnValue(
+      mockClient as unknown as ReturnType<typeof getGitHubClient>
+    )
 
     const result = await recheckOpenPullRequestsAfterClaUpdate({
       orgSlug: "fiveonefour",
@@ -91,9 +99,13 @@ describe("recheckOpenPullRequestsAfterClaUpdate", () => {
   })
 
   it("handles empty PR list", async () => {
-    vi.mocked(getOrganizationBySlug).mockResolvedValue(mockOrg as any)
+    vi.mocked(getOrganizationBySlug).mockResolvedValue(
+      mockOrg as unknown as Awaited<ReturnType<typeof getOrganizationBySlug>>
+    )
     const mockClient = createMockGitHubClient()
-    vi.mocked(getGitHubClient).mockReturnValue(mockClient as any)
+    vi.mocked(getGitHubClient).mockReturnValue(
+      mockClient as unknown as ReturnType<typeof getGitHubClient>
+    )
 
     const result = await recheckOpenPullRequestsAfterClaUpdate({
       orgSlug: "fiveonefour",
@@ -106,7 +118,9 @@ describe("recheckOpenPullRequestsAfterClaUpdate", () => {
 
   it("passes inactive checks and deletes old CLA comments when org is inactive", async () => {
     const inactiveOrg = { ...mockOrg, isActive: false }
-    vi.mocked(getOrganizationBySlug).mockResolvedValue(inactiveOrg as any)
+    vi.mocked(getOrganizationBySlug).mockResolvedValue(
+      inactiveOrg as unknown as Awaited<ReturnType<typeof getOrganizationBySlug>>
+    )
     const mockClient = createMockGitHubClient()
     mockClient.listOpenPullRequestsForOrganization.mockResolvedValue([
       { repoName: "sdk", number: 1, headSha: "sha1", authorLogin: "contributor1", authorId: 1002 },
@@ -115,7 +129,9 @@ describe("recheckOpenPullRequestsAfterClaUpdate", () => {
       id: 100,
       body: `${CLA_BOT_COMMENT_SIGNATURE}\n### Contributor License Agreement Required`,
     })
-    vi.mocked(getGitHubClient).mockReturnValue(mockClient as any)
+    vi.mocked(getGitHubClient).mockReturnValue(
+      mockClient as unknown as ReturnType<typeof getGitHubClient>
+    )
 
     const result = await recheckOpenPullRequestsAfterClaUpdate({
       orgSlug: "fiveonefour",
@@ -135,16 +151,26 @@ describe("recheckOpenPullRequestsAfterClaUpdate", () => {
   })
 
   it("passes bypass check for bypass users", async () => {
-    vi.mocked(getOrganizationBySlug).mockResolvedValue(mockOrg as any)
+    vi.mocked(getOrganizationBySlug).mockResolvedValue(
+      mockOrg as unknown as Awaited<ReturnType<typeof getOrganizationBySlug>>
+    )
     const mockClient = createMockGitHubClient()
     mockClient.listOpenPullRequestsForOrganization.mockResolvedValue([
-      { repoName: "sdk", number: 1, headSha: "sha1", authorLogin: "dependabot[bot]", authorId: 9000 },
+      {
+        repoName: "sdk",
+        number: 1,
+        headSha: "sha1",
+        authorLogin: "dependabot[bot]",
+        authorId: 9000,
+      },
     ])
     vi.mocked(isBypassAccountForOrg).mockResolvedValue({
       bypassKind: "app_bot",
       githubUsername: "dependabot",
-    } as any)
-    vi.mocked(getGitHubClient).mockReturnValue(mockClient as any)
+    } as unknown as Awaited<ReturnType<typeof isBypassAccountForOrg>>)
+    vi.mocked(getGitHubClient).mockReturnValue(
+      mockClient as unknown as ReturnType<typeof getGitHubClient>
+    )
 
     const result = await recheckOpenPullRequestsAfterClaUpdate({
       orgSlug: "fiveonefour",
@@ -157,7 +183,9 @@ describe("recheckOpenPullRequestsAfterClaUpdate", () => {
   })
 
   it("passes bypass check with user kind message", async () => {
-    vi.mocked(getOrganizationBySlug).mockResolvedValue(mockOrg as any)
+    vi.mocked(getOrganizationBySlug).mockResolvedValue(
+      mockOrg as unknown as Awaited<ReturnType<typeof getOrganizationBySlug>>
+    )
     const mockClient = createMockGitHubClient()
     mockClient.listOpenPullRequestsForOrganization.mockResolvedValue([
       { repoName: "sdk", number: 1, headSha: "sha1", authorLogin: "bot-user", authorId: 9000 },
@@ -165,8 +193,10 @@ describe("recheckOpenPullRequestsAfterClaUpdate", () => {
     vi.mocked(isBypassAccountForOrg).mockResolvedValue({
       bypassKind: "user",
       githubUsername: "bot-user",
-    } as any)
-    vi.mocked(getGitHubClient).mockReturnValue(mockClient as any)
+    } as unknown as Awaited<ReturnType<typeof isBypassAccountForOrg>>)
+    vi.mocked(getGitHubClient).mockReturnValue(
+      mockClient as unknown as ReturnType<typeof getGitHubClient>
+    )
 
     const result = await recheckOpenPullRequestsAfterClaUpdate({
       orgSlug: "fiveonefour",
@@ -177,14 +207,20 @@ describe("recheckOpenPullRequestsAfterClaUpdate", () => {
   })
 
   it("skips org members", async () => {
-    vi.mocked(getOrganizationBySlug).mockResolvedValue(mockOrg as any)
+    vi.mocked(getOrganizationBySlug).mockResolvedValue(
+      mockOrg as unknown as Awaited<ReturnType<typeof getOrganizationBySlug>>
+    )
     const mockClient = createMockGitHubClient()
     mockClient.listOpenPullRequestsForOrganization.mockResolvedValue([
       { repoName: "sdk", number: 1, headSha: "sha1", authorLogin: "orgadmin", authorId: 1001 },
     ])
-    vi.mocked(isBypassAccountForOrg).mockResolvedValue(null as any)
+    vi.mocked(isBypassAccountForOrg).mockResolvedValue(
+      null as unknown as Awaited<ReturnType<typeof isBypassAccountForOrg>>
+    )
     mockClient.checkOrgMembership.mockResolvedValue("active")
-    vi.mocked(getGitHubClient).mockReturnValue(mockClient as any)
+    vi.mocked(getGitHubClient).mockReturnValue(
+      mockClient as unknown as ReturnType<typeof getGitHubClient>
+    )
 
     const result = await recheckOpenPullRequestsAfterClaUpdate({
       orgSlug: "fiveonefour",
@@ -201,13 +237,19 @@ describe("recheckOpenPullRequestsAfterClaUpdate", () => {
       githubOrgSlug: "orgadmin",
       githubAccountId: "1001",
     }
-    vi.mocked(getOrganizationBySlug).mockResolvedValue(personalOrg as any)
+    vi.mocked(getOrganizationBySlug).mockResolvedValue(
+      personalOrg as unknown as Awaited<ReturnType<typeof getOrganizationBySlug>>
+    )
     const mockClient = createMockGitHubClient()
     mockClient.listOpenPullRequestsForOrganization.mockResolvedValue([
       { repoName: "my-repo", number: 1, headSha: "sha1", authorLogin: "orgadmin", authorId: 1001 },
     ])
-    vi.mocked(isBypassAccountForOrg).mockResolvedValue(null as any)
-    vi.mocked(getGitHubClient).mockReturnValue(mockClient as any)
+    vi.mocked(isBypassAccountForOrg).mockResolvedValue(
+      null as unknown as Awaited<ReturnType<typeof isBypassAccountForOrg>>
+    )
+    vi.mocked(getGitHubClient).mockReturnValue(
+      mockClient as unknown as ReturnType<typeof getGitHubClient>
+    )
 
     const result = await recheckOpenPullRequestsAfterClaUpdate({
       orgSlug: "orgadmin",
@@ -218,18 +260,24 @@ describe("recheckOpenPullRequestsAfterClaUpdate", () => {
   })
 
   it("skips compliant signers (already signed current version)", async () => {
-    vi.mocked(getOrganizationBySlug).mockResolvedValue(mockOrg as any)
+    vi.mocked(getOrganizationBySlug).mockResolvedValue(
+      mockOrg as unknown as Awaited<ReturnType<typeof getOrganizationBySlug>>
+    )
     const mockClient = createMockGitHubClient()
     mockClient.listOpenPullRequestsForOrganization.mockResolvedValue([
       { repoName: "sdk", number: 1, headSha: "sha1", authorLogin: "contributor1", authorId: 1002 },
     ])
-    vi.mocked(isBypassAccountForOrg).mockResolvedValue(null as any)
+    vi.mocked(isBypassAccountForOrg).mockResolvedValue(
+      null as unknown as Awaited<ReturnType<typeof isBypassAccountForOrg>>
+    )
     mockClient.checkOrgMembership.mockResolvedValue("not_member")
     vi.mocked(getSignatureStatusByGithubId).mockResolvedValue({
       signed: true,
       currentVersion: true,
-    } as any)
-    vi.mocked(getGitHubClient).mockReturnValue(mockClient as any)
+    } as unknown as Awaited<ReturnType<typeof getSignatureStatusByGithubId>>)
+    vi.mocked(getGitHubClient).mockReturnValue(
+      mockClient as unknown as ReturnType<typeof getGitHubClient>
+    )
 
     const result = await recheckOpenPullRequestsAfterClaUpdate({
       orgSlug: "fiveonefour",
@@ -240,18 +288,30 @@ describe("recheckOpenPullRequestsAfterClaUpdate", () => {
   })
 
   it("creates failure check and new comment for unsigned contributors", async () => {
-    vi.mocked(getOrganizationBySlug).mockResolvedValue(mockOrg as any)
+    vi.mocked(getOrganizationBySlug).mockResolvedValue(
+      mockOrg as unknown as Awaited<ReturnType<typeof getOrganizationBySlug>>
+    )
     const mockClient = createMockGitHubClient()
     mockClient.listOpenPullRequestsForOrganization.mockResolvedValue([
-      { repoName: "sdk", number: 1, headSha: "sha1", authorLogin: "new-contributor", authorId: 1004 },
+      {
+        repoName: "sdk",
+        number: 1,
+        headSha: "sha1",
+        authorLogin: "new-contributor",
+        authorId: 1004,
+      },
     ])
-    vi.mocked(isBypassAccountForOrg).mockResolvedValue(null as any)
+    vi.mocked(isBypassAccountForOrg).mockResolvedValue(
+      null as unknown as Awaited<ReturnType<typeof isBypassAccountForOrg>>
+    )
     mockClient.checkOrgMembership.mockResolvedValue("not_member")
     vi.mocked(getSignatureStatusByGithubId).mockResolvedValue({
       signed: false,
       currentVersion: false,
-    } as any)
-    vi.mocked(getGitHubClient).mockReturnValue(mockClient as any)
+    } as unknown as Awaited<ReturnType<typeof getSignatureStatusByGithubId>>)
+    vi.mocked(getGitHubClient).mockReturnValue(
+      mockClient as unknown as ReturnType<typeof getGitHubClient>
+    )
 
     const result = await recheckOpenPullRequestsAfterClaUpdate({
       orgSlug: "fiveonefour",
@@ -270,18 +330,24 @@ describe("recheckOpenPullRequestsAfterClaUpdate", () => {
   })
 
   it("creates re-sign failure check for outdated signers", async () => {
-    vi.mocked(getOrganizationBySlug).mockResolvedValue(mockOrg as any)
+    vi.mocked(getOrganizationBySlug).mockResolvedValue(
+      mockOrg as unknown as Awaited<ReturnType<typeof getOrganizationBySlug>>
+    )
     const mockClient = createMockGitHubClient()
     mockClient.listOpenPullRequestsForOrganization.mockResolvedValue([
       { repoName: "sdk", number: 1, headSha: "sha1", authorLogin: "contributor1", authorId: 1002 },
     ])
-    vi.mocked(isBypassAccountForOrg).mockResolvedValue(null as any)
+    vi.mocked(isBypassAccountForOrg).mockResolvedValue(
+      null as unknown as Awaited<ReturnType<typeof isBypassAccountForOrg>>
+    )
     mockClient.checkOrgMembership.mockResolvedValue("not_member")
     vi.mocked(getSignatureStatusByGithubId).mockResolvedValue({
       signed: true,
       currentVersion: false,
-    } as any)
-    vi.mocked(getGitHubClient).mockReturnValue(mockClient as any)
+    } as unknown as Awaited<ReturnType<typeof getSignatureStatusByGithubId>>)
+    vi.mocked(getGitHubClient).mockReturnValue(
+      mockClient as unknown as ReturnType<typeof getGitHubClient>
+    )
 
     const result = await recheckOpenPullRequestsAfterClaUpdate({
       orgSlug: "fiveonefour",
@@ -297,19 +363,25 @@ describe("recheckOpenPullRequestsAfterClaUpdate", () => {
   })
 
   it("updates existing comment instead of creating a new one", async () => {
-    vi.mocked(getOrganizationBySlug).mockResolvedValue(mockOrg as any)
+    vi.mocked(getOrganizationBySlug).mockResolvedValue(
+      mockOrg as unknown as Awaited<ReturnType<typeof getOrganizationBySlug>>
+    )
     const mockClient = createMockGitHubClient()
     mockClient.listOpenPullRequestsForOrganization.mockResolvedValue([
       { repoName: "sdk", number: 1, headSha: "sha1", authorLogin: "contributor1", authorId: 1002 },
     ])
-    vi.mocked(isBypassAccountForOrg).mockResolvedValue(null as any)
+    vi.mocked(isBypassAccountForOrg).mockResolvedValue(
+      null as unknown as Awaited<ReturnType<typeof isBypassAccountForOrg>>
+    )
     mockClient.checkOrgMembership.mockResolvedValue("not_member")
     vi.mocked(getSignatureStatusByGithubId).mockResolvedValue({
       signed: false,
       currentVersion: false,
-    } as any)
+    } as unknown as Awaited<ReturnType<typeof getSignatureStatusByGithubId>>)
     mockClient.findBotComment.mockResolvedValue({ id: 50, body: "old comment" })
-    vi.mocked(getGitHubClient).mockReturnValue(mockClient as any)
+    vi.mocked(getGitHubClient).mockReturnValue(
+      mockClient as unknown as ReturnType<typeof getGitHubClient>
+    )
 
     const result = await recheckOpenPullRequestsAfterClaUpdate({
       orgSlug: "fiveonefour",
@@ -322,13 +394,17 @@ describe("recheckOpenPullRequestsAfterClaUpdate", () => {
   })
 
   it("counts recheck errors when a PR throws", async () => {
-    vi.mocked(getOrganizationBySlug).mockResolvedValue(mockOrg as any)
+    vi.mocked(getOrganizationBySlug).mockResolvedValue(
+      mockOrg as unknown as Awaited<ReturnType<typeof getOrganizationBySlug>>
+    )
     const mockClient = createMockGitHubClient()
     mockClient.listOpenPullRequestsForOrganization.mockResolvedValue([
       { repoName: "sdk", number: 1, headSha: "sha1", authorLogin: "contributor1", authorId: 1002 },
     ])
     vi.mocked(isBypassAccountForOrg).mockRejectedValue(new Error("DB error"))
-    vi.mocked(getGitHubClient).mockReturnValue(mockClient as any)
+    vi.mocked(getGitHubClient).mockReturnValue(
+      mockClient as unknown as ReturnType<typeof getGitHubClient>
+    )
 
     const result = await recheckOpenPullRequestsAfterClaUpdate({
       orgSlug: "fiveonefour",
@@ -339,18 +415,24 @@ describe("recheckOpenPullRequestsAfterClaUpdate", () => {
   })
 
   it("uses username lookup when authorId is not a number", async () => {
-    vi.mocked(getOrganizationBySlug).mockResolvedValue(mockOrg as any)
+    vi.mocked(getOrganizationBySlug).mockResolvedValue(
+      mockOrg as unknown as Awaited<ReturnType<typeof getOrganizationBySlug>>
+    )
     const mockClient = createMockGitHubClient()
     mockClient.listOpenPullRequestsForOrganization.mockResolvedValue([
       { repoName: "sdk", number: 1, headSha: "sha1", authorLogin: "contributor1" },
     ])
-    vi.mocked(isBypassAccountForOrg).mockResolvedValue(null as any)
+    vi.mocked(isBypassAccountForOrg).mockResolvedValue(
+      null as unknown as Awaited<ReturnType<typeof isBypassAccountForOrg>>
+    )
     mockClient.checkOrgMembership.mockResolvedValue("not_member")
     vi.mocked(getSignatureStatusByUsername).mockResolvedValue({
       signed: true,
       currentVersion: true,
-    } as any)
-    vi.mocked(getGitHubClient).mockReturnValue(mockClient as any)
+    } as unknown as Awaited<ReturnType<typeof getSignatureStatusByUsername>>)
+    vi.mocked(getGitHubClient).mockReturnValue(
+      mockClient as unknown as ReturnType<typeof getGitHubClient>
+    )
 
     const result = await recheckOpenPullRequestsAfterClaUpdate({
       orgSlug: "fiveonefour",
@@ -368,17 +450,29 @@ describe("recheckOpenPullRequestsAfterClaUpdate", () => {
       githubOrgSlug: "personaluser",
       githubAccountId: "5555",
     }
-    vi.mocked(getOrganizationBySlug).mockResolvedValue(personalOrg as any)
+    vi.mocked(getOrganizationBySlug).mockResolvedValue(
+      personalOrg as unknown as Awaited<ReturnType<typeof getOrganizationBySlug>>
+    )
     const mockClient = createMockGitHubClient()
     mockClient.listOpenPullRequestsForOrganization.mockResolvedValue([
-      { repoName: "my-repo", number: 1, headSha: "sha1", authorLogin: "external-contributor", authorId: 1006 },
+      {
+        repoName: "my-repo",
+        number: 1,
+        headSha: "sha1",
+        authorLogin: "external-contributor",
+        authorId: 1006,
+      },
     ])
-    vi.mocked(isBypassAccountForOrg).mockResolvedValue(null as any)
+    vi.mocked(isBypassAccountForOrg).mockResolvedValue(
+      null as unknown as Awaited<ReturnType<typeof isBypassAccountForOrg>>
+    )
     vi.mocked(getSignatureStatusByGithubId).mockResolvedValue({
       signed: false,
       currentVersion: false,
-    } as any)
-    vi.mocked(getGitHubClient).mockReturnValue(mockClient as any)
+    } as unknown as Awaited<ReturnType<typeof getSignatureStatusByGithubId>>)
+    vi.mocked(getGitHubClient).mockReturnValue(
+      mockClient as unknown as ReturnType<typeof getGitHubClient>
+    )
 
     const result = await recheckOpenPullRequestsAfterClaUpdate({
       orgSlug: "personaluser",
@@ -392,7 +486,9 @@ describe("recheckOpenPullRequestsAfterClaUpdate", () => {
   })
 
   it("deletes CLA comment for bypass users with existing comment", async () => {
-    vi.mocked(getOrganizationBySlug).mockResolvedValue(mockOrg as any)
+    vi.mocked(getOrganizationBySlug).mockResolvedValue(
+      mockOrg as unknown as Awaited<ReturnType<typeof getOrganizationBySlug>>
+    )
     const mockClient = createMockGitHubClient()
     mockClient.listOpenPullRequestsForOrganization.mockResolvedValue([
       { repoName: "sdk", number: 1, headSha: "sha1", authorLogin: "bot-user", authorId: 9000 },
@@ -400,12 +496,14 @@ describe("recheckOpenPullRequestsAfterClaUpdate", () => {
     vi.mocked(isBypassAccountForOrg).mockResolvedValue({
       bypassKind: "user",
       githubUsername: "bot-user",
-    } as any)
+    } as unknown as Awaited<ReturnType<typeof isBypassAccountForOrg>>)
     mockClient.findBotComment.mockResolvedValue({
       id: 100,
       body: `${CLA_BOT_COMMENT_SIGNATURE}\n### Contributor License Agreement Required`,
     })
-    vi.mocked(getGitHubClient).mockReturnValue(mockClient as any)
+    vi.mocked(getGitHubClient).mockReturnValue(
+      mockClient as unknown as ReturnType<typeof getGitHubClient>
+    )
 
     const result = await recheckOpenPullRequestsAfterClaUpdate({
       orgSlug: "fiveonefour",
@@ -417,7 +515,9 @@ describe("recheckOpenPullRequestsAfterClaUpdate", () => {
   })
 
   it("handles non-Error GitHub client creation failure", async () => {
-    vi.mocked(getOrganizationBySlug).mockResolvedValue(mockOrg as any)
+    vi.mocked(getOrganizationBySlug).mockResolvedValue(
+      mockOrg as unknown as Awaited<ReturnType<typeof getOrganizationBySlug>>
+    )
     vi.mocked(getGitHubClient).mockImplementation(() => {
       throw "string error"
     })
@@ -431,10 +531,14 @@ describe("recheckOpenPullRequestsAfterClaUpdate", () => {
   })
 
   it("handles non-Error PR listing failure", async () => {
-    vi.mocked(getOrganizationBySlug).mockResolvedValue(mockOrg as any)
+    vi.mocked(getOrganizationBySlug).mockResolvedValue(
+      mockOrg as unknown as Awaited<ReturnType<typeof getOrganizationBySlug>>
+    )
     const mockClient = createMockGitHubClient()
     mockClient.listOpenPullRequestsForOrganization.mockRejectedValue("string error")
-    vi.mocked(getGitHubClient).mockReturnValue(mockClient as any)
+    vi.mocked(getGitHubClient).mockReturnValue(
+      mockClient as unknown as ReturnType<typeof getGitHubClient>
+    )
 
     const result = await recheckOpenPullRequestsAfterClaUpdate({
       orgSlug: "fiveonefour",

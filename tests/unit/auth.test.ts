@@ -45,10 +45,10 @@ describe("createSessionToken / verifySessionToken round-trip", () => {
 
     const verified = await verifySessionToken(token)
     expect(verified).not.toBeNull()
-    expect(verified!.userId).toBe("user_1")
-    expect(verified!.githubUsername).toBe("orgadmin")
-    expect(verified!.role).toBe("admin")
-    expect(verified!.jti).toBe("test-jti-123")
+    expect(verified?.userId).toBe("user_1")
+    expect(verified?.githubUsername).toBe("orgadmin")
+    expect(verified?.role).toBe("admin")
+    expect(verified?.jti).toBe("test-jti-123")
   })
 })
 
@@ -120,7 +120,9 @@ describe("getSessionPayload", () => {
 
   it("returns null when no cookie is present", async () => {
     const mockCookieStore = { get: vi.fn().mockReturnValue(undefined) }
-    vi.mocked(cookies).mockResolvedValue(mockCookieStore as any)
+    vi.mocked(cookies).mockResolvedValue(
+      mockCookieStore as unknown as Awaited<ReturnType<typeof cookies>>
+    )
 
     const result = await getSessionPayload()
     expect(result).toBeNull()
@@ -136,11 +138,13 @@ describe("getSessionPayload", () => {
     const token = await createSessionToken(payload)
 
     const mockCookieStore = { get: vi.fn().mockReturnValue({ value: token }) }
-    vi.mocked(cookies).mockResolvedValue(mockCookieStore as any)
+    vi.mocked(cookies).mockResolvedValue(
+      mockCookieStore as unknown as Awaited<ReturnType<typeof cookies>>
+    )
 
     const result = await getSessionPayload()
     expect(result).not.toBeNull()
-    expect(result!.userId).toBe("user_1")
+    expect(result?.userId).toBe("user_1")
   })
 })
 
@@ -161,7 +165,9 @@ describe("getSessionUser", () => {
     const token = await createSessionToken(payload)
 
     const mockCookieStore = { get: vi.fn().mockReturnValue({ value: token }) }
-    vi.mocked(cookies).mockResolvedValue(mockCookieStore as any)
+    vi.mocked(cookies).mockResolvedValue(
+      mockCookieStore as unknown as Awaited<ReturnType<typeof cookies>>
+    )
 
     const mockUser = {
       id: "user_1",
@@ -169,12 +175,14 @@ describe("getSessionUser", () => {
       role: "admin",
       avatarUrl: "https://example.com/avatar.png",
     }
-    vi.mocked(getUserById).mockResolvedValue(mockUser as any)
+    vi.mocked(getUserById).mockResolvedValue(
+      mockUser as unknown as Awaited<ReturnType<typeof getUserById>>
+    )
 
     const result = await getSessionUser()
     expect(result).not.toBeNull()
-    expect(result!.id).toBe("user_1")
-    expect(result!.sessionJti).toBe("test-jti")
+    expect(result?.id).toBe("user_1")
+    expect(result?.sessionJti).toBe("test-jti")
   })
 
   it("returns null when DB user not found", async () => {
@@ -187,9 +195,13 @@ describe("getSessionUser", () => {
     const token = await createSessionToken(payload)
 
     const mockCookieStore = { get: vi.fn().mockReturnValue({ value: token }) }
-    vi.mocked(cookies).mockResolvedValue(mockCookieStore as any)
+    vi.mocked(cookies).mockResolvedValue(
+      mockCookieStore as unknown as Awaited<ReturnType<typeof cookies>>
+    )
 
-    vi.mocked(getUserById).mockResolvedValue(null as any)
+    vi.mocked(getUserById).mockResolvedValue(
+      null as unknown as Awaited<ReturnType<typeof getUserById>>
+    )
 
     const result = await getSessionUser()
     expect(result).toBeNull()

@@ -16,7 +16,7 @@ describe("encryptSecret / decryptSecret round-trip", () => {
     expect(encrypted).not.toBeNull()
     expect(encrypted).not.toBe(plainText)
 
-    const decrypted = decryptSecret(encrypted!)
+    const decrypted = decryptSecret(encrypted as string)
     expect(decrypted).toBe(plainText)
   })
 
@@ -26,14 +26,14 @@ describe("encryptSecret / decryptSecret round-trip", () => {
     expect(encrypted1).not.toBe(encrypted2)
 
     // Both decrypt to the same value
-    expect(decryptSecret(encrypted1!)).toBe("same-input")
-    expect(decryptSecret(encrypted2!)).toBe("same-input")
+    expect(decryptSecret(encrypted1 as string)).toBe("same-input")
+    expect(decryptSecret(encrypted2 as string)).toBe("same-input")
   })
 
   it("returns dot-delimited payload with three parts", () => {
     const encrypted = encryptSecret("test")
     expect(encrypted).not.toBeNull()
-    const parts = encrypted!.split(".")
+    const parts = (encrypted as string).split(".")
     expect(parts).toHaveLength(3)
   })
 
@@ -41,7 +41,7 @@ describe("encryptSecret / decryptSecret round-trip", () => {
     const plainText = "héllo wörld 🔑"
     const encrypted = encryptSecret(plainText)
     expect(encrypted).not.toBeNull()
-    expect(decryptSecret(encrypted!)).toBe(plainText)
+    expect(decryptSecret(encrypted as string)).toBe(plainText)
   })
 })
 
@@ -49,9 +49,6 @@ describe("encryptSecret without key", () => {
   it("returns null when no ENCRYPTION_KEY or SESSION_SECRET is set", () => {
     vi.stubEnv("ENCRYPTION_KEY", "")
     vi.stubEnv("SESSION_SECRET", "")
-    // Need to clear the module cache and reimport to pick up new env
-    // Instead, directly check behavior — the function reads env at call time
-    // Actually the function reads env each call, so this should work if we delete the env
     delete process.env.ENCRYPTION_KEY
     delete process.env.SESSION_SECRET
     expect(encryptSecret("test")).toBeNull()
@@ -64,7 +61,7 @@ describe("decryptSecret edge cases", () => {
   })
 
   it("returns null for payload with wrong key", () => {
-    const encrypted = encryptSecret("secret")!
+    const encrypted = encryptSecret("secret") as string
     vi.stubEnv("ENCRYPTION_KEY", "different-key-entirely-new")
     // The decryption with a different key should fail
     expect(decryptSecret(encrypted)).toBeNull()
@@ -75,6 +72,6 @@ describe("decryptSecret edge cases", () => {
     vi.stubEnv("SESSION_SECRET", "session-secret-fallback-key")
     const encrypted = encryptSecret("fallback-test")
     expect(encrypted).not.toBeNull()
-    expect(decryptSecret(encrypted!)).toBe("fallback-test")
+    expect(decryptSecret(encrypted as string)).toBe("fallback-test")
   })
 })
