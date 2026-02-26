@@ -27,6 +27,22 @@ export function AppFooter() {
           aria-label="Footer navigation"
           className="flex items-center gap-5 text-muted-foreground"
         >
+          <Link
+            href="https://github.com/514-labs/cla-bot"
+            className="transition-colors hover:text-foreground"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            GitHub
+          </Link>
+          <Link
+            href="https://github.com/514-labs/cla-bot/issues"
+            className="transition-colors hover:text-foreground"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Issues
+          </Link>
           <Link href="/terms" className="transition-colors hover:text-foreground">
             Terms
           </Link>
