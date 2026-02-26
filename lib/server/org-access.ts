@@ -35,17 +35,21 @@ export async function authorizeOrgAccess(orgSlug: string): Promise<OrgAccessResu
     }
   }
 
-  if (process.env.NODE_ENV !== "production") {
-    return { ok: true, org, user }
-  }
-
   try {
     const isAdmin = await isGitHubInstallationAccountAdmin(user, org)
     if (!isAdmin) {
-      return {
-        ok: false,
-        status: 403,
-        message: "Forbidden: GitHub installation admin access required",
+      // In non-production, when no GitHub OAuth token is available for org-admin
+      // checks, fall back to the DB admin mapping — consistent with
+      // filterInstalledOrganizationsForAdmin. This is strictly scoped: only the
+      // designated admin (who installed the app) passes, not any authenticated user.
+      const hasDbAdminFallback =
+        process.env.NODE_ENV !== "production" && org.adminUserId === user.id
+      if (!hasDbAdminFallback) {
+        return {
+          ok: false,
+          status: 403,
+          message: "Forbidden: GitHub installation admin access required",
+        }
       }
     }
   } catch (error) {

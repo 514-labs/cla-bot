@@ -28,7 +28,10 @@ export async function GET(
 
   return NextResponse.json({
     org: {
-      ...org,
+      name: org.name,
+      githubOrgSlug: org.githubOrgSlug,
+      avatarUrl: org.avatarUrl,
+      isActive: org.isActive,
       claMarkdown: org.claText,
     },
     user: toSessionUserDto(user),
