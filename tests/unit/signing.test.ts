@@ -98,7 +98,12 @@ describe("signClaForUser", () => {
     vi.mocked(getOrganizationBySlug).mockResolvedValue(
       mockOrg as unknown as Awaited<ReturnType<typeof getOrganizationBySlug>>
     )
-    vi.mocked(getSignatureStatus).mockResolvedValue({ signed: false, currentVersion: false })
+    vi.mocked(getSignatureStatus).mockResolvedValue({
+      signed: false,
+      currentVersion: false,
+      signature: null,
+      currentSha256: null,
+    })
 
     try {
       await signClaForUser({
@@ -196,7 +201,12 @@ describe("signClaForUser", () => {
     vi.mocked(getOrganizationBySlug).mockResolvedValue(
       mockOrg as unknown as Awaited<ReturnType<typeof getOrganizationBySlug>>
     )
-    vi.mocked(getSignatureStatus).mockResolvedValue({ signed: false, currentVersion: false })
+    vi.mocked(getSignatureStatus).mockResolvedValue({
+      signed: false,
+      currentVersion: false,
+      signature: null,
+      currentSha256: null,
+    })
 
     try {
       await signClaForUser({
@@ -213,7 +223,12 @@ describe("signClaForUser", () => {
     vi.mocked(getOrganizationBySlug).mockResolvedValue(
       mockOrg as unknown as Awaited<ReturnType<typeof getOrganizationBySlug>>
     )
-    vi.mocked(getSignatureStatus).mockResolvedValue({ signed: false, currentVersion: false })
+    vi.mocked(getSignatureStatus).mockResolvedValue({
+      signed: false,
+      currentVersion: false,
+      signature: null,
+      currentSha256: null,
+    })
     const mockSignature = { id: "sig_1", githubUsername: "contributor1" }
     vi.mocked(createSignature).mockResolvedValue(
       mockSignature as unknown as Awaited<ReturnType<typeof createSignature>>
@@ -252,7 +267,12 @@ describe("signClaForUser", () => {
     vi.mocked(getOrganizationBySlug).mockResolvedValue(
       mockOrg as unknown as Awaited<ReturnType<typeof getOrganizationBySlug>>
     )
-    vi.mocked(getSignatureStatus).mockResolvedValue({ signed: false, currentVersion: false })
+    vi.mocked(getSignatureStatus).mockResolvedValue({
+      signed: false,
+      currentVersion: false,
+      signature: null,
+      currentSha256: null,
+    })
     vi.mocked(createSignature).mockResolvedValue({
       id: "sig_1",
       githubUsername: "contributor1",
@@ -279,7 +299,12 @@ describe("signClaForUser", () => {
     vi.mocked(getOrganizationBySlug).mockResolvedValue(
       mockOrg as unknown as Awaited<ReturnType<typeof getOrganizationBySlug>>
     )
-    vi.mocked(getSignatureStatus).mockResolvedValue({ signed: false, currentVersion: false })
+    vi.mocked(getSignatureStatus).mockResolvedValue({
+      signed: false,
+      currentVersion: false,
+      signature: null,
+      currentSha256: null,
+    })
     vi.mocked(createSignature).mockResolvedValue({
       id: "sig_1",
       githubUsername: "contributor1",
@@ -302,7 +327,12 @@ describe("signClaForUser", () => {
     vi.mocked(getOrganizationBySlug).mockResolvedValue(
       mockOrg as unknown as Awaited<ReturnType<typeof getOrganizationBySlug>>
     )
-    vi.mocked(getSignatureStatus).mockResolvedValue({ signed: false, currentVersion: false })
+    vi.mocked(getSignatureStatus).mockResolvedValue({
+      signed: false,
+      currentVersion: false,
+      signature: null,
+      currentSha256: null,
+    })
     vi.mocked(createSignature).mockResolvedValue({
       id: "sig_1",
       githubUsername: "contributor1",
