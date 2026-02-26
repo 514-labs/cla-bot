@@ -1222,7 +1222,13 @@ test("Webhook: after signing, schedules async signer PR sync", async (baseUrl) =
 
   // Step 3: Switch to contributor role and sign the CLA
   await switchRole(baseUrl, "contributor")
-  const signData = await signCla({ orgSlug: "fiveonefour", repoName: "sdk", prNumber: 20 })
+  const signRes = await fetch(`${baseUrl}/api/sign`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ orgSlug: "fiveonefour", repoName: "sdk", prNumber: 20 }),
+  })
+  const signData = await signRes.json()
+  assertEqual(signRes.status, 200, "sign succeeded")
 
   // Step 4: Verify async sync scheduling metadata is returned.
   assertEqual(signData.prSyncScheduled, true, "sign schedules async PR sync")
@@ -1264,7 +1270,13 @@ test("Webhook: signing without repo/pr still schedules async open PR sync", asyn
 
   // Step 3: Sign WITHOUT repo/pr context.
   await switchRole(baseUrl, "contributor")
-  const signData = await signCla({ orgSlug: "fiveonefour" })
+  const signRes = await fetch(`${baseUrl}/api/sign`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ orgSlug: "fiveonefour" }),
+  })
+  const signData = await signRes.json()
+  assertEqual(signRes.status, 200, "sign succeeded")
   assertEqual(signData.prSyncScheduled, true, "sign schedules async sync without repo/pr")
   assert(typeof signData.prSyncRunId === "string", "workflow run id returned")
   assertEqual(signData.prSyncScheduleError, null, "no scheduling error")
@@ -1320,7 +1332,13 @@ test("Webhook: re-sign flow -- sign schedules async check/comment sync", async (
 
   // Contributor re-signs
   await switchRole(baseUrl, "contributor")
-  const signData = await signCla({ orgSlug: "fiveonefour", repoName: "sdk", prNumber: 30 })
+  const signRes = await fetch(`${baseUrl}/api/sign`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ orgSlug: "fiveonefour", repoName: "sdk", prNumber: 30 }),
+  })
+  const signData = await signRes.json()
+  assertEqual(signRes.status, 200, "re-sign succeeded")
   assertEqual(signData.prSyncScheduled, true, "re-sign schedules async sync")
   assert(typeof signData.prSyncRunId === "string", "workflow run id returned")
   assertEqual(signData.prSyncScheduleError, null, "no scheduling error")
