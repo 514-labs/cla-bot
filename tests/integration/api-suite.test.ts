@@ -595,7 +595,10 @@ test("CLA update invalidates existing signatures (needs re-sign)", async (baseUr
   assertEqual(status2.signed, true, "signed, but for old version")
   assertEqual(status2.currentVersion, false, "re-sign required")
   assert(status2.signature !== null, "old signature returned")
-  assert(status2.signature?.claSha256 !== status2.currentSha256, "signed sha256 differs from current")
+  assert(
+    status2.signature?.claSha256 !== status2.currentSha256,
+    "signed sha256 differs from current"
+  )
 })
 
 test("Contributor can re-sign after CLA update", async (baseUrl) => {
@@ -770,9 +773,7 @@ test("Contributor can view a historical signed CLA version inline", async (baseU
   await signCla({ orgSlug: "fiveonefour" })
 
   const { signatures } = await getContributorData(TEST_USERS.contributor.id)
-  const historySignature = signatures.find(
-    (s) => s.orgSlug === "fiveonefour" && !s.isLatestForOrg
-  )
+  const historySignature = signatures.find((s) => s.orgSlug === "fiveonefour" && !s.isLatestForOrg)
   assert(historySignature !== undefined, "historical signature exists")
 
   const viewRes = await fetch(
