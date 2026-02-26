@@ -1,8 +1,8 @@
 # Repository Guidelines
 
 ## Canonical References
-- Product behavior and route/spec details live in `README.md` (`Page Spec`, `Scenario Catalog`, and `System Behavior Spec` sections).
-- Local setup, required environment variables, and command usage live in `README.md` (`Requirements (Local Dev)`, `Dev Setup`, and `Lifecycle Commands` sections).
+- Product behavior and route/spec details live in `SPEC.md` (`Page Spec`, `Scenario Catalog`, and `System Behavior Spec` sections).
+- Local setup, required environment variables, and command usage live in `README.md`.
 
 ## Project Structure & Module Organization
 This repo is a Next.js 16 + TypeScript app-router project.
