@@ -6,9 +6,6 @@ on:
   push:
     branches: [main]
 
-permissions:
-  contents: write
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -77,66 +74,6 @@ jobs:
       - name: Run unit tests with coverage
         run: pnpm test:unit:coverage
 
-      - name: Generate coverage badge
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        run: |
-          node -e "
-          const fs = require('fs');
-          const summary = JSON.parse(fs.readFileSync('coverage/coverage-summary.json', 'utf8'));
-          const pct = Math.round(summary.total.lines.pct);
-
-          let color;
-          if (pct >= 90) color = '#4c1';
-          else if (pct >= 80) color = '#a3c51c';
-          else if (pct >= 70) color = '#dfb317';
-          else if (pct >= 60) color = '#fe7d37';
-          else color = '#e05d44';
-
-          const label = 'coverage';
-          const value = pct + '%';
-          const labelWidth = 62;
-          const valueWidth = 46;
-          const totalWidth = labelWidth + valueWidth;
-          const labelX = labelWidth / 2;
-          const valueX = labelWidth + valueWidth / 2;
-
-          const svg = \`<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"\${totalWidth}\" height=\"20\" role=\"img\" aria-label=\"\${label}: \${value}\">
-            <title>\${label}: \${value}</title>
-            <linearGradient id=\"s\" x2=\"0\" y2=\"100%\">
-              <stop offset=\"0\" stop-color=\"#bbb\" stop-opacity=\".1\"/>
-              <stop offset=\"1\" stop-opacity=\".1\"/>
-            </linearGradient>
-            <clipPath id=\"r\">
-              <rect width=\"\${totalWidth}\" height=\"20\" rx=\"3\" fill=\"#fff\"/>
-            </clipPath>
-            <g clip-path=\"url(#r)\">
-              <rect width=\"\${labelWidth}\" height=\"20\" fill=\"#555\"/>
-              <rect x=\"\${labelWidth}\" width=\"\${valueWidth}\" height=\"20\" fill=\"\${color}\"/>
-              <rect width=\"\${totalWidth}\" height=\"20\" fill=\"url(#s)\"/>
-            </g>
-            <g fill=\"#fff\" text-anchor=\"middle\" font-family=\"Verdana,Geneva,DejaVu Sans,sans-serif\" text-rendering=\"geometricPrecision\" font-size=\"11\">
-              <text x=\"\${labelX}\" y=\"14\">\${label}</text>
-              <text x=\"\${valueX}\" y=\"14\">\${value}</text>
-            </g>
-          </svg>\`;
-
-          fs.mkdirSync('badge', { recursive: true });
-          fs.writeFileSync('badge/coverage.svg', svg);
-          console.log('Badge generated: ' + value + ' coverage (' + color + ')');
-          "
-
-      - name: Push badge to badges branch
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        run: |
-          cd badge
-          git init
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git checkout -b badges
-          git add coverage.svg
-          git commit -m "Update coverage badge"
-          git push --force "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" badges
-
   test-integration:
     name: Integration Tests
     runs-on: ubuntu-latest
@@ -177,3 +114,47 @@ jobs:
 
       - name: Run integration tests
         run: pnpm test:integration
+
+  test-e2e:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: clabot_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/clabot_test
+      SESSION_SECRET: ci-e2e-test-secret
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: latest
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "20"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install chromium --with-deps
+
+      - name: Apply database migrations
+        run: pnpm db:migrate
+
+      - name: Run e2e tests
+        run: pnpm test:e2e
