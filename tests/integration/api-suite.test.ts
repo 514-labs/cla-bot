@@ -1912,6 +1912,188 @@ test("Webhook: unsigned PR comment includes branding with UTM", async (baseUrl) 
 })
 
 // ==========================================
+// MERGE GROUP TESTS
+// ==========================================
+
+function makeMergeGroupPayload(opts: {
+  action: string
+  headSha: string
+  headRef: string
+  baseSha?: string
+  baseRef?: string
+  orgSlug: string
+  repoName: string
+}) {
+  return {
+    action: opts.action,
+    merge_group: {
+      head_sha: opts.headSha,
+      head_ref: opts.headRef,
+      base_sha: opts.baseSha ?? "base-sha-000",
+      base_ref: opts.baseRef ?? "refs/heads/main",
+    },
+    repository: {
+      name: opts.repoName,
+      owner: { login: opts.orgSlug },
+    },
+    installation: { id: 12345 },
+  }
+}
+
+test("Webhook: merge_group with signed CLA author -> success check", async (baseUrl) => {
+  await resetDb(baseUrl)
+  // First send a pull_request event to register the mock PR
+  await sendWebhook(
+    baseUrl,
+    "pull_request",
+    makePrPayload({
+      action: "opened",
+      prAuthor: "cla-signer",
+      prAuthorId: 8001,
+      orgSlug: "fiveonefour",
+      repoName: "sdk",
+      prNumber: 80,
+    })
+  )
+
+  // Now sign the CLA for cla-signer
+  await sql`INSERT INTO cla_signatures (id, org_id, user_id, cla_text_sha256, signature_metadata)
+    SELECT 'sig-merge-queue-80', o.id, u.id, o.cla_text_sha256, '{}'
+    FROM organizations o, users u
+    WHERE o.github_org_slug = 'fiveonefour' AND u.github_username = 'cla-signer'
+    ON CONFLICT DO NOTHING`
+
+  // Send merge_group event
+  const { data, res } = await sendWebhook(
+    baseUrl,
+    "merge_group",
+    makeMergeGroupPayload({
+      action: "checks_requested",
+      headSha: "merge-queue-sha-80",
+      headRef: "refs/heads/gh-readonly-queue/main/pr-80-abc123def",
+      orgSlug: "fiveonefour",
+      repoName: "sdk",
+    })
+  )
+  assertEqual(res.status, 200, "merge_group returns 200")
+  assertEqual(data.check.status, "success", "check passes for signed CLA author in merge queue")
+  assertEqual(data.signed, true, "flagged as signed")
+})
+
+test("Webhook: merge_group with unsigned author -> failure check", async (baseUrl) => {
+  await resetDb(baseUrl)
+  // Register the mock PR with an unsigned author
+  await sendWebhook(
+    baseUrl,
+    "pull_request",
+    makePrPayload({
+      action: "opened",
+      prAuthor: "new-contributor",
+      orgSlug: "fiveonefour",
+      repoName: "sdk",
+      prNumber: 81,
+    })
+  )
+
+  const { data, res } = await sendWebhook(
+    baseUrl,
+    "merge_group",
+    makeMergeGroupPayload({
+      action: "checks_requested",
+      headSha: "merge-queue-sha-81",
+      headRef: "refs/heads/gh-readonly-queue/main/pr-81-abc456def",
+      orgSlug: "fiveonefour",
+      repoName: "sdk",
+    })
+  )
+  assertEqual(res.status, 200, "merge_group returns 200")
+  assertEqual(data.check.status, "failure", "check fails for unsigned author in merge queue")
+  assertEqual(data.signed, false, "flagged as not signed")
+})
+
+test("Webhook: merge_group with org member -> success check", async (baseUrl) => {
+  await resetDb(baseUrl)
+  // Register the mock PR with an org member
+  await sendWebhook(
+    baseUrl,
+    "pull_request",
+    makePrPayload({
+      action: "opened",
+      prAuthor: "orgadmin",
+      orgSlug: "fiveonefour",
+      repoName: "sdk",
+      prNumber: 82,
+    })
+  )
+
+  const { data, res } = await sendWebhook(
+    baseUrl,
+    "merge_group",
+    makeMergeGroupPayload({
+      action: "checks_requested",
+      headSha: "merge-queue-sha-82",
+      headRef: "refs/heads/gh-readonly-queue/main/pr-82-abc789def",
+      orgSlug: "fiveonefour",
+      repoName: "sdk",
+    })
+  )
+  assertEqual(res.status, 200, "merge_group returns 200")
+  assertEqual(data.check.status, "success", "check passes for org member in merge queue")
+  assertEqual(data.orgMember, true, "flagged as org member")
+})
+
+test("Webhook: merge_group with unparseable head_ref -> fallback success check", async (baseUrl) => {
+  await resetDb(baseUrl)
+  const { data, res } = await sendWebhook(
+    baseUrl,
+    "merge_group",
+    makeMergeGroupPayload({
+      action: "checks_requested",
+      headSha: "merge-queue-sha-fallback",
+      headRef: "refs/heads/gh-readonly-queue/main/some-unknown-format",
+      orgSlug: "fiveonefour",
+      repoName: "sdk",
+    })
+  )
+  assertEqual(res.status, 200, "merge_group fallback returns 200")
+  assertEqual(data.check.status, "success", "fallback posts success check")
+  assertEqual(data.mergeQueueFallback, true, "flagged as merge queue fallback")
+})
+
+test("Webhook: merge_group with non-checks_requested action -> ignored", async (baseUrl) => {
+  await resetDb(baseUrl)
+  const { data, res } = await sendWebhook(
+    baseUrl,
+    "merge_group",
+    makeMergeGroupPayload({
+      action: "destroyed",
+      headSha: "merge-queue-sha-destroyed",
+      headRef: "refs/heads/gh-readonly-queue/main/pr-90-abc000def",
+      orgSlug: "fiveonefour",
+      repoName: "sdk",
+    })
+  )
+  assertEqual(res.status, 200, "ignored action returns 200")
+  assert(data.message.includes("Ignored"), "message indicates ignored action")
+})
+
+test("Webhook: merge_group with missing required fields -> 400", async (baseUrl) => {
+  await resetDb(baseUrl)
+  const { res } = await sendWebhook(baseUrl, "merge_group", {
+    action: "checks_requested",
+    merge_group: {
+      head_sha: "some-sha",
+      // head_ref missing
+    },
+    repository: {
+      name: "sdk",
+      owner: { login: "fiveonefour" },
+    },
+  })
+  assertEqual(res.status, 400, "missing fields returns 400")
+})
+
+// ==========================================
 // RUNNER
 // ==========================================
 

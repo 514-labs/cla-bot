@@ -96,6 +96,23 @@ type PingPayload = {
   }
 }
 
+type MergeGroupPayload = {
+  action?: string
+  merge_group?: {
+    head_sha?: string
+    head_ref?: string
+    base_sha?: string
+    base_ref?: string
+  }
+  repository?: {
+    name?: string
+    owner?: { login?: string }
+  }
+  organization?: { login?: string }
+  installation?: { id?: number }
+  sender?: { login?: string; id?: number }
+}
+
 type GitHubAccountType = "organization" | "user"
 
 export async function POST(request: NextRequest) {
@@ -338,6 +355,92 @@ export async function POST(request: NextRequest) {
       headSha,
       baseUrl,
       installationId,
+    })
+  }
+
+  if (event === "merge_group") {
+    const mgPayload = payload as MergeGroupPayload
+    if (mgPayload.action !== "checks_requested") {
+      return NextResponse.json({
+        message: `Ignored merge_group action: ${mgPayload.action ?? "unknown"}`,
+      })
+    }
+
+    const orgSlug = mgPayload.repository?.owner?.login
+    const repoName = mgPayload.repository?.name
+    const headSha = mgPayload.merge_group?.head_sha
+    const headRef = mgPayload.merge_group?.head_ref
+    const installationId = mgPayload.installation?.id
+
+    if (!orgSlug || !repoName || !headSha || !headRef) {
+      return NextResponse.json(
+        { error: "Missing required merge_group payload fields" },
+        { status: 400 }
+      )
+    }
+
+    const prNumber = extractPrNumberFromMergeQueueRef(headRef)
+
+    if (prNumber) {
+      const org = await getOrganizationBySlug(orgSlug)
+      const resolvedInstallationId = installationId ?? org?.installationId ?? undefined
+      let github: ReturnType<typeof getGitHubClient>
+      try {
+        github = getGitHubClient(resolvedInstallationId)
+      } catch (err) {
+        console.error("Failed to initialize GitHub client for merge_group:", err)
+        return NextResponse.json({ error: "GitHub client is not configured" }, { status: 500 })
+      }
+
+      try {
+        const pr = await github.getPullRequest(orgSlug, repoName, prNumber)
+        if (pr) {
+          return handlePrCheck({
+            orgSlug,
+            repoName,
+            prNumber,
+            prAuthor: pr.authorLogin,
+            prAuthorId: pr.authorId,
+            headSha,
+            baseUrl,
+            installationId,
+          })
+        }
+      } catch (err) {
+        console.error(`Failed to look up PR #${prNumber} for merge_group:`, err)
+      }
+    }
+
+    // Fallback: could not resolve original PR — post success since the PR
+    // already passed all checks before entering the merge queue.
+    const org = await getOrganizationBySlug(orgSlug)
+    const resolvedInstallationId = installationId ?? org?.installationId ?? undefined
+    let github: ReturnType<typeof getGitHubClient>
+    try {
+      github = getGitHubClient(resolvedInstallationId)
+    } catch (err) {
+      console.error("Failed to initialize GitHub client for merge_group fallback:", err)
+      return NextResponse.json({ error: "GitHub client is not configured" }, { status: 500 })
+    }
+
+    const check = await github.createCheckRun({
+      owner: orgSlug,
+      repo: repoName,
+      name: CHECK_NAME,
+      head_sha: headSha,
+      status: "completed",
+      conclusion: "success",
+      output: {
+        title: "CLA: Merge queue",
+        summary:
+          "This commit is part of a merge queue. The original pull request was already validated for CLA compliance.",
+      },
+    })
+
+    return NextResponse.json({
+      message: "Merge queue: fallback success check posted",
+      check: { id: check.id, status: "success", conclusion: check.conclusion },
+      mergeQueueFallback: true,
     })
   }
 
@@ -963,6 +1066,13 @@ This repository has not published a Contributor License Agreement yet, so we can
 A maintainer must publish the CLA first: ${adminUrl}
 
 <sub>Once the CLA is configured, this check will enforce contributor signing automatically.</sub>`
+}
+
+function extractPrNumberFromMergeQueueRef(headRef: string): number | null {
+  const match = headRef.match(/\/pr-(\d+)-[a-f0-9]+$/)
+  if (!match) return null
+  const num = Number(match[1])
+  return Number.isFinite(num) && num > 0 ? num : null
 }
 
 function isRemovableClaPromptComment(commentBody: string) {
