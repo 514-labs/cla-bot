@@ -199,6 +199,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    if (isMergeQueuePullRequest(prPayload)) {
+      return handleMergeQueueCheck({
+        orgSlug,
+        repoName,
+        headSha,
+        installationId,
+      })
+    }
+
     if (isDependabotLikePullRequest(prPayload)) {
       const author = prPayload.pull_request?.user
       const sender = prPayload.sender
@@ -285,42 +294,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const org = await getOrganizationBySlug(orgSlug)
-    const resolvedInstallationId = installationId ?? org?.installationId ?? undefined
-
-    if (!resolvedInstallationId && process.env.NODE_ENV === "production") {
-      return NextResponse.json(
-        { error: `Missing installation ID for organization "${orgSlug}"` },
-        { status: 424 }
-      )
-    }
-
-    let github: ReturnType<typeof getGitHubClient>
-    try {
-      github = getGitHubClient(resolvedInstallationId)
-    } catch (err) {
-      console.error("Failed to initialize GitHub client for merge_group:", err)
-      return NextResponse.json({ error: "GitHub client is not configured" }, { status: 500 })
-    }
-
-    const check = await github.createCheckRun({
-      owner: orgSlug,
-      repo: repoName,
-      name: CHECK_NAME,
-      head_sha: headSha,
-      status: "completed",
-      conclusion: "success",
-      output: {
-        title: "CLA: Merge queue",
-        summary: `CLA compliance was verified on the original pull request. Merge queue check passed.`,
-      },
-    })
-
-    return NextResponse.json({
-      message: `Merge group check passed for ${orgSlug}/${repoName}.`,
-      check: { id: check.id, status: "success", conclusion: check.conclusion },
-      mergeGroup: true,
-    })
+    return handleMergeQueueCheck({ orgSlug, repoName, headSha, installationId })
   }
 
   if (event === "check_suite") {
@@ -349,42 +323,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const org = await getOrganizationBySlug(orgSlug)
-    const resolvedInstallationId = installationId ?? org?.installationId ?? undefined
-
-    if (!resolvedInstallationId && process.env.NODE_ENV === "production") {
-      return NextResponse.json(
-        { error: `Missing installation ID for organization "${orgSlug}"` },
-        { status: 424 }
-      )
-    }
-
-    let github: ReturnType<typeof getGitHubClient>
-    try {
-      github = getGitHubClient(resolvedInstallationId)
-    } catch (err) {
-      console.error("Failed to initialize GitHub client for check_suite merge queue:", err)
-      return NextResponse.json({ error: "GitHub client is not configured" }, { status: 500 })
-    }
-
-    const check = await github.createCheckRun({
-      owner: orgSlug,
-      repo: repoName,
-      name: CHECK_NAME,
-      head_sha: headSha,
-      status: "completed",
-      conclusion: "success",
-      output: {
-        title: "CLA: Merge queue",
-        summary: `CLA compliance was verified on the original pull request. Merge queue check passed.`,
-      },
-    })
-
-    return NextResponse.json({
-      message: `Merge queue check suite passed for ${orgSlug}/${repoName}.`,
-      check: { id: check.id, status: "success", conclusion: check.conclusion },
-      mergeQueue: true,
-    })
+    return handleMergeQueueCheck({ orgSlug, repoName, headSha, installationId })
   }
 
   if (event === "issue_comment") {
@@ -976,6 +915,52 @@ async function handleInstallationRepositories(payload: InstallationPayload) {
   })
 }
 
+async function handleMergeQueueCheck(params: {
+  orgSlug: string
+  repoName: string
+  headSha: string
+  installationId?: number
+}) {
+  const { orgSlug, repoName, headSha, installationId } = params
+
+  const org = await getOrganizationBySlug(orgSlug)
+  const resolvedInstallationId = installationId ?? org?.installationId ?? undefined
+
+  if (!resolvedInstallationId && process.env.NODE_ENV === "production") {
+    return NextResponse.json(
+      { error: `Missing installation ID for organization "${orgSlug}"` },
+      { status: 424 }
+    )
+  }
+
+  let github: ReturnType<typeof getGitHubClient>
+  try {
+    github = getGitHubClient(resolvedInstallationId)
+  } catch (err) {
+    console.error("Failed to initialize GitHub client for merge queue check:", err)
+    return NextResponse.json({ error: "GitHub client is not configured" }, { status: 500 })
+  }
+
+  const check = await github.createCheckRun({
+    owner: orgSlug,
+    repo: repoName,
+    name: CHECK_NAME,
+    head_sha: headSha,
+    status: "completed",
+    conclusion: "success",
+    output: {
+      title: "CLA: Merge queue",
+      summary: `CLA compliance was verified on the original pull request. Merge queue check passed.`,
+    },
+  })
+
+  return NextResponse.json({
+    message: `Merge queue check passed for ${orgSlug}/${repoName}.`,
+    check: { id: check.id, status: "success", conclusion: check.conclusion },
+    mergeQueue: true,
+  })
+}
+
 export async function GET(request: NextRequest) {
   if (process.env.NODE_ENV === "production") {
     return NextResponse.json({ error: "Not found" }, { status: 404 })
@@ -1074,6 +1059,11 @@ function normalizeWebhookSecret(secret: string): string {
 function getBaseUrl(request: NextRequest): string {
   const url = new URL(request.url)
   return `${url.protocol}//${url.host}`
+}
+
+function isMergeQueuePullRequest(payload: PullRequestPayload) {
+  const headRef = payload.pull_request?.head?.ref ?? ""
+  return headRef.startsWith("gh-readonly-queue/")
 }
 
 function isDependabotLikePullRequest(payload: PullRequestPayload) {

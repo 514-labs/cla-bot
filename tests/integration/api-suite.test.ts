@@ -1950,7 +1950,7 @@ test("Webhook: merge_group checks_requested -> auto-pass check", async (baseUrl)
   assertEqual(res.status, 200, "merge_group returns 200")
   assertEqual(data.check.status, "success", "merge_group check passes")
   assertEqual(data.check.conclusion, "success", "merge_group conclusion is success")
-  assertEqual(data.mergeGroup, true, "response flags mergeGroup")
+  assertEqual(data.mergeQueue, true, "response flags mergeQueue")
 })
 
 test("Webhook: merge_group non-checks_requested action is ignored", async (baseUrl) => {
@@ -2065,6 +2065,56 @@ test("Webhook: check_suite merge queue missing fields returns 400", async (baseU
     // missing repository.owner.login
   })
   assertEqual(res.status, 400, "missing fields returns 400")
+})
+
+// ==========================================
+// 14. PULL REQUEST MERGE QUEUE TESTS
+// ==========================================
+
+test("Webhook: pull_request on merge queue branch -> auto-pass check", async (baseUrl) => {
+  await resetDb(baseUrl)
+  const { res, data } = await sendWebhook(baseUrl, "pull_request", {
+    action: "opened",
+    number: 99,
+    pull_request: {
+      user: { login: "some-contributor" },
+      head: {
+        sha: `mq-pr-sha-${Date.now()}`,
+        ref: "gh-readonly-queue/main/pr-99-abc123",
+      },
+    },
+    repository: {
+      name: "sdk",
+      owner: { login: "fiveonefour" },
+    },
+  })
+  assertEqual(res.status, 200, "merge queue PR returns 200")
+  assertEqual(data.check.status, "success", "merge queue PR check passes")
+  assertEqual(data.check.conclusion, "success", "merge queue PR conclusion is success")
+  assertEqual(data.mergeQueue, true, "response flags mergeQueue")
+})
+
+test("Webhook: pull_request on regular branch runs normal CLA check", async (baseUrl) => {
+  await resetDb(baseUrl)
+  const { res, data } = await sendWebhook(baseUrl, "pull_request", {
+    action: "opened",
+    number: 100,
+    pull_request: {
+      user: { login: "orgadmin" },
+      head: {
+        sha: `regular-sha-${Date.now()}`,
+        ref: "feature/my-branch",
+      },
+    },
+    repository: {
+      name: "sdk",
+      owner: { login: "fiveonefour" },
+    },
+  })
+  assertEqual(res.status, 200, "regular PR returns 200")
+  // orgadmin is an org member, so this should pass through normal CLA check
+  assertEqual(data.check.status, "success", "regular PR goes through normal CLA check")
+  assertEqual(data.mergeQueue, undefined, "regular PR does not flag mergeQueue")
 })
 
 // ==========================================
