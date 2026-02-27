@@ -88,6 +88,21 @@ type IssueCommentPayload = {
   }
 }
 
+type MergeGroupPayload = {
+  action?: string
+  installation?: { id?: number }
+  merge_group?: {
+    head_sha?: string
+    head_ref?: string
+    base_sha?: string
+    base_ref?: string
+  }
+  repository?: {
+    name?: string
+    owner?: { login?: string }
+  }
+}
+
 type PingPayload = {
   zen?: string
   hook_id?: number
@@ -233,6 +248,65 @@ export async function POST(request: NextRequest) {
       headSha,
       baseUrl,
       installationId,
+    })
+  }
+
+  if (event === "merge_group") {
+    const mgPayload = payload as MergeGroupPayload
+    if (mgPayload.action !== "checks_requested") {
+      return NextResponse.json({
+        message: "Merge group action ignored",
+        action: mgPayload.action ?? "unknown",
+      })
+    }
+
+    const orgSlug = mgPayload.repository?.owner?.login
+    const repoName = mgPayload.repository?.name
+    const headSha = mgPayload.merge_group?.head_sha
+    const installationId = mgPayload.installation?.id
+
+    if (!orgSlug || !repoName || !headSha) {
+      return NextResponse.json(
+        { error: "Missing required merge_group payload fields" },
+        { status: 400 }
+      )
+    }
+
+    const org = await getOrganizationBySlug(orgSlug)
+    const resolvedInstallationId = installationId ?? org?.installationId ?? undefined
+
+    if (!resolvedInstallationId && process.env.NODE_ENV === "production") {
+      return NextResponse.json(
+        { error: `Missing installation ID for organization "${orgSlug}"` },
+        { status: 424 }
+      )
+    }
+
+    let github: ReturnType<typeof getGitHubClient>
+    try {
+      github = getGitHubClient(resolvedInstallationId)
+    } catch (err) {
+      console.error("Failed to initialize GitHub client for merge_group:", err)
+      return NextResponse.json({ error: "GitHub client is not configured" }, { status: 500 })
+    }
+
+    const check = await github.createCheckRun({
+      owner: orgSlug,
+      repo: repoName,
+      name: CHECK_NAME,
+      head_sha: headSha,
+      status: "completed",
+      conclusion: "success",
+      output: {
+        title: "CLA: Merge queue",
+        summary: `CLA compliance was verified on the original pull request. Merge queue check passed.`,
+      },
+    })
+
+    return NextResponse.json({
+      message: `Merge group check passed for ${orgSlug}/${repoName}.`,
+      check: { id: check.id, status: "success", conclusion: check.conclusion },
+      mergeGroup: true,
     })
   }
 

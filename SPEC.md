@@ -95,7 +95,14 @@ This section is the behavior contract for UI routes.
 - Admins can download both current and archived CLA versions for orgs they administer.
 - Download endpoints enforce ownership/authorization and do not expose records across users/orgs.
 
-### 9) Additional scenarios commonly missed
+### 9) Merge queue support
+
+- When a repository uses GitHub merge queues, GitHub sends a `merge_group` webhook event with `checks_requested` action when a PR enters the queue.
+- The CLA bot auto-passes the check on the merge group's head SHA because CLA compliance was already verified on the original pull request before it entered the queue.
+- Non-`checks_requested` merge group actions are ignored.
+- Missing required payload fields (`repository.owner.login`, `repository.name`, `merge_group.head_sha`) return `400`.
+
+### 10) Additional scenarios commonly missed
 
 - Org deactivated/uninstalled: signing blocked; webhook events set passing CLA checks and remove managed CLA prompts so PRs are not blocked by CLA while inactive.
 - Activating or deactivating an org schedules an async open-PR recheck workflow so existing PR checks/comments converge automatically.
@@ -105,32 +112,32 @@ This section is the behavior contract for UI routes.
 - Webhook hardening: production signature verification and delivery de-duplication.
 - Standard error paths: unauthorized, forbidden, missing org, invalid payload combinations.
 
-### 10) OAuth/session lifecycle edge cases
+### 11) OAuth/session lifecycle edge cases
 
 - OAuth callback state mismatch/expired state cookie: sign-in fails safely and redirects back to `/auth/signin?error=...`.
 - GitHub token exchange or profile fetch failure: sign-in fails safely and no session cookie is issued.
 - Explicit logout clears JWT cookie; expired/invalid JWT is treated as signed-out.
 
-### 11) `/recheck` command behavior edge cases
+### 12) `/recheck` command behavior edge cases
 
 - `/recheck` is only processed on PR issue comments; non-PR issue comments are ignored.
 - Non-command comments (or non-created comment events) are ignored.
 - If PR head SHA cannot be resolved in production, `/recheck` fails with an error instead of guessing.
 
-### 12) Webhook delivery/idempotency scenarios
+### 13) Webhook delivery/idempotency scenarios
 
 - Duplicate `x-github-delivery` IDs are ignored via persistent DB-backed delivery tracking to reduce duplicate check/comment churn across process restarts.
 - Missing/invalid webhook signature is rejected in production when `GITHUB_WEBHOOK_SECRET` is configured.
 - Missing required payload fields return `400` and do not mutate DB/check state.
 
-### 13) Installation lifecycle scenarios
+### 14) Installation lifecycle scenarios
 
 - Installation `created` or `unsuspend`: account row is created/reactivated, installation ID refreshed, and installation target metadata (`organization` vs `user`) is persisted.
 - New installations are initialized with empty CLA text and `cla_text_sha256 = null` (no built-in agreement/template is auto-published).
 - Installation `deleted` or `suspend`: account is deactivated and installation ID cleared.
 - Installation repository-change events refresh installation linkage.
 
-### 14) Access-control scenarios
+### 15) Access-control scenarios
 
 - In production, org installs require live GitHub org-admin verification.
 - In production, personal-account installs are authorized when the signed-in GitHub user matches the installation target account.
@@ -152,6 +159,7 @@ This section is the behavior contract for UI routes.
 - After signing/re-signing, an async workflow updates signer-authored open PR CLA checks to success and removes stale CLA prompt comments.
 - Activating/deactivating CLA enforcement schedules async open-PR rechecks; inactive mode converges CLA checks to success and clears managed CLA prompt comments.
 - CLA bot comment updates/deletions are restricted to CLA-managed comments tagged with an internal signature marker, preventing edits to third-party bot comments.
+- Merge queue support: when GitHub sends a `merge_group` `checks_requested` event, the CLA bot auto-passes the check on the merge group's head SHA since CLA compliance was already enforced on the individual pull request.
 - Repository maintainers must require `CLA Bot / Contributor License Agreement` in GitHub branch protection/rulesets for merge blocking to be enforced.
 - Markdown ordered lists preserve explicit authored numbering (for example `1.`, `2.`, `7.` stays `1, 2, 7`), and legal alpha markers (`a.` / `a)`) render as ordered sub-clauses with indentation.
 

@@ -1912,6 +1912,74 @@ test("Webhook: unsigned PR comment includes branding with UTM", async (baseUrl) 
 })
 
 // ==========================================
+// 12. MERGE QUEUE / merge_group TESTS
+// ==========================================
+
+function makeMergeGroupPayload(opts: {
+  action: string
+  orgSlug: string
+  repoName: string
+  headSha?: string
+}) {
+  return {
+    action: opts.action,
+    merge_group: {
+      head_sha: opts.headSha ?? `mg-sha-${Date.now()}`,
+      head_ref: "refs/heads/gh-readonly-queue/main/pr-1-abc",
+      base_sha: "base-sha-000",
+      base_ref: "refs/heads/main",
+    },
+    repository: {
+      name: opts.repoName,
+      owner: { login: opts.orgSlug },
+    },
+  }
+}
+
+test("Webhook: merge_group checks_requested -> auto-pass check", async (baseUrl) => {
+  await resetDb(baseUrl)
+  const { res, data } = await sendWebhook(
+    baseUrl,
+    "merge_group",
+    makeMergeGroupPayload({
+      action: "checks_requested",
+      orgSlug: "fiveonefour",
+      repoName: "sdk",
+    })
+  )
+  assertEqual(res.status, 200, "merge_group returns 200")
+  assertEqual(data.check.status, "success", "merge_group check passes")
+  assertEqual(data.check.conclusion, "success", "merge_group conclusion is success")
+  assertEqual(data.mergeGroup, true, "response flags mergeGroup")
+})
+
+test("Webhook: merge_group non-checks_requested action is ignored", async (baseUrl) => {
+  await resetDb(baseUrl)
+  const { res, data } = await sendWebhook(
+    baseUrl,
+    "merge_group",
+    makeMergeGroupPayload({
+      action: "destroyed",
+      orgSlug: "fiveonefour",
+      repoName: "sdk",
+    })
+  )
+  assertEqual(res.status, 200, "non-checks_requested returns 200")
+  assert(data.message.includes("ignored"), "non-checks_requested action is ignored")
+})
+
+test("Webhook: merge_group missing fields returns 400", async (baseUrl) => {
+  await resetDb(baseUrl)
+  const { res } = await sendWebhook(baseUrl, "merge_group", {
+    action: "checks_requested",
+    merge_group: { head_sha: "sha-123" },
+    repository: { name: "sdk" },
+    // missing repository.owner.login
+  })
+  assertEqual(res.status, 400, "missing fields returns 400")
+})
+
+// ==========================================
 // RUNNER
 // ==========================================
 
