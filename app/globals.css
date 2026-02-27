@@ -1,86 +1,118 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@import "tw-animate-css";
 
-@layer base {
-  :root {
-    --background: 210 44% 7%;
-    --foreground: 0 0% 97%;
-    --card: 212 36% 10%;
-    --card-foreground: 0 0% 97%;
-    --popover: 212 36% 10%;
-    --popover-foreground: 0 0% 97%;
-    --primary: 163 69% 47%;
-    --primary-foreground: 204 100% 3%;
-    --secondary: 212 30% 15%;
-    --secondary-foreground: 0 0% 97%;
-    --muted: 213 27% 18%;
-    --muted-foreground: 213 14% 70%;
-    --accent: 163 69% 47%;
-    --accent-foreground: 204 100% 3%;
-    --destructive: 0 72% 54%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 213 19% 25%;
-    --input: 213 19% 25%;
-    --ring: 163 69% 47%;
-    --chart-1: 163 69% 47%;
-    --chart-2: 195 86% 65%;
-    --chart-3: 29 84% 65%;
-    --chart-4: 342 77% 67%;
-    --chart-5: 273 74% 70%;
-    --radius: 0.875rem;
-    --sidebar-background: 213 35% 10%;
-    --sidebar-foreground: 0 0% 97%;
-    --sidebar-primary: 163 69% 47%;
-    --sidebar-primary-foreground: 204 100% 3%;
-    --sidebar-accent: 213 30% 16%;
-    --sidebar-accent-foreground: 0 0% 97%;
-    --sidebar-border: 213 19% 25%;
-    --sidebar-ring: 163 69% 47%;
+@theme {
+  /* Font families */
+  --font-family-body: var(--font-body), sans-serif;
+  --font-family-display: var(--font-display), serif;
+
+  /* Colors using HSL format */
+  --color-background: hsl(210 44% 7%);
+  --color-foreground: hsl(0 0% 97%);
+  --color-card: hsl(212 36% 10%);
+  --color-card-foreground: hsl(0 0% 97%);
+  --color-popover: hsl(212 36% 10%);
+  --color-popover-foreground: hsl(0 0% 97%);
+  --color-primary: hsl(163 69% 47%);
+  --color-primary-foreground: hsl(204 100% 3%);
+  --color-secondary: hsl(212 30% 15%);
+  --color-secondary-foreground: hsl(0 0% 97%);
+  --color-muted: hsl(213 27% 18%);
+  --color-muted-foreground: hsl(213 14% 70%);
+  --color-accent: hsl(163 69% 47%);
+  --color-accent-foreground: hsl(204 100% 3%);
+  --color-destructive: hsl(0 72% 54%);
+  --color-destructive-foreground: hsl(0 0% 100%);
+  --color-border: hsl(213 19% 25%);
+  --color-input: hsl(213 19% 25%);
+  --color-ring: hsl(163 69% 47%);
+
+  /* Chart colors */
+  --color-chart-1: hsl(163 69% 47%);
+  --color-chart-2: hsl(195 86% 65%);
+  --color-chart-3: hsl(29 84% 65%);
+  --color-chart-4: hsl(342 77% 67%);
+  --color-chart-5: hsl(273 74% 70%);
+
+  /* Sidebar colors */
+  --color-sidebar-background: hsl(213 35% 10%);
+  --color-sidebar-foreground: hsl(0 0% 97%);
+  --color-sidebar-primary: hsl(163 69% 47%);
+  --color-sidebar-primary-foreground: hsl(204 100% 3%);
+  --color-sidebar-accent: hsl(213 30% 16%);
+  --color-sidebar-accent-foreground: hsl(0 0% 97%);
+  --color-sidebar-border: hsl(213 19% 25%);
+  --color-sidebar-ring: hsl(163 69% 47%);
+
+  /* Border radius */
+  --radius: 0.875rem;
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+
+  /* Animations */
+  --animate-accordion-down: accordion-down 0.2s ease-out;
+  --animate-accordion-up: accordion-up 0.2s ease-out;
+}
+
+@keyframes accordion-down {
+  from {
+    height: 0;
   }
-
-  * {
-    @apply border-border;
-  }
-
-  body {
-    @apply bg-background text-foreground;
-    font-family: var(--font-body), sans-serif;
-    min-height: 100vh;
-  }
-
-  h1,
-  h2,
-  h3,
-  h4 {
-    font-family: var(--font-display), serif;
-    letter-spacing: -0.02em;
+  to {
+    height: var(--radix-accordion-content-height);
   }
 }
 
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
+@keyframes accordion-up {
+  from {
+    height: var(--radix-accordion-content-height);
   }
+  to {
+    height: 0;
+  }
+}
 
-  .bg-app-radial {
-    background-image:
-      radial-gradient(circle at 15% 15%, hsl(163 69% 47% / 0.22), transparent 42%),
-      radial-gradient(circle at 85% 0%, hsl(195 86% 65% / 0.2), transparent 45%),
-      radial-gradient(circle at 50% 100%, hsl(341 77% 67% / 0.1), transparent 48%);
-  }
+* {
+  border-color: var(--color-border);
+}
 
-  .bg-grid-overlay {
-    background-image:
-      linear-gradient(hsl(163 69% 47% / 0.12) 1px, transparent 1px),
-      linear-gradient(90deg, hsl(163 69% 47% / 0.12) 1px, transparent 1px);
-    background-size: 68px 68px;
-  }
+body {
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-body), sans-serif;
+  min-height: 100vh;
+}
 
-  .bg-noise-texture {
-    background-image: radial-gradient(hsl(0 0% 100% / 0.06) 0.4px, transparent 0.4px);
-    background-size: 3px 3px;
-  }
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-display), serif;
+  letter-spacing: -0.02em;
+}
+
+@utility text-balance {
+  text-wrap: balance;
+}
+
+@utility bg-app-radial {
+  background-image:
+    radial-gradient(circle at 15% 15%, hsl(163 69% 47% / 0.22), transparent 42%),
+    radial-gradient(circle at 85% 0%, hsl(195 86% 65% / 0.2), transparent 45%),
+    radial-gradient(circle at 50% 100%, hsl(341 77% 67% / 0.1), transparent 48%);
+}
+
+@utility bg-grid-overlay {
+  background-image:
+    linear-gradient(hsl(163 69% 47% / 0.12) 1px, transparent 1px),
+    linear-gradient(90deg, hsl(163 69% 47% / 0.12) 1px, transparent 1px);
+  background-size: 68px 68px;
+}
+
+@utility bg-noise-texture {
+  background-image: radial-gradient(hsl(0 0% 100% / 0.06) 0.4px, transparent 0.4px);
+  background-size: 3px 3px;
 }
 
 @keyframes app-bg-drift {
