@@ -1980,6 +1980,94 @@ test("Webhook: merge_group missing fields returns 400", async (baseUrl) => {
 })
 
 // ==========================================
+// 13. CHECK_SUITE MERGE QUEUE TESTS
+// ==========================================
+
+function makeCheckSuitePayload(opts: {
+  action: string
+  orgSlug: string
+  repoName: string
+  headBranch: string
+  headSha?: string
+}) {
+  return {
+    action: opts.action,
+    check_suite: {
+      head_sha: opts.headSha ?? `cs-sha-${Date.now()}`,
+      head_branch: opts.headBranch,
+    },
+    repository: {
+      name: opts.repoName,
+      owner: { login: opts.orgSlug },
+    },
+  }
+}
+
+test("Webhook: check_suite requested on merge queue branch -> auto-pass check", async (baseUrl) => {
+  await resetDb(baseUrl)
+  const { res, data } = await sendWebhook(
+    baseUrl,
+    "check_suite",
+    makeCheckSuitePayload({
+      action: "requested",
+      orgSlug: "fiveonefour",
+      repoName: "sdk",
+      headBranch: "gh-readonly-queue/main/pr-42-abc123",
+    })
+  )
+  assertEqual(res.status, 200, "check_suite merge queue returns 200")
+  assertEqual(data.check.status, "success", "check_suite merge queue check passes")
+  assertEqual(data.check.conclusion, "success", "check_suite merge queue conclusion is success")
+  assertEqual(data.mergeQueue, true, "response flags mergeQueue")
+})
+
+test("Webhook: check_suite requested on regular branch is ignored", async (baseUrl) => {
+  await resetDb(baseUrl)
+  const { res, data } = await sendWebhook(
+    baseUrl,
+    "check_suite",
+    makeCheckSuitePayload({
+      action: "requested",
+      orgSlug: "fiveonefour",
+      repoName: "sdk",
+      headBranch: "feature/my-branch",
+    })
+  )
+  assertEqual(res.status, 200, "non-merge-queue check_suite returns 200")
+  assert(data.message.includes("ignored"), "non-merge-queue branch check_suite is ignored")
+})
+
+test("Webhook: check_suite non-requested action is ignored", async (baseUrl) => {
+  await resetDb(baseUrl)
+  const { res, data } = await sendWebhook(
+    baseUrl,
+    "check_suite",
+    makeCheckSuitePayload({
+      action: "completed",
+      orgSlug: "fiveonefour",
+      repoName: "sdk",
+      headBranch: "gh-readonly-queue/main/pr-42-abc123",
+    })
+  )
+  assertEqual(res.status, 200, "non-requested action returns 200")
+  assert(data.message.includes("ignored"), "non-requested check_suite action is ignored")
+})
+
+test("Webhook: check_suite merge queue missing fields returns 400", async (baseUrl) => {
+  await resetDb(baseUrl)
+  const { res } = await sendWebhook(baseUrl, "check_suite", {
+    action: "requested",
+    check_suite: {
+      head_sha: "sha-456",
+      head_branch: "gh-readonly-queue/main/pr-99-def",
+    },
+    repository: { name: "sdk" },
+    // missing repository.owner.login
+  })
+  assertEqual(res.status, 400, "missing fields returns 400")
+})
+
+// ==========================================
 // RUNNER
 // ==========================================
 

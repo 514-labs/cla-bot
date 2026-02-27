@@ -97,10 +97,11 @@ This section is the behavior contract for UI routes.
 
 ### 9) Merge queue support
 
-- When a repository uses GitHub merge queues, GitHub sends a `merge_group` webhook event with `checks_requested` action when a PR enters the queue.
-- The CLA bot auto-passes the check on the merge group's head SHA because CLA compliance was already verified on the original pull request before it entered the queue.
-- Non-`checks_requested` merge group actions are ignored.
-- Missing required payload fields (`repository.owner.login`, `repository.name`, `merge_group.head_sha`) return `400`.
+- When a repository uses GitHub merge queues, the CLA bot auto-passes the check on the merge queue head SHA because CLA compliance was already verified on the original pull request before it entered the queue.
+- The bot handles merge queue events via two webhook paths:
+  - `check_suite` with `action: "requested"` and `head_branch` matching `gh-readonly-queue/` prefix: GitHub automatically delivers these to apps with `checks` permission. The bot creates a passing check run on the check suite's head SHA. Non-merge-queue branches and non-`requested` actions are ignored.
+  - `merge_group` with `action: "checks_requested"`: handled if the app is subscribed to `merge_group` events. The bot creates a passing check run on the merge group's head SHA. Non-`checks_requested` actions are ignored.
+- Missing required payload fields return `400`.
 
 ### 10) Additional scenarios commonly missed
 
@@ -159,7 +160,7 @@ This section is the behavior contract for UI routes.
 - After signing/re-signing, an async workflow updates signer-authored open PR CLA checks to success and removes stale CLA prompt comments.
 - Activating/deactivating CLA enforcement schedules async open-PR rechecks; inactive mode converges CLA checks to success and clears managed CLA prompt comments.
 - CLA bot comment updates/deletions are restricted to CLA-managed comments tagged with an internal signature marker, preventing edits to third-party bot comments.
-- Merge queue support: when GitHub sends a `merge_group` `checks_requested` event, the CLA bot auto-passes the check on the merge group's head SHA since CLA compliance was already enforced on the individual pull request.
+- Merge queue support: the CLA bot auto-passes checks for merge queue commits. It responds to both `check_suite.requested` events on `gh-readonly-queue/` branches (delivered automatically to apps with `checks` permission) and `merge_group.checks_requested` events (if subscribed). CLA compliance was already enforced on the individual pull request.
 - Repository maintainers must require `CLA Bot / Contributor License Agreement` in GitHub branch protection/rulesets for merge blocking to be enforced.
 - Markdown ordered lists preserve explicit authored numbering (for example `1.`, `2.`, `7.` stays `1, 2, 7`), and legal alpha markers (`a.` / `a)`) render as ordered sub-clauses with indentation.
 
