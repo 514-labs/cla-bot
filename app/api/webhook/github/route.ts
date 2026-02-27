@@ -103,19 +103,6 @@ type MergeGroupPayload = {
   }
 }
 
-type CheckSuitePayload = {
-  action?: string
-  installation?: { id?: number }
-  check_suite?: {
-    head_sha?: string
-    head_branch?: string | null
-  }
-  repository?: {
-    name?: string
-    owner?: { login?: string }
-  }
-}
-
 type PingPayload = {
   zen?: string
   hook_id?: number
@@ -197,15 +184,6 @@ export async function POST(request: NextRequest) {
         { error: "Missing required pull_request payload fields" },
         { status: 400 }
       )
-    }
-
-    if (isMergeQueuePullRequest(prPayload)) {
-      return handleMergeQueueCheck({
-        orgSlug,
-        repoName,
-        headSha,
-        installationId,
-      })
     }
 
     if (isDependabotLikePullRequest(prPayload)) {
@@ -290,35 +268,6 @@ export async function POST(request: NextRequest) {
     if (!orgSlug || !repoName || !headSha) {
       return NextResponse.json(
         { error: "Missing required merge_group payload fields" },
-        { status: 400 }
-      )
-    }
-
-    return handleMergeQueueCheck({ orgSlug, repoName, headSha, installationId })
-  }
-
-  if (event === "check_suite") {
-    const csPayload = payload as CheckSuitePayload
-    if (csPayload.action !== "requested") {
-      return NextResponse.json({
-        message: "Check suite action ignored",
-        action: csPayload.action ?? "unknown",
-      })
-    }
-
-    const headBranch = csPayload.check_suite?.head_branch ?? ""
-    if (!headBranch.startsWith("gh-readonly-queue/")) {
-      return NextResponse.json({ message: "Check suite ignored for non-merge-queue branch" })
-    }
-
-    const orgSlug = csPayload.repository?.owner?.login
-    const repoName = csPayload.repository?.name
-    const headSha = csPayload.check_suite?.head_sha
-    const installationId = csPayload.installation?.id
-
-    if (!orgSlug || !repoName || !headSha) {
-      return NextResponse.json(
-        { error: "Missing required check_suite payload fields" },
         { status: 400 }
       )
     }
@@ -1059,11 +1008,6 @@ function normalizeWebhookSecret(secret: string): string {
 function getBaseUrl(request: NextRequest): string {
   const url = new URL(request.url)
   return `${url.protocol}//${url.host}`
-}
-
-function isMergeQueuePullRequest(payload: PullRequestPayload) {
-  const headRef = payload.pull_request?.head?.ref ?? ""
-  return headRef.startsWith("gh-readonly-queue/")
 }
 
 function isDependabotLikePullRequest(payload: PullRequestPayload) {
