@@ -2,7 +2,22 @@ import Script from "next/script"
 import Link from "next/link"
 import { SiteHeader } from "@/components/site-header"
 import { Button } from "@/components/ui/button"
-import { FileCheck2, Github, ShieldCheck, Users, GitPullRequest, ArrowRight } from "lucide-react"
+import {
+  FileCheck2,
+  Github,
+  ShieldCheck,
+  Users,
+  GitPullRequest,
+  ArrowRight,
+  RefreshCw,
+  Bot,
+  Hash,
+  Lock,
+  Terminal,
+  Download,
+  GitMerge,
+  Server,
+} from "lucide-react"
 import { buildFiveonefourUrl } from "@/lib/marketing-links"
 
 const jsonLd = {
@@ -28,6 +43,60 @@ const jsonLd = {
     priceCurrency: "USD",
   },
 }
+
+const WORKFLOW_FEATURES = [
+  {
+    icon: GitMerge,
+    title: "Merge queue support",
+    description:
+      "CLA bot auto-passes checks on merge queue commits. Compliance is verified on the PR — queue entries are not blocked.",
+  },
+  {
+    icon: Bot,
+    title: "Bot and App bypass lists",
+    description:
+      "Exempt CI bots, GitHub Apps, and specific users from CLA requirements per org. Slug matching treats mybot and mybot[bot] as equivalent.",
+  },
+  {
+    icon: RefreshCw,
+    title: "Automatic PR convergence",
+    description:
+      "When you update CLA text, change bypass lists, or toggle enforcement, all open PRs are rechecked automatically via async workflows.",
+  },
+  {
+    icon: Terminal,
+    title: "/recheck command",
+    description:
+      "PR authors, org members, and maintainers can manually re-trigger CLA checks with a /recheck comment. Unauthorized users are blocked.",
+  },
+]
+
+const AUDIT_FEATURES = [
+  {
+    icon: Lock,
+    title: "Append-only signature history",
+    description:
+      "Signed CLA records cannot be deleted. Version history is immutable — every signature is preserved with timestamp, hash, and session evidence.",
+  },
+  {
+    icon: Hash,
+    title: "SHA-256 version tracking",
+    description:
+      "Every CLA version is identified by its SHA-256 hash. Text changes produce a new hash, and contributors on older hashes must re-sign.",
+  },
+  {
+    icon: Users,
+    title: "Immutable identity binding",
+    description:
+      "Signatures are keyed by immutable GitHub user ID, not username. Username renames never break compliance records.",
+  },
+  {
+    icon: Download,
+    title: "CLA downloads for both sides",
+    description:
+      "Contributors can download every CLA version they signed. Admins can download current and archived versions. Endpoints enforce ownership.",
+  },
+]
 
 const HOW_IT_WORKS = [
   {
@@ -105,10 +174,11 @@ export default function HomePage() {
               </p>
               <div className="mt-6 space-y-4">
                 {[
-                  "Org members bypass checks automatically",
-                  "Contributors sign once per organization",
-                  "Updated CLA versions trigger re-signing",
-                  "Webhook deliveries are deduplicated",
+                  "Org members and bypass-listed bots pass automatically",
+                  "Signatures tracked by immutable GitHub ID — username renames don't break records",
+                  "CLA versions hashed with SHA-256 — updates trigger re-signing",
+                  "Webhook deliveries deduplicated via persistent tracking",
+                  "Self-hostable and MIT licensed",
                 ].map((item) => (
                   <div
                     key={item}
@@ -150,6 +220,95 @@ export default function HomePage() {
                   </p>
                 </article>
               ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="border-t border-white/10 px-4 py-20">
+          <div className="mx-auto max-w-6xl">
+            <h2 className="font-display text-center text-3xl text-foreground sm:text-4xl">
+              Built for real workflows
+            </h2>
+            <p className="mx-auto mt-3 max-w-2xl text-center text-muted-foreground">
+              Merge queues, CI bots, policy changes — CLA Bot handles the edge cases so you don't
+              have to.
+            </p>
+
+            <div className="mt-12 grid gap-6 md:grid-cols-2">
+              {WORKFLOW_FEATURES.map((item) => (
+                <article
+                  key={item.title}
+                  className="group rounded-xl border border-white/10 bg-card/60 p-6 transition-all hover:-translate-y-1 hover:border-primary/30"
+                >
+                  <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-lg bg-primary/10">
+                    <item.icon className="h-5 w-5 text-primary" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-foreground">{item.title}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                    {item.description}
+                  </p>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="border-t border-white/10 px-4 py-20">
+          <div className="mx-auto max-w-6xl">
+            <h2 className="font-display text-center text-3xl text-foreground sm:text-4xl">
+              Auditable by design
+            </h2>
+            <p className="mx-auto mt-3 max-w-2xl text-center text-muted-foreground">
+              Every signature is cryptographically versioned, immutably stored, and downloadable by
+              both parties.
+            </p>
+
+            <div className="mt-12 grid gap-6 md:grid-cols-2">
+              {AUDIT_FEATURES.map((item) => (
+                <article
+                  key={item.title}
+                  className="group rounded-xl border border-white/10 bg-card/60 p-6 transition-all hover:-translate-y-1 hover:border-primary/30"
+                >
+                  <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-lg bg-primary/10">
+                    <item.icon className="h-5 w-5 text-primary" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-foreground">{item.title}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                    {item.description}
+                  </p>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="border-t border-white/10 px-4 py-20">
+          <div className="mx-auto max-w-4xl text-center">
+            <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-xl bg-primary/10">
+              <Server className="h-7 w-7 text-primary" />
+            </div>
+            <h2 className="font-display text-3xl text-foreground sm:text-4xl">
+              Self-hostable. MIT licensed.
+            </h2>
+            <p className="mx-auto mt-4 max-w-2xl text-muted-foreground">
+              Deploy on your own infrastructure with full control over data residency. Built with
+              Next.js, PostgreSQL, and Drizzle ORM. No vendor lock-in — inspect every line of code.
+            </p>
+            <div className="mt-8 flex justify-center gap-4">
+              <a
+                href="https://github.com/514-labs/cla-bot"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="gap-2 border-white/20 bg-transparent text-base"
+                >
+                  <Github className="h-5 w-5" />
+                  View on GitHub
+                </Button>
+              </a>
             </div>
           </div>
         </section>
