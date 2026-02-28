@@ -30,7 +30,7 @@
         "useSemanticElements": "off"
       },
       "correctness": {
-        "useExhaustiveDependencies": "off"
+        "useExhaustiveDependencies": "warn"
       },
       "performance": {
         "noImgElement": "off"
