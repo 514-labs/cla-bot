@@ -198,7 +198,7 @@ export async function seedDatabase(db: Database) {
     .onConflictDoNothing()
 }
 
-export const DEFAULT_CLA_MARKDOWN = `# Contributor License Agreement
+const DEFAULT_CLA_MARKDOWN = `# Contributor License Agreement
 
 Thank you for your interest in contributing to our project. In order to clarify the intellectual property license granted with contributions from any person or entity, we must have a Contributor License Agreement ("CLA") on file that has been signed by each contributor, indicating agreement to the license terms below.
 

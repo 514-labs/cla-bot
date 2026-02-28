@@ -6,7 +6,7 @@ const CHECK_NAME = "CLA Bot / Contributor License Agreement"
 type OrganizationRow = Awaited<ReturnType<typeof getOrganizationBySlug>>
 type AuditEventInput = Parameters<typeof createAuditEvent>[0]
 
-export type SignerPrSyncWorkflowInput = {
+type SignerPrSyncWorkflowInput = {
   orgSlug: string
   orgId: string
   signedClaSha256: string
@@ -19,7 +19,7 @@ export type SignerPrSyncWorkflowInput = {
   prNumber: number | null
 }
 
-export type SignerPrSyncWorkflowSummary = {
+type SignerPrSyncWorkflowSummary = {
   attemptedOpenPrs: number
   matchedSignerOpenPrs: number
   updatedChecks: number
@@ -31,7 +31,7 @@ export type SignerPrSyncWorkflowSummary = {
   error: string | null
 }
 
-export type SignerPrSyncWorkflowResult =
+type SignerPrSyncWorkflowResult =
   | {
       status: "completed"
       summary: SignerPrSyncWorkflowSummary

@@ -3,7 +3,7 @@ import { createAuditEvent } from "@/lib/db/queries"
 import { type SignClaResult } from "@/lib/cla/signing"
 import { runSignerPrSyncWorkflow } from "@/workflows/signer-pr-sync"
 
-export type SignerPrSyncScheduleResult = {
+type SignerPrSyncScheduleResult = {
   prSyncScheduled: boolean
   prSyncRunId: string | null
   prSyncScheduleError: string | null

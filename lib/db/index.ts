@@ -136,7 +136,7 @@ async function assertMigrationsApplied() {
 
 // ── Export ──────────────────────────────────────────────────────────
 
-export const db = getDb()
+const db = getDb()
 
 /**
  * Ensure the DB is fully initialized (migrations applied + optional seed).
@@ -155,16 +155,6 @@ export async function ensureDbReady(): Promise<Database> {
     await globalForDb.__dbReady
   }
   return db
-}
-
-/**
- * Full reset -- truncate all data and re-seed.
- */
-export async function resetDb(): Promise<void> {
-  const sql = createRawSql(getDatabaseUrl())
-  await sql`TRUNCATE audit_events, webhook_deliveries, org_cla_bypass_accounts, cla_signatures, cla_archives, organizations, users CASCADE`
-  const { seedDatabase } = await import("./seed")
-  await seedDatabase(db)
 }
 
 function shouldSeedDatabase() {

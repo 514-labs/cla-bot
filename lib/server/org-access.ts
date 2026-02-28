@@ -14,7 +14,7 @@ type OrgAccessFailure = {
   message: string
 }
 
-export type OrgAccessResult = OrgAccessSuccess | OrgAccessFailure
+type OrgAccessResult = OrgAccessSuccess | OrgAccessFailure
 
 export async function authorizeOrgAccess(orgSlug: string): Promise<OrgAccessResult> {
   const org = await getOrganizationBySlug(orgSlug)

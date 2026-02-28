@@ -7,7 +7,7 @@ import {
 type OrganizationRow = Awaited<ReturnType<typeof getOrganizationBySlug>>
 type AuditEventInput = Parameters<typeof createAuditEvent>[0]
 
-export type ClaRecheckWorkflowInput = {
+type ClaRecheckWorkflowInput = {
   orgSlug: string
   orgId: string
   claSha256: string | null
@@ -19,7 +19,7 @@ export type ClaRecheckWorkflowInput = {
   }
 }
 
-export type ClaRecheckWorkflowResult =
+type ClaRecheckWorkflowResult =
   | {
       status: "completed"
       recheckSummary: ClaOpenPrRecheckSummary
