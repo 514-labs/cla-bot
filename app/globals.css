@@ -162,22 +162,26 @@ h4 {
 .app-bg-drift {
   animation: app-bg-drift 26s ease-in-out infinite;
   transform-origin: center center;
+  will-change: transform;
 }
 
 .app-bg-trace {
   animation: app-bg-trace 36s linear infinite;
   stroke-dasharray: 8 18;
+  will-change: stroke-dashoffset;
 }
 
 .app-bg-spin {
   animation: app-bg-spin 48s linear infinite;
   transform-origin: 1160px 250px;
+  will-change: transform;
 }
 
 .app-bg-pulse {
   animation: app-bg-pulse 5.8s ease-in-out infinite;
   transform-box: fill-box;
   transform-origin: center;
+  will-change: transform, opacity;
 }
 
 .app-bg-delay-1 {

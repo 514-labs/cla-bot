@@ -66,7 +66,6 @@ export function AppBackground() {
             stroke="url(#trust-line)"
             strokeWidth="1.8"
             strokeLinecap="round"
-            filter="url(#soft-blur)"
           >
             <path d="M-120 600 C 180 500, 480 500, 820 600 C 1060 670, 1260 690, 1560 600" />
             <path d="M40 820 C 250 690, 430 590, 640 500 C 900 385, 1120 360, 1450 410" />
