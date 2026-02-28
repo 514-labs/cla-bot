@@ -2,249 +2,260 @@
 @import "tw-animate-css";
 
 @theme {
-  /* Font families */
-  --font-family-body: var(--font-body), sans-serif;
-  --font-family-display: var(--font-display), serif;
+    /* Font families */
+    --font-family-body: var(--font-body), sans-serif;
+    --font-family-display: var(--font-display), serif;
 
-  /* Colors using HSL format */
-  --color-background: hsl(210 44% 7%);
-  --color-foreground: hsl(0 0% 97%);
-  --color-card: hsl(212 36% 10%);
-  --color-card-foreground: hsl(0 0% 97%);
-  --color-popover: hsl(212 36% 10%);
-  --color-popover-foreground: hsl(0 0% 97%);
-  --color-primary: hsl(163 69% 47%);
-  --color-primary-foreground: hsl(204 100% 3%);
-  --color-secondary: hsl(212 30% 15%);
-  --color-secondary-foreground: hsl(0 0% 97%);
-  --color-muted: hsl(213 27% 18%);
-  --color-muted-foreground: hsl(213 14% 70%);
-  --color-accent: hsl(163 69% 47%);
-  --color-accent-foreground: hsl(204 100% 3%);
-  --color-destructive: hsl(0 72% 54%);
-  --color-destructive-foreground: hsl(0 0% 100%);
-  --color-border: hsl(213 19% 25%);
-  --color-input: hsl(213 19% 25%);
-  --color-ring: hsl(163 69% 47%);
+    /* Colors using HSL format */
+    --color-background: hsl(210 44% 7%);
+    --color-foreground: hsl(0 0% 97%);
+    --color-card: hsl(212 36% 10%);
+    --color-card-foreground: hsl(0 0% 97%);
+    --color-popover: hsl(212 36% 10%);
+    --color-popover-foreground: hsl(0 0% 97%);
+    --color-primary: hsl(163 69% 47%);
+    --color-primary-foreground: hsl(204 100% 3%);
+    --color-secondary: hsl(212 30% 15%);
+    --color-secondary-foreground: hsl(0 0% 97%);
+    --color-muted: hsl(213 27% 18%);
+    --color-muted-foreground: hsl(213 14% 70%);
+    --color-accent: hsl(163 69% 47%);
+    --color-accent-foreground: hsl(204 100% 3%);
+    --color-destructive: hsl(0 72% 54%);
+    --color-destructive-foreground: hsl(0 0% 100%);
+    --color-border: hsl(213 19% 25%);
+    --color-input: hsl(213 19% 25%);
+    --color-ring: hsl(163 69% 47%);
 
-  /* Chart colors */
-  --color-chart-1: hsl(163 69% 47%);
-  --color-chart-2: hsl(195 86% 65%);
-  --color-chart-3: hsl(29 84% 65%);
-  --color-chart-4: hsl(342 77% 67%);
-  --color-chart-5: hsl(273 74% 70%);
+    /* Chart colors */
+    --color-chart-1: hsl(163 69% 47%);
+    --color-chart-2: hsl(195 86% 65%);
+    --color-chart-3: hsl(29 84% 65%);
+    --color-chart-4: hsl(342 77% 67%);
+    --color-chart-5: hsl(273 74% 70%);
 
-  /* Sidebar colors */
-  --color-sidebar-background: hsl(213 35% 10%);
-  --color-sidebar-foreground: hsl(0 0% 97%);
-  --color-sidebar-primary: hsl(163 69% 47%);
-  --color-sidebar-primary-foreground: hsl(204 100% 3%);
-  --color-sidebar-accent: hsl(213 30% 16%);
-  --color-sidebar-accent-foreground: hsl(0 0% 97%);
-  --color-sidebar-border: hsl(213 19% 25%);
-  --color-sidebar-ring: hsl(163 69% 47%);
+    /* Sidebar colors */
+    --color-sidebar-background: hsl(213 35% 10%);
+    --color-sidebar-foreground: hsl(0 0% 97%);
+    --color-sidebar-primary: hsl(163 69% 47%);
+    --color-sidebar-primary-foreground: hsl(204 100% 3%);
+    --color-sidebar-accent: hsl(213 30% 16%);
+    --color-sidebar-accent-foreground: hsl(0 0% 97%);
+    --color-sidebar-border: hsl(213 19% 25%);
+    --color-sidebar-ring: hsl(163 69% 47%);
 
-  /* Border radius */
-  --radius: 0.875rem;
-  --radius-lg: var(--radius);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-sm: calc(var(--radius) - 4px);
+    /* Border radius */
+    --radius: 0.875rem;
+    --radius-lg: var(--radius);
+    --radius-md: calc(var(--radius) - 2px);
+    --radius-sm: calc(var(--radius) - 4px);
 
-  /* Animations */
-  --animate-accordion-down: accordion-down 0.2s ease-out;
-  --animate-accordion-up: accordion-up 0.2s ease-out;
+    /* Animations */
+    --animate-accordion-down: accordion-down 0.2s ease-out;
+    --animate-accordion-up: accordion-up 0.2s ease-out;
 }
 
 @keyframes accordion-down {
-  from {
-    height: 0;
-  }
-  to {
-    height: var(--radix-accordion-content-height);
-  }
+    from {
+        height: 0;
+    }
+    to {
+        height: var(--radix-accordion-content-height);
+    }
 }
 
 @keyframes accordion-up {
-  from {
-    height: var(--radix-accordion-content-height);
-  }
-  to {
-    height: 0;
-  }
+    from {
+        height: var(--radix-accordion-content-height);
+    }
+    to {
+        height: 0;
+    }
 }
 
 * {
-  border-color: var(--color-border);
+    border-color: var(--color-border);
 }
 
 body {
-  background-color: var(--color-background);
-  color: var(--color-foreground);
-  font-family: var(--font-body), sans-serif;
-  min-height: 100vh;
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-body), sans-serif;
+    min-height: 100vh;
 }
 
 h1,
 h2,
 h3,
 h4 {
-  font-family: var(--font-display), serif;
-  letter-spacing: -0.02em;
+    font-family: var(--font-display), serif;
+    letter-spacing: -0.02em;
 }
 
 @utility text-balance {
-  text-wrap: balance;
+    text-wrap: balance;
 }
 
 @utility bg-app-radial {
-  background-image:
-    radial-gradient(circle at 15% 15%, hsl(163 69% 47% / 0.22), transparent 42%),
-    radial-gradient(circle at 85% 0%, hsl(195 86% 65% / 0.2), transparent 45%),
-    radial-gradient(circle at 50% 100%, hsl(341 77% 67% / 0.1), transparent 48%);
+    background-image:
+        radial-gradient(
+            circle at 15% 15%,
+            hsl(163 69% 47% / 0.22),
+            transparent 42%
+        ),
+        radial-gradient(
+            circle at 85% 0%,
+            hsl(195 86% 65% / 0.2),
+            transparent 45%
+        ),
+        radial-gradient(
+            circle at 50% 100%,
+            hsl(341 77% 67% / 0.1),
+            transparent 48%
+        );
 }
 
 @utility bg-grid-overlay {
-  background-image:
-    linear-gradient(hsl(163 69% 47% / 0.12) 1px, transparent 1px),
-    linear-gradient(90deg, hsl(163 69% 47% / 0.12) 1px, transparent 1px);
-  background-size: 68px 68px;
+    background-image:
+        linear-gradient(hsl(163 69% 47% / 0.12) 1px, transparent 1px),
+        linear-gradient(90deg, hsl(163 69% 47% / 0.12) 1px, transparent 1px);
+    background-size: 68px 68px;
 }
 
 @utility bg-noise-texture {
-  background-image: radial-gradient(hsl(0 0% 100% / 0.06) 0.4px, transparent 0.4px);
-  background-size: 3px 3px;
+    background-image: radial-gradient(
+        hsl(0 0% 100% / 0.06) 0.4px,
+        transparent 0.4px
+    );
+    background-size: 3px 3px;
 }
 
 @keyframes app-bg-drift {
-  0%,
-  100% {
-    transform: translate3d(0, 0, 0) scale(1);
-  }
+    0%,
+    100% {
+        transform: translate3d(0, 0, 0) scale(1);
+    }
 
-  50% {
-    transform: translate3d(0, -14px, 0) scale(1.01);
-  }
+    50% {
+        transform: translate3d(0, -14px, 0) scale(1.01);
+    }
 }
 
 @keyframes app-bg-trace {
-  0% {
-    stroke-dashoffset: 0;
-  }
+    0% {
+        stroke-dashoffset: 0;
+    }
 
-  100% {
-    stroke-dashoffset: -320;
-  }
+    100% {
+        stroke-dashoffset: -320;
+    }
 }
 
 @keyframes app-bg-spin {
-  0% {
-    transform: rotate(0deg);
-  }
+    0% {
+        transform: rotate(0deg);
+    }
 
-  100% {
-    transform: rotate(360deg);
-  }
+    100% {
+        transform: rotate(360deg);
+    }
 }
 
 @keyframes app-bg-pulse {
-  0%,
-  100% {
-    transform: scale(1);
-    opacity: 0.45;
-  }
+    0%,
+    100% {
+        transform: scale(1);
+        opacity: 0.45;
+    }
 
-  50% {
-    transform: scale(1.28);
-    opacity: 1;
-  }
+    50% {
+        transform: scale(1.28);
+        opacity: 1;
+    }
 }
 
 .app-bg-drift {
-  animation: app-bg-drift 26s ease-in-out infinite;
-  transform-origin: center center;
-  will-change: transform;
+    animation: app-bg-drift 26s ease-in-out infinite;
+    transform-origin: center center;
 }
 
 .app-bg-trace {
-  animation: app-bg-trace 36s linear infinite;
-  stroke-dasharray: 8 18;
-  will-change: stroke-dashoffset;
+    animation: app-bg-trace 36s linear infinite;
+    stroke-dasharray: 8 18;
 }
 
 .app-bg-spin {
-  animation: app-bg-spin 48s linear infinite;
-  transform-origin: 1160px 250px;
-  will-change: transform;
+    animation: app-bg-spin 48s linear infinite;
+    transform-origin: 1160px 250px;
 }
 
 .app-bg-pulse {
-  animation: app-bg-pulse 5.8s ease-in-out infinite;
-  transform-box: fill-box;
-  transform-origin: center;
-  will-change: transform, opacity;
+    animation: app-bg-pulse 5.8s ease-in-out infinite;
+    transform-box: fill-box;
+    transform-origin: center;
 }
 
 .app-bg-delay-1 {
-  animation-delay: 0.9s;
+    animation-delay: 0.9s;
 }
 
 .app-bg-delay-2 {
-  animation-delay: 1.8s;
+    animation-delay: 1.8s;
 }
 
 .app-bg-delay-3 {
-  animation-delay: 2.7s;
+    animation-delay: 2.7s;
 }
 
 .app-bg-delay-4 {
-  animation-delay: 3.6s;
+    animation-delay: 3.6s;
 }
 
 .cla-markdown h1 {
-  @apply mb-4 mt-0 text-2xl font-bold text-foreground;
+    @apply mb-4 mt-0 text-2xl font-bold text-foreground;
 }
 .cla-markdown h2 {
-  @apply mb-3 mt-6 text-xl font-bold text-foreground;
+    @apply mb-3 mt-6 text-xl font-bold text-foreground;
 }
 .cla-markdown h3 {
-  @apply mb-2 mt-4 text-lg font-semibold text-foreground;
+    @apply mb-2 mt-4 text-lg font-semibold text-foreground;
 }
 .cla-markdown p {
-  @apply mb-3 leading-relaxed text-muted-foreground;
+    @apply mb-3 leading-relaxed text-muted-foreground;
 }
 .cla-markdown strong {
-  @apply font-semibold text-foreground;
+    @apply font-semibold text-foreground;
 }
 .cla-markdown em {
-  @apply italic;
+    @apply italic;
 }
 .cla-markdown code {
-  @apply rounded bg-secondary px-1.5 py-0.5 font-mono text-sm text-foreground;
+    @apply rounded bg-secondary px-1.5 py-0.5 font-mono text-sm text-foreground;
 }
 .cla-markdown a {
-  @apply text-primary underline underline-offset-2 transition-colors hover:text-primary/80;
+    @apply text-primary underline underline-offset-2 transition-colors hover:text-primary/80;
 }
 .cla-markdown ol {
-  @apply mb-4 list-decimal space-y-2 pl-6;
+    @apply mb-4 list-decimal space-y-2 pl-6;
 }
 .cla-markdown ul {
-  @apply mb-4 list-disc space-y-2 pl-6;
+    @apply mb-4 list-disc space-y-2 pl-6;
 }
 .cla-markdown li {
-  @apply leading-relaxed text-muted-foreground;
+    @apply leading-relaxed text-muted-foreground;
 }
 .cla-markdown blockquote {
-  @apply my-4 border-l-2 border-primary/40 pl-4;
+    @apply my-4 border-l-2 border-primary/40 pl-4;
 }
 .cla-markdown blockquote p {
-  @apply italic text-muted-foreground;
+    @apply italic text-muted-foreground;
 }
 .cla-markdown hr {
-  @apply my-6 border-border;
+    @apply my-6 border-border;
 }
 .cla-markdown sub {
-  @apply text-xs text-muted-foreground;
+    @apply text-xs text-muted-foreground;
 }
 .cla-markdown sub a {
-  @apply text-muted-foreground hover:text-foreground;
+    @apply text-muted-foreground hover:text-foreground;
 }
