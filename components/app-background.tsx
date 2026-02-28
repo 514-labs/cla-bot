@@ -87,46 +87,17 @@ export function AppBackground() {
           <circle cx="1160" cy="250" r="52" stroke="hsl(42 95% 62% / 0.2)" />
         </g>
 
-        <g
-          fill="hsl(163 69% 47% / 0.72)"
-          stroke="hsl(212 36% 10% / 0.55)"
-          strokeWidth="2"
-        >
+        <g fill="hsl(163 69% 47% / 0.72)" stroke="hsl(212 36% 10% / 0.55)" strokeWidth="2">
           <circle className="app-bg-pulse" cx="384" cy="566" r="4.5" />
-          <circle
-            className="app-bg-pulse app-bg-delay-1"
-            cx="610"
-            cy="518"
-            r="4.5"
-          />
-          <circle
-            className="app-bg-pulse app-bg-delay-2"
-            cx="812"
-            cy="592"
-            r="4.5"
-          />
-          <circle
-            className="app-bg-pulse app-bg-delay-3"
-            cx="1040"
-            cy="652"
-            r="4.5"
-          />
-          <circle
-            className="app-bg-pulse app-bg-delay-4"
-            cx="1144"
-            cy="430"
-            r="4.5"
-          />
-          <circle
-            className="app-bg-pulse app-bg-delay-2"
-            cx="930"
-            cy="466"
-            r="4.5"
-          />
+          <circle className="app-bg-pulse app-bg-delay-1" cx="610" cy="518" r="4.5" />
+          <circle className="app-bg-pulse app-bg-delay-2" cx="812" cy="592" r="4.5" />
+          <circle className="app-bg-pulse app-bg-delay-3" cx="1040" cy="652" r="4.5" />
+          <circle className="app-bg-pulse app-bg-delay-4" cx="1144" cy="430" r="4.5" />
+          <circle className="app-bg-pulse app-bg-delay-2" cx="930" cy="466" r="4.5" />
         </g>
       </svg>
 
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_110%,hsl(163_69%_47%_/_0.05),transparent_52%)]" />
     </div>
-  );
+  )
 }
