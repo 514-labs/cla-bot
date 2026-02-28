@@ -125,7 +125,7 @@ export function SignClaClient({
       observer.disconnect()
       window.removeEventListener("resize", updateScrollRequirement)
     }
-  }, [showSignAction, org.claMarkdown])
+  }, [showSignAction])
 
   function handleSign() {
     if (!currentSha256 || !hasConfiguredCla) return

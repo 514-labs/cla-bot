@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "biome check .",
+    "lint": "biome check . && knip",
     "test": "pnpm test:unit && pnpm test:integration",
     "test:all": "pnpm test && pnpm test:e2e",
     "test:unit": "vitest run",

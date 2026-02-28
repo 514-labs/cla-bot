@@ -123,7 +123,7 @@ let nextCommentId = 1
 // Mock implementation
 // ==============================
 
-export class MockGitHubClient implements GitHubClient {
+class MockGitHubClient implements GitHubClient {
   // --- Users ---
 
   async getUser(username: string): Promise<GitHubUser | null> {
