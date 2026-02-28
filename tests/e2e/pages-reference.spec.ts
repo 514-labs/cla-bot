@@ -44,9 +44,7 @@ async function gotoStable(page: Page, path: string, attempts = 3) {
 
 test("home page renders core navigation", async ({ page }) => {
   await gotoStable(page, "/")
-  await expect(
-    page.getByRole("heading", { name: "Automate your Contributor License Agreements" })
-  ).toBeVisible()
+  await expect(page.getByRole("heading", { name: "CLA automation for GitHub orgs" })).toBeVisible()
   await expect(page.getByRole("link", { name: "Admin", exact: true })).toBeVisible()
   await expect(page.getByRole("link", { name: "Contributor", exact: true })).toBeVisible()
 })
