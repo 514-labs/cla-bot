@@ -62,7 +62,7 @@ export async function isGitHubOrgAdmin(user: UserWithToken, orgSlug: string): Pr
     cache: "no-store",
   })
 
-  if (membershipRes.status === 404) return false
+  if (membershipRes.status === 404 || membershipRes.status === 403) return false
   if (!membershipRes.ok) {
     throw new Error(`Failed GitHub org membership check: ${membershipRes.status}`)
   }
@@ -205,10 +205,13 @@ export async function filterInstalledOrganizationsForAdmin<T extends InstalledOr
 
   const failedChecks = orgCheckResults.filter((result) => result.error !== null)
   if (failedChecks.length > 0) {
-    const failedOrgSlugs = failedChecks.map((result) => result.org.githubOrgSlug)
-    throw new Error(
-      `GitHub org-admin checks failed for ${failedChecks.length} org(s): ${failedOrgSlugs.join(", ")}`
-    )
+    console.warn("[admin-auth] GitHub org-admin checks failed for some orgs", {
+      userId: user.id,
+      failed: failedChecks.map((result) => ({
+        orgSlug: result.org.githubOrgSlug,
+        error: result.error,
+      })),
+    })
   }
 
   const authorizedOrgs = results.filter((result) => result.isAdmin).map((result) => result.org)
