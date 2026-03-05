@@ -46,6 +46,23 @@ describe("isGitHubOrgAdmin", () => {
     expect(result).toBe(false)
   })
 
+  it("returns false on 403 response", async () => {
+    global.fetch = vi
+      .fn()
+      .mockResolvedValue(new Response("Forbidden", { status: 403 })) as typeof global.fetch
+
+    const result = await isGitHubOrgAdmin(
+      {
+        id: "user_1",
+        githubId: "1001",
+        githubUsername: "orgadmin",
+        githubAccessTokenEncrypted: "enc-token",
+      },
+      "fiveonefour"
+    )
+    expect(result).toBe(false)
+  })
+
   it("returns true for active admin", async () => {
     global.fetch = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ state: "active", role: "admin" }), {
@@ -217,28 +234,67 @@ describe("filterInstalledOrganizationsForAdmin - additional coverage", () => {
     expect(result).toHaveLength(0)
   })
 
-  it("throws when GitHub org-admin check fails", async () => {
+  it("treats failed org-admin checks as non-admin instead of throwing", async () => {
     vi.stubEnv("NODE_ENV", "production")
     global.fetch = vi.fn().mockRejectedValue(new Error("Network error")) as typeof global.fetch
 
-    await expect(
-      filterInstalledOrganizationsForAdmin(
+    const result = await filterInstalledOrganizationsForAdmin(
+      {
+        id: "user_1",
+        githubId: "1001",
+        githubUsername: "orgadmin",
+        githubAccessTokenEncrypted: "enc-token",
+      },
+      [
         {
-          id: "user_1",
-          githubId: "1001",
-          githubUsername: "orgadmin",
-          githubAccessTokenEncrypted: "enc-token",
+          adminUserId: "user_2",
+          githubOrgSlug: "fiveonefour",
+          githubAccountType: "organization",
+          githubAccountId: "2001",
+          installationId: 12001,
         },
-        [
-          {
-            adminUserId: "user_2",
-            githubOrgSlug: "fiveonefour",
-            githubAccountType: "organization",
-            githubAccountId: "2001",
-            installationId: 12001,
-          },
-        ]
-      )
-    ).rejects.toThrow("GitHub org-admin checks failed")
+      ]
+    )
+    expect(result).toHaveLength(0)
+  })
+
+  it("returns authorized orgs even when some checks fail", async () => {
+    vi.stubEnv("NODE_ENV", "production")
+    global.fetch = vi
+      .fn()
+      .mockResolvedValueOnce(new Response("Forbidden", { status: 403 }))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ state: "active", role: "admin" }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        })
+      ) as typeof global.fetch
+
+    const result = await filterInstalledOrganizationsForAdmin(
+      {
+        id: "user_1",
+        githubId: "1001",
+        githubUsername: "orgadmin",
+        githubAccessTokenEncrypted: "enc-token",
+      },
+      [
+        {
+          adminUserId: "user_2",
+          githubOrgSlug: "ChambreSonore",
+          githubAccountType: "organization",
+          githubAccountId: "10694701",
+          installationId: 112308378,
+        },
+        {
+          adminUserId: "user_2",
+          githubOrgSlug: "514-labs",
+          githubAccountType: "organization",
+          githubAccountId: "140028474",
+          installationId: 112316261,
+        },
+      ]
+    )
+    expect(result).toHaveLength(1)
+    expect(result[0].githubOrgSlug).toBe("514-labs")
   })
 })
