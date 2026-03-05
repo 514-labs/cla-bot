@@ -21,6 +21,15 @@ type OrgMembershipResponse = {
   role?: string
 }
 
+type OrgMembershipListItem = {
+  state: string
+  role: string
+  organization: {
+    id: number
+    login: string
+  }
+}
+
 const ORG_LOG_LIMIT = 25
 
 function getGitHubAccessToken(user: UserWithToken): string | null {
@@ -87,11 +96,54 @@ export async function isGitHubInstallationAccountAdmin(
 }
 
 /**
+ * Fetch all organizations where the user has an active admin role.
+ * Uses the GitHub list-org-memberships endpoint with state=active&role=admin,
+ * paginating through all results.
+ */
+async function getAdminOrgMemberships(
+  accessToken: string
+): Promise<{ id: string; login: string }[]> {
+  const adminOrgs: { id: string; login: string }[] = []
+  let url: string | null =
+    "https://api.github.com/user/memberships/orgs?state=active&role=admin&per_page=100"
+
+  while (url) {
+    const res = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Accept: "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+      },
+      cache: "no-store",
+    })
+
+    if (!res.ok) {
+      throw new Error(`Failed to list GitHub org memberships: ${res.status}`)
+    }
+
+    const items = (await res.json()) as OrgMembershipListItem[]
+    for (const item of items) {
+      adminOrgs.push({
+        id: String(item.organization.id),
+        login: item.organization.login.toLowerCase(),
+      })
+    }
+
+    // Follow pagination via Link header
+    const linkHeader = res.headers.get("link")
+    const nextMatch = linkHeader?.match(/<([^>]+)>;\s*rel="next"/)
+    url = nextMatch ? nextMatch[1] : null
+  }
+
+  return adminOrgs
+}
+
+/**
  * Returns installed org rows the current user is allowed to administer.
  *
- * Production: requires an OAuth token and validates admin role against GitHub
- * for organization installs. Personal-account installs are authorized by
- * matching the signed-in user identity with the installation target account.
+ * Production: fetches the user's active admin org memberships from GitHub in a
+ * single paginated call, then intersects with DB org rows. Personal-account
+ * installs are authorized by matching the signed-in user identity.
  * Dev/test fallback: if no OAuth token exists, organization installs fall back
  * to the DB admin mapping.
  */
@@ -112,110 +164,47 @@ export async function filterInstalledOrganizationsForAdmin<T extends InstalledOr
     (org) => normalizeAccountType(org) === "organization"
   )
 
-  const userAccountChecks = userAccountInstalls.map((org) => ({
-    org,
-    isAdmin: isPersonalAccountOwner(user, org),
-    error: null as string | null,
-    checkType: "personal_account_owner",
-  }))
+  // Personal-account installs: check ownership by identity match
+  const ownedPersonalAccounts = userAccountInstalls.filter((org) =>
+    isPersonalAccountOwner(user, org)
+  )
 
-  const hasGitHubToken = Boolean(getGitHubAccessToken(user))
-  if (!hasGitHubToken) {
+  // Organization installs: check admin role via GitHub API
+  const accessToken = getGitHubAccessToken(user)
+  let adminOrgAccounts: T[] = []
+
+  if (!accessToken) {
     console.warn("[admin-auth] Missing GitHub OAuth token for org-admin checks", {
       userId: user.id,
       nodeEnv: process.env.NODE_ENV,
     })
 
-    const fallbackOrgChecks =
-      process.env.NODE_ENV !== "production"
-        ? orgAccountInstalls.map((org) => ({
-            org,
-            isAdmin: org.adminUserId === user.id,
-            error: null as string | null,
-            checkType: "db_fallback",
-          }))
-        : orgAccountInstalls.map((org) => ({
-            org,
-            isAdmin: false,
-            error: null as string | null,
-            checkType: "missing_token",
-          }))
+    if (process.env.NODE_ENV !== "production") {
+      adminOrgAccounts = orgAccountInstalls.filter((org) => org.adminUserId === user.id)
+      console.info("[admin-auth] Using DB admin fallback", {
+        userId: user.id,
+        matchedCount: adminOrgAccounts.length,
+      })
+    }
+  } else if (orgAccountInstalls.length > 0) {
+    const adminMemberships = await getAdminOrgMemberships(accessToken)
+    const adminIdSet = new Set(adminMemberships.map((m) => m.id))
+    const adminLoginSet = new Set(adminMemberships.map((m) => m.login))
 
-    const combinedChecks = [...userAccountChecks, ...fallbackOrgChecks]
-    console.info("[admin-auth] Account-admin check results", {
+    console.info("[admin-auth] GitHub admin org memberships", {
       userId: user.id,
-      checks: combinedChecks.map((result) => ({
-        orgSlug: result.org.githubOrgSlug,
-        accountType: normalizeAccountType(result.org),
-        accountId: result.org.githubAccountId ?? null,
-        installationId: result.org.installationId,
-        isAdmin: result.isAdmin,
-        checkType: result.checkType,
-      })),
+      count: adminMemberships.length,
+      orgs: adminMemberships.slice(0, ORG_LOG_LIMIT).map((m) => m.login),
     })
 
-    const authorizedOrgs = combinedChecks
-      .filter((result) => result.isAdmin)
-      .map((result) => result.org)
-    console.info("[admin-auth] Authorized orgs after checks", {
-      userId: user.id,
-      authorizedCount: authorizedOrgs.length,
-      authorizedOrgs: summarizeOrgs(authorizedOrgs),
-    })
-    return authorizedOrgs
-  }
-
-  const orgChecks = await Promise.allSettled(
-    orgAccountInstalls.map((org) => isGitHubOrgAdmin(user, org.githubOrgSlug))
-  )
-
-  const orgCheckResults = orgChecks.map((check, index) => {
-    const org = orgAccountInstalls[index]
-    if (check.status === "fulfilled") {
-      return {
-        org,
-        isAdmin: check.value,
-        error: null as string | null,
-        checkType: "github_org_membership",
-      }
-    }
-
-    const message = check.reason instanceof Error ? check.reason.message : String(check.reason)
-    return {
-      org,
-      isAdmin: false,
-      error: message,
-      checkType: "github_org_membership",
-    }
-  })
-
-  const results = [...userAccountChecks, ...orgCheckResults]
-  console.info("[admin-auth] Account-admin check results", {
-    userId: user.id,
-    checks: results.map((result) => ({
-      orgSlug: result.org.githubOrgSlug,
-      accountType: normalizeAccountType(result.org),
-      accountId: result.org.githubAccountId ?? null,
-      installationId: result.org.installationId,
-      isAdmin: result.isAdmin,
-      error: result.error,
-      checkType: result.checkType,
-    })),
-  })
-
-  const failedChecks = orgCheckResults.filter((result) => result.error !== null)
-  if (failedChecks.length > 0) {
-    console.warn("[admin-auth] GitHub org-admin checks failed for some orgs", {
-      userId: user.id,
-      failed: failedChecks.map((result) => ({
-        orgSlug: result.org.githubOrgSlug,
-        error: result.error,
-      })),
+    adminOrgAccounts = orgAccountInstalls.filter((org) => {
+      if (org.githubAccountId && adminIdSet.has(String(org.githubAccountId))) return true
+      return adminLoginSet.has(org.githubOrgSlug.toLowerCase())
     })
   }
 
-  const authorizedOrgs = results.filter((result) => result.isAdmin).map((result) => result.org)
-  console.info("[admin-auth] Authorized orgs after checks", {
+  const authorizedOrgs = [...ownedPersonalAccounts, ...adminOrgAccounts]
+  console.info("[admin-auth] Authorized orgs", {
     userId: user.id,
     authorizedCount: authorizedOrgs.length,
     authorizedOrgs: summarizeOrgs(authorizedOrgs),

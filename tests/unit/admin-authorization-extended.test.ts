@@ -234,41 +234,45 @@ describe("filterInstalledOrganizationsForAdmin - additional coverage", () => {
     expect(result).toHaveLength(0)
   })
 
-  it("treats failed org-admin checks as non-admin instead of throwing", async () => {
+  it("throws when GitHub membership list API fails", async () => {
     vi.stubEnv("NODE_ENV", "production")
     global.fetch = vi.fn().mockRejectedValue(new Error("Network error")) as typeof global.fetch
 
-    const result = await filterInstalledOrganizationsForAdmin(
-      {
-        id: "user_1",
-        githubId: "1001",
-        githubUsername: "orgadmin",
-        githubAccessTokenEncrypted: "enc-token",
-      },
-      [
+    await expect(
+      filterInstalledOrganizationsForAdmin(
         {
-          adminUserId: "user_2",
-          githubOrgSlug: "fiveonefour",
-          githubAccountType: "organization",
-          githubAccountId: "2001",
-          installationId: 12001,
+          id: "user_1",
+          githubId: "1001",
+          githubUsername: "orgadmin",
+          githubAccessTokenEncrypted: "enc-token",
         },
-      ]
-    )
-    expect(result).toHaveLength(0)
+        [
+          {
+            adminUserId: "user_2",
+            githubOrgSlug: "fiveonefour",
+            githubAccountType: "organization",
+            githubAccountId: "2001",
+            installationId: 12001,
+          },
+        ]
+      )
+    ).rejects.toThrow("Network error")
   })
 
-  it("returns authorized orgs even when some checks fail", async () => {
+  it("only returns orgs the user is admin of via GitHub membership list", async () => {
     vi.stubEnv("NODE_ENV", "production")
-    global.fetch = vi
-      .fn()
-      .mockResolvedValueOnce(new Response("Forbidden", { status: 403 }))
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify({ state: "active", role: "admin" }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        })
-      ) as typeof global.fetch
+    global.fetch = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify([
+          {
+            state: "active",
+            role: "admin",
+            organization: { id: 140028474, login: "514-labs" },
+          },
+        ]),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      )
+    ) as typeof global.fetch
 
     const result = await filterInstalledOrganizationsForAdmin(
       {
@@ -296,5 +300,68 @@ describe("filterInstalledOrganizationsForAdmin - additional coverage", () => {
     )
     expect(result).toHaveLength(1)
     expect(result[0].githubOrgSlug).toBe("514-labs")
+    expect(global.fetch).toHaveBeenCalledTimes(1)
+  })
+
+  it("matches orgs by slug when account ID is missing", async () => {
+    vi.stubEnv("NODE_ENV", "production")
+    global.fetch = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify([
+          {
+            state: "active",
+            role: "admin",
+            organization: { id: 2001, login: "fiveonefour" },
+          },
+        ]),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      )
+    ) as typeof global.fetch
+
+    const result = await filterInstalledOrganizationsForAdmin(
+      {
+        id: "user_1",
+        githubId: "1001",
+        githubUsername: "orgadmin",
+        githubAccessTokenEncrypted: "enc-token",
+      },
+      [
+        {
+          adminUserId: "user_2",
+          githubOrgSlug: "fiveonefour",
+          githubAccountType: "organization",
+          githubAccountId: null,
+          installationId: 12001,
+        },
+      ]
+    )
+    expect(result).toHaveLength(1)
+    expect(result[0].githubOrgSlug).toBe("fiveonefour")
+  })
+
+  it("skips GitHub API call when no org-type installs exist", async () => {
+    vi.stubEnv("NODE_ENV", "production")
+    global.fetch = vi.fn() as typeof global.fetch
+
+    const result = await filterInstalledOrganizationsForAdmin(
+      {
+        id: "user_1",
+        githubId: "1001",
+        githubUsername: "orgadmin",
+        githubAccessTokenEncrypted: "enc-token",
+      },
+      [
+        {
+          adminUserId: "user_2",
+          githubOrgSlug: "orgadmin",
+          githubAccountType: "user",
+          githubAccountId: "1001",
+          installationId: 12001,
+        },
+      ]
+    )
+    expect(result).toHaveLength(1)
+    expect(result[0].githubOrgSlug).toBe("orgadmin")
+    expect(global.fetch).not.toHaveBeenCalled()
   })
 })

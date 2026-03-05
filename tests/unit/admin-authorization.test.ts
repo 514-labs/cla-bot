@@ -44,10 +44,12 @@ describe("admin authorization", () => {
   it("filters org installs via GitHub admin membership and preserves personal-account owner access", async () => {
     vi.stubEnv("NODE_ENV", "production")
     global.fetch = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ state: "active", role: "admin" }), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      })
+      new Response(
+        JSON.stringify([
+          { state: "active", role: "admin", organization: { id: 2001, login: "fiveonefour" } },
+        ]),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      )
     ) as typeof global.fetch
 
     const authorized = await filterInstalledOrganizationsForAdmin(
