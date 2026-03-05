@@ -6,16 +6,27 @@ vi.mock("@/lib/security/encryption", () => ({
   ),
 }))
 
+const mockPaginate = vi.fn()
+
+vi.mock("@octokit/rest", () => {
+  return {
+    Octokit: class {
+      orgs = {
+        getMembershipForAuthenticatedUser: vi.fn(),
+        listMembershipsForAuthenticatedUser: vi.fn(),
+      }
+      paginate = mockPaginate
+    },
+  }
+})
+
 import {
   filterInstalledOrganizationsForAdmin,
   isGitHubInstallationAccountAdmin,
 } from "@/lib/github/admin-authorization"
 
-const originalFetch = global.fetch
-
 afterEach(() => {
   vi.unstubAllEnvs()
-  global.fetch = originalFetch
   vi.clearAllMocks()
 })
 
@@ -43,14 +54,9 @@ describe("admin authorization", () => {
 
   it("filters org installs via GitHub admin membership and preserves personal-account owner access", async () => {
     vi.stubEnv("NODE_ENV", "production")
-    global.fetch = vi.fn().mockResolvedValue(
-      new Response(
-        JSON.stringify([
-          { state: "active", role: "admin", organization: { id: 2001, login: "fiveonefour" } },
-        ]),
-        { status: 200, headers: { "Content-Type": "application/json" } }
-      )
-    ) as typeof global.fetch
+    mockPaginate.mockResolvedValue([
+      { role: "admin", organization: { id: 2001, login: "fiveonefour" } },
+    ])
 
     const authorized = await filterInstalledOrganizationsForAdmin(
       {
@@ -79,7 +85,6 @@ describe("admin authorization", () => {
 
     expect(authorized).toHaveLength(2)
     expect(authorized.map((org) => org.githubOrgSlug).sort()).toEqual(["fiveonefour", "orgadmin"])
-    expect(global.fetch).toHaveBeenCalledTimes(1)
   })
 
   it("does not authorize a personal-account installation for non-owners", async () => {
