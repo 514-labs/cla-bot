@@ -25,7 +25,7 @@ function getGitHubAccessToken(user: UserWithToken): string | null {
   return decryptSecret(encryptedToken)
 }
 
-function createUserOctokit(accessToken: string): Octokit {
+function createOctokitClientWithUserIdentity(accessToken: string): Octokit {
   return new Octokit({ auth: accessToken })
 }
 
@@ -53,7 +53,7 @@ export async function isGitHubOrgAdmin(user: UserWithToken, orgSlug: string): Pr
   const accessToken = getGitHubAccessToken(user)
   if (!accessToken) return false
 
-  const octokit = createUserOctokit(accessToken)
+  const octokit = createOctokitClientWithUserIdentity(accessToken)
 
   try {
     const { data: membership } = await octokit.rest.orgs.getMembershipForAuthenticatedUser({
@@ -74,7 +74,7 @@ export async function isGitHubOrgAdmin(user: UserWithToken, orgSlug: string): Pr
  * Handles pagination via Link headers.
  */
 async function getUserAdminOrgSlugs(accessToken: string): Promise<Set<string>> {
-  const octokit = createUserOctokit(accessToken)
+  const octokit = createOctokitClientWithUserIdentity(accessToken)
   const memberships = await octokit.paginate(
     octokit.rest.orgs.listMembershipsForAuthenticatedUser,
     { state: "active", per_page: 100 }
