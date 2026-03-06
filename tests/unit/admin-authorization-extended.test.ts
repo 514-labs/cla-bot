@@ -258,16 +258,15 @@ describe("filterInstalledOrganizationsForAdmin - additional coverage", () => {
     expect(result).toHaveLength(0)
   })
 
-  it("returns authorized orgs even when some checks fail", async () => {
+  it("filters to only orgs where user has admin membership", async () => {
     vi.stubEnv("NODE_ENV", "production")
     global.fetch = vi
       .fn()
-      .mockResolvedValueOnce(new Response("Forbidden", { status: 403 }))
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify({ state: "active", role: "admin" }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        })
+      .mockResolvedValue(
+        new Response(
+          JSON.stringify([{ state: "active", role: "admin", organization: { login: "514-labs" } }]),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        )
       ) as typeof global.fetch
 
     const result = await filterInstalledOrganizationsForAdmin(

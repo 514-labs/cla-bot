@@ -21,6 +21,14 @@ type OrgMembershipResponse = {
   role?: string
 }
 
+type OrgMembershipListItem = {
+  state?: string
+  role?: string
+  organization?: {
+    login?: string
+  }
+}
+
 const ORG_LOG_LIMIT = 25
 
 function getGitHubAccessToken(user: UserWithToken): string | null {
@@ -69,6 +77,47 @@ export async function isGitHubOrgAdmin(user: UserWithToken, orgSlug: string): Pr
 
   const membership = (await membershipRes.json()) as OrgMembershipResponse
   return membership.state === "active" && membership.role === "admin"
+}
+
+/**
+ * Fetches all GitHub org slugs where the authenticated user has an active admin role.
+ * Handles pagination via Link headers.
+ */
+async function getUserAdminOrgSlugs(accessToken: string): Promise<Set<string>> {
+  const slugs = new Set<string>()
+  let url: string | null = "https://api.github.com/user/memberships/orgs?state=active&per_page=100"
+
+  while (url) {
+    const res = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Accept: "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+      },
+      cache: "no-store",
+    })
+
+    if (!res.ok) {
+      throw new Error(`Failed to list GitHub org memberships: ${res.status}`)
+    }
+
+    const memberships = (await res.json()) as OrgMembershipListItem[]
+    for (const m of memberships) {
+      if (m.role === "admin" && m.organization?.login) {
+        slugs.add(m.organization.login.toLowerCase())
+      }
+    }
+
+    url = parseNextPageUrl(res.headers.get("link"))
+  }
+
+  return slugs
+}
+
+function parseNextPageUrl(linkHeader: string | null): string | null {
+  if (!linkHeader) return null
+  const match = linkHeader.match(/<([^>]+)>;\s*rel="next"/)
+  return match?.[1] ?? null
 }
 
 /**
@@ -165,29 +214,32 @@ export async function filterInstalledOrganizationsForAdmin<T extends InstalledOr
     return authorizedOrgs
   }
 
-  const orgChecks = await Promise.allSettled(
-    orgAccountInstalls.map((org) => isGitHubOrgAdmin(user, org.githubOrgSlug))
-  )
+  let orgCheckResults: {
+    org: T
+    isAdmin: boolean
+    error: string | null
+    checkType: string
+  }[]
 
-  const orgCheckResults = orgChecks.map((check, index) => {
-    const org = orgAccountInstalls[index]
-    if (check.status === "fulfilled") {
-      return {
-        org,
-        isAdmin: check.value,
-        error: null as string | null,
-        checkType: "github_org_membership",
-      }
-    }
-
-    const message = check.reason instanceof Error ? check.reason.message : String(check.reason)
-    return {
+  try {
+    // Token presence is guaranteed by the hasGitHubToken guard above
+    const accessToken = getGitHubAccessToken(user) as string
+    const adminOrgSlugs = await getUserAdminOrgSlugs(accessToken)
+    orgCheckResults = orgAccountInstalls.map((org) => ({
+      org,
+      isAdmin: adminOrgSlugs.has(org.githubOrgSlug.toLowerCase()),
+      error: null,
+      checkType: "github_org_membership",
+    }))
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    orgCheckResults = orgAccountInstalls.map((org) => ({
       org,
       isAdmin: false,
       error: message,
       checkType: "github_org_membership",
-    }
-  })
+    }))
+  }
 
   const results = [...userAccountChecks, ...orgCheckResults]
   console.info("[admin-auth] Account-admin check results", {
