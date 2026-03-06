@@ -1,3 +1,4 @@
+import { Octokit } from "@octokit/rest"
 import { decryptSecret } from "@/lib/security/encryption"
 
 type UserWithToken = {
@@ -16,25 +17,16 @@ type InstalledOrganization = {
   githubAccountId?: string | null
 }
 
-type OrgMembershipResponse = {
-  state?: string
-  role?: string
-}
-
-type OrgMembershipListItem = {
-  state?: string
-  role?: string
-  organization?: {
-    login?: string
-  }
-}
-
 const ORG_LOG_LIMIT = 25
 
 function getGitHubAccessToken(user: UserWithToken): string | null {
   const encryptedToken = user.githubAccessTokenEncrypted ?? null
   if (!encryptedToken) return null
   return decryptSecret(encryptedToken)
+}
+
+function createUserOctokit(accessToken: string): Octokit {
+  return new Octokit({ auth: accessToken })
 }
 
 function normalizeAccountType(org: InstalledOrganization): "organization" | "user" {
@@ -61,22 +53,20 @@ export async function isGitHubOrgAdmin(user: UserWithToken, orgSlug: string): Pr
   const accessToken = getGitHubAccessToken(user)
   if (!accessToken) return false
 
-  const membershipRes = await fetch(`https://api.github.com/user/memberships/orgs/${orgSlug}`, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      Accept: "application/vnd.github+json",
-      "X-GitHub-Api-Version": "2022-11-28",
-    },
-    cache: "no-store",
-  })
+  const octokit = createUserOctokit(accessToken)
 
-  if (membershipRes.status === 404 || membershipRes.status === 403) return false
-  if (!membershipRes.ok) {
-    throw new Error(`Failed GitHub org membership check: ${membershipRes.status}`)
+  try {
+    const { data: membership } = await octokit.rest.orgs.getMembershipForAuthenticatedUser({
+      org: orgSlug,
+    })
+    return membership.state === "active" && membership.role === "admin"
+  } catch (error: unknown) {
+    if (error && typeof error === "object" && "status" in error) {
+      const status = (error as { status: number }).status
+      if (status === 404 || status === 403) return false
+    }
+    throw error
   }
-
-  const membership = (await membershipRes.json()) as OrgMembershipResponse
-  return membership.state === "active" && membership.role === "admin"
 }
 
 /**
@@ -84,40 +74,19 @@ export async function isGitHubOrgAdmin(user: UserWithToken, orgSlug: string): Pr
  * Handles pagination via Link headers.
  */
 async function getUserAdminOrgSlugs(accessToken: string): Promise<Set<string>> {
+  const octokit = createUserOctokit(accessToken)
+  const memberships = await octokit.paginate(
+    octokit.rest.orgs.listMembershipsForAuthenticatedUser,
+    { state: "active", per_page: 100 }
+  )
+
   const slugs = new Set<string>()
-  let url: string | null = "https://api.github.com/user/memberships/orgs?state=active&per_page=100"
-
-  while (url) {
-    const res = await fetch(url, {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        Accept: "application/vnd.github+json",
-        "X-GitHub-Api-Version": "2022-11-28",
-      },
-      cache: "no-store",
-    })
-
-    if (!res.ok) {
-      throw new Error(`Failed to list GitHub org memberships: ${res.status}`)
+  for (const m of memberships) {
+    if (m.role === "admin" && m.organization?.login) {
+      slugs.add(m.organization.login.toLowerCase())
     }
-
-    const memberships = (await res.json()) as OrgMembershipListItem[]
-    for (const m of memberships) {
-      if (m.role === "admin" && m.organization?.login) {
-        slugs.add(m.organization.login.toLowerCase())
-      }
-    }
-
-    url = parseNextPageUrl(res.headers.get("link"))
   }
-
   return slugs
-}
-
-function parseNextPageUrl(linkHeader: string | null): string | null {
-  if (!linkHeader) return null
-  const match = linkHeader.match(/<([^>]+)>;\s*rel="next"/)
-  return match?.[1] ?? null
 }
 
 /**

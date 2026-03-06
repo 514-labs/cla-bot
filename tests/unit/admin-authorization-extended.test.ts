@@ -1,5 +1,23 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 
+const mockGetMembershipForAuthenticatedUser = vi.fn()
+const mockListMembershipsForAuthenticatedUser = vi.fn()
+const mockPaginate = vi.fn()
+
+vi.mock("@octokit/rest", () => {
+  return {
+    Octokit: class MockOctokit {
+      rest = {
+        orgs: {
+          getMembershipForAuthenticatedUser: mockGetMembershipForAuthenticatedUser,
+          listMembershipsForAuthenticatedUser: mockListMembershipsForAuthenticatedUser,
+        },
+      }
+      paginate = mockPaginate
+    },
+  }
+})
+
 vi.mock("@/lib/security/encryption", () => ({
   decryptSecret: vi.fn((encrypted: string | null | undefined) =>
     encrypted === "enc-token" ? "oauth-token" : null
@@ -12,11 +30,8 @@ import {
   filterInstalledOrganizationsForAdmin,
 } from "@/lib/github/admin-authorization"
 
-const originalFetch = global.fetch
-
 afterEach(() => {
   vi.unstubAllEnvs()
-  global.fetch = originalFetch
   vi.clearAllMocks()
 })
 
@@ -30,9 +45,9 @@ describe("isGitHubOrgAdmin", () => {
   })
 
   it("returns false on 404 response", async () => {
-    global.fetch = vi
-      .fn()
-      .mockResolvedValue(new Response("Not Found", { status: 404 })) as typeof global.fetch
+    mockGetMembershipForAuthenticatedUser.mockRejectedValue(
+      Object.assign(new Error("Not Found"), { status: 404 })
+    )
 
     const result = await isGitHubOrgAdmin(
       {
@@ -47,9 +62,9 @@ describe("isGitHubOrgAdmin", () => {
   })
 
   it("returns false on 403 response", async () => {
-    global.fetch = vi
-      .fn()
-      .mockResolvedValue(new Response("Forbidden", { status: 403 })) as typeof global.fetch
+    mockGetMembershipForAuthenticatedUser.mockRejectedValue(
+      Object.assign(new Error("Forbidden"), { status: 403 })
+    )
 
     const result = await isGitHubOrgAdmin(
       {
@@ -64,12 +79,9 @@ describe("isGitHubOrgAdmin", () => {
   })
 
   it("returns true for active admin", async () => {
-    global.fetch = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ state: "active", role: "admin" }), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      })
-    ) as typeof global.fetch
+    mockGetMembershipForAuthenticatedUser.mockResolvedValue({
+      data: { state: "active", role: "admin" },
+    })
 
     const result = await isGitHubOrgAdmin(
       {
@@ -84,12 +96,9 @@ describe("isGitHubOrgAdmin", () => {
   })
 
   it("returns false for member (non-admin)", async () => {
-    global.fetch = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ state: "active", role: "member" }), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      })
-    ) as typeof global.fetch
+    mockGetMembershipForAuthenticatedUser.mockResolvedValue({
+      data: { state: "active", role: "member" },
+    })
 
     const result = await isGitHubOrgAdmin(
       {
@@ -104,9 +113,9 @@ describe("isGitHubOrgAdmin", () => {
   })
 
   it("throws on non-OK non-404 response", async () => {
-    global.fetch = vi
-      .fn()
-      .mockResolvedValue(new Response("Server Error", { status: 500 })) as typeof global.fetch
+    mockGetMembershipForAuthenticatedUser.mockRejectedValue(
+      Object.assign(new Error("Server Error"), { status: 500 })
+    )
 
     await expect(
       isGitHubOrgAdmin(
@@ -118,7 +127,7 @@ describe("isGitHubOrgAdmin", () => {
         },
         "fiveonefour"
       )
-    ).rejects.toThrow("Failed GitHub org membership check: 500")
+    ).rejects.toThrow("Server Error")
   })
 })
 
@@ -236,7 +245,7 @@ describe("filterInstalledOrganizationsForAdmin - additional coverage", () => {
 
   it("treats failed org-admin checks as non-admin instead of throwing", async () => {
     vi.stubEnv("NODE_ENV", "production")
-    global.fetch = vi.fn().mockRejectedValue(new Error("Network error")) as typeof global.fetch
+    mockPaginate.mockRejectedValue(new Error("Network error"))
 
     const result = await filterInstalledOrganizationsForAdmin(
       {
@@ -260,14 +269,9 @@ describe("filterInstalledOrganizationsForAdmin - additional coverage", () => {
 
   it("filters to only orgs where user has admin membership", async () => {
     vi.stubEnv("NODE_ENV", "production")
-    global.fetch = vi
-      .fn()
-      .mockResolvedValue(
-        new Response(
-          JSON.stringify([{ state: "active", role: "admin", organization: { login: "514-labs" } }]),
-          { status: 200, headers: { "Content-Type": "application/json" } }
-        )
-      ) as typeof global.fetch
+    mockPaginate.mockResolvedValue([
+      { state: "active", role: "admin", organization: { login: "514-labs" } },
+    ])
 
     const result = await filterInstalledOrganizationsForAdmin(
       {
