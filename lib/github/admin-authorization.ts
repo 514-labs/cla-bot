@@ -1,3 +1,4 @@
+import { Octokit } from "@octokit/rest"
 import { decryptSecret } from "@/lib/security/encryption"
 
 type UserWithToken = {
@@ -16,17 +17,16 @@ type InstalledOrganization = {
   githubAccountId?: string | null
 }
 
-type OrgMembershipResponse = {
-  state?: string
-  role?: string
-}
-
 const ORG_LOG_LIMIT = 25
 
 function getGitHubAccessToken(user: UserWithToken): string | null {
   const encryptedToken = user.githubAccessTokenEncrypted ?? null
   if (!encryptedToken) return null
   return decryptSecret(encryptedToken)
+}
+
+function createOctokitClientWithUserIdentity(accessToken: string): Octokit {
+  return new Octokit({ auth: accessToken })
 }
 
 function normalizeAccountType(org: InstalledOrganization): "organization" | "user" {
@@ -53,22 +53,40 @@ export async function isGitHubOrgAdmin(user: UserWithToken, orgSlug: string): Pr
   const accessToken = getGitHubAccessToken(user)
   if (!accessToken) return false
 
-  const membershipRes = await fetch(`https://api.github.com/user/memberships/orgs/${orgSlug}`, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      Accept: "application/vnd.github+json",
-      "X-GitHub-Api-Version": "2022-11-28",
-    },
-    cache: "no-store",
-  })
+  const octokit = createOctokitClientWithUserIdentity(accessToken)
 
-  if (membershipRes.status === 404 || membershipRes.status === 403) return false
-  if (!membershipRes.ok) {
-    throw new Error(`Failed GitHub org membership check: ${membershipRes.status}`)
+  try {
+    const { data: membership } = await octokit.rest.orgs.getMembershipForAuthenticatedUser({
+      org: orgSlug,
+    })
+    return membership.state === "active" && membership.role === "admin"
+  } catch (error: unknown) {
+    if (error && typeof error === "object" && "status" in error) {
+      const status = (error as { status: number }).status
+      if (status === 404 || status === 403) return false
+    }
+    throw error
   }
+}
 
-  const membership = (await membershipRes.json()) as OrgMembershipResponse
-  return membership.state === "active" && membership.role === "admin"
+/**
+ * Fetches all GitHub org slugs where the authenticated user has an active admin role.
+ * Handles pagination via Link headers.
+ */
+async function getUserAdminOrgSlugs(accessToken: string): Promise<Set<string>> {
+  const octokit = createOctokitClientWithUserIdentity(accessToken)
+  const memberships = await octokit.paginate(
+    octokit.rest.orgs.listMembershipsForAuthenticatedUser,
+    { state: "active", per_page: 100 }
+  )
+
+  const slugs = new Set<string>()
+  for (const m of memberships) {
+    if (m.role === "admin" && m.organization?.login) {
+      slugs.add(m.organization.login.toLowerCase())
+    }
+  }
+  return slugs
 }
 
 /**
@@ -165,29 +183,32 @@ export async function filterInstalledOrganizationsForAdmin<T extends InstalledOr
     return authorizedOrgs
   }
 
-  const orgChecks = await Promise.allSettled(
-    orgAccountInstalls.map((org) => isGitHubOrgAdmin(user, org.githubOrgSlug))
-  )
+  let orgCheckResults: {
+    org: T
+    isAdmin: boolean
+    error: string | null
+    checkType: string
+  }[]
 
-  const orgCheckResults = orgChecks.map((check, index) => {
-    const org = orgAccountInstalls[index]
-    if (check.status === "fulfilled") {
-      return {
-        org,
-        isAdmin: check.value,
-        error: null as string | null,
-        checkType: "github_org_membership",
-      }
-    }
-
-    const message = check.reason instanceof Error ? check.reason.message : String(check.reason)
-    return {
+  try {
+    // Token presence is guaranteed by the hasGitHubToken guard above
+    const accessToken = getGitHubAccessToken(user) as string
+    const adminOrgSlugs = await getUserAdminOrgSlugs(accessToken)
+    orgCheckResults = orgAccountInstalls.map((org) => ({
+      org,
+      isAdmin: adminOrgSlugs.has(org.githubOrgSlug.toLowerCase()),
+      error: null,
+      checkType: "github_org_membership",
+    }))
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    orgCheckResults = orgAccountInstalls.map((org) => ({
       org,
       isAdmin: false,
       error: message,
       checkType: "github_org_membership",
-    }
-  })
+    }))
+  }
 
   const results = [...userAccountChecks, ...orgCheckResults]
   console.info("[admin-auth] Account-admin check results", {
