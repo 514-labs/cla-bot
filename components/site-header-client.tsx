@@ -10,6 +10,7 @@ import { BrandLockup } from "@/components/brand-logo"
 import { Button } from "@/components/ui/button"
 import { Github, LogOut, Menu, X } from "lucide-react"
 import type { SessionUserDto } from "@/lib/session-user"
+import { SessionMonitor } from "@/components/session-monitor"
 
 type SiteHeaderClientProps = {
   user: SessionUserDto | null
@@ -26,6 +27,8 @@ export function SiteHeaderClient({ user }: SiteHeaderClientProps) {
   const isSignedIn = !!user
 
   return (
+    <>
+    {isSignedIn && <SessionMonitor isAuthenticated />}
     <header className="sticky top-0 z-50 border-b border-white/10 bg-background/80 backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
         <Link href="/" className="flex items-center gap-2">
@@ -160,5 +163,6 @@ export function SiteHeaderClient({ user }: SiteHeaderClientProps) {
         </div>
       )}
     </header>
+    </>
   )
 }

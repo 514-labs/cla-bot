@@ -13,7 +13,7 @@ import { SignJWT, jwtVerify } from "jose"
 import { cookies } from "next/headers"
 import { getUserById } from "./db/queries"
 
-const COOKIE_NAME = "cla-session"
+export const COOKIE_NAME = "cla-session"
 
 function getJwtSecret(): Uint8Array | null {
   const secret = process.env.SESSION_SECRET
