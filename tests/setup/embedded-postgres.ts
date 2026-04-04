@@ -67,3 +67,9 @@ export async function teardown() {
     pg = null
   }
 }
+
+// Playwright globalSetup expects a default export function that returns a teardown function
+export default async function globalSetup() {
+  await setup()
+  return teardown
+}
