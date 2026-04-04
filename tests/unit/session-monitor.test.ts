@@ -48,7 +48,9 @@ describe("session monitor polling logic", () => {
     })
     Object.defineProperty(globalThis.location, "href", {
       get: () => locationHref.value,
-      set: (v: string) => { locationHref.value = v },
+      set: (v: string) => {
+        locationHref.value = v
+      },
       configurable: true,
     })
 
@@ -74,10 +76,10 @@ describe("session monitor polling logic", () => {
 
   it("does not redirect when session is still valid", async () => {
     const mockFetch = vi.fn().mockResolvedValue(
-      new Response(
-        JSON.stringify({ user: { id: "user_1", githubUsername: "orgadmin" } }),
-        { status: 200, headers: { "Content-Type": "application/json" } }
-      )
+      new Response(JSON.stringify({ user: { id: "user_1", githubUsername: "orgadmin" } }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      })
     )
     globalThis.fetch = mockFetch
 
@@ -93,7 +95,9 @@ describe("session monitor polling logic", () => {
     })
     Object.defineProperty(globalThis.location, "href", {
       get: () => locationHref.value,
-      set: (v: string) => { locationHref.value = v },
+      set: (v: string) => {
+        locationHref.value = v
+      },
       configurable: true,
     })
 
@@ -128,7 +132,9 @@ describe("session monitor polling logic", () => {
     })
     Object.defineProperty(globalThis.location, "href", {
       get: () => locationHref.value,
-      set: (v: string) => { locationHref.value = v },
+      set: (v: string) => {
+        locationHref.value = v
+      },
       configurable: true,
     })
 
@@ -152,9 +158,9 @@ describe("session monitor polling logic", () => {
   })
 
   it("does not redirect when response is not ok (500)", async () => {
-    const mockFetch = vi.fn().mockResolvedValue(
-      new Response("Internal Server Error", { status: 500 })
-    )
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValue(new Response("Internal Server Error", { status: 500 }))
     globalThis.fetch = mockFetch
 
     const locationHref = { value: "http://localhost:3000/admin" }
@@ -169,7 +175,9 @@ describe("session monitor polling logic", () => {
     })
     Object.defineProperty(globalThis.location, "href", {
       get: () => locationHref.value,
-      set: (v: string) => { locationHref.value = v },
+      set: (v: string) => {
+        locationHref.value = v
+      },
       configurable: true,
     })
 

@@ -34,12 +34,19 @@ export function createMockFetch(scenario: MockOAuthScenario = "success") {
         throw new Error("Network error")
       }
       if (scenario === "token_error") {
-        return mockJsonResponse({ error: "bad_verification_code", error_description: "The code passed is incorrect or expired." })
+        return mockJsonResponse({
+          error: "bad_verification_code",
+          error_description: "The code passed is incorrect or expired.",
+        })
       }
       if (scenario === "token_missing") {
         return mockJsonResponse({ scope: "read:user" }) // no access_token field
       }
-      return mockJsonResponse({ access_token: MOCK_ACCESS_TOKEN, token_type: "bearer", scope: "read:user,read:org,user:email" })
+      return mockJsonResponse({
+        access_token: MOCK_ACCESS_TOKEN,
+        token_type: "bearer",
+        scope: "read:user,read:org,user:email",
+      })
     }
 
     // GitHub user profile

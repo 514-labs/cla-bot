@@ -41,7 +41,8 @@ function makeCallbackRequest(overrides?: {
 }): NextRequest {
   const code = overrides?.code ?? "valid-code"
   const state = overrides?.state ?? NONCE
-  const stateCookie = overrides?.stateCookie !== undefined ? overrides.stateCookie : STATE_COOKIE_VALUE
+  const stateCookie =
+    overrides?.stateCookie !== undefined ? overrides.stateCookie : STATE_COOKIE_VALUE
 
   const params = new URLSearchParams()
   if (code) params.set("code", code)
@@ -78,7 +79,9 @@ beforeEach(() => {
     role: "admin",
   } as unknown as Awaited<ReturnType<typeof upsertUser>>)
 
-  vi.mocked(updateUserGithubAuth).mockResolvedValue(undefined as unknown as Awaited<ReturnType<typeof updateUserGithubAuth>>)
+  vi.mocked(updateUserGithubAuth).mockResolvedValue(
+    undefined as unknown as Awaited<ReturnType<typeof updateUserGithubAuth>>
+  )
   vi.mocked(encryptSecret).mockReturnValue("encrypted-token-value")
   vi.mocked(createSessionToken).mockResolvedValue("mock-jwt-token")
 })
