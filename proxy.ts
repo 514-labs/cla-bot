@@ -41,11 +41,5 @@ async function verifyToken(token: string): Promise<boolean> {
 }
 
 export const config = {
-  matcher: [
-    "/admin/:path*",
-    "/contributor/:path*",
-    "/api/orgs/:path*",
-    "/api/contributor/:path*",
-    "/api/github/install/:path*",
-  ],
+  matcher: [...PROTECTED_PAGE_PREFIXES, ...PROTECTED_API_PREFIXES].map((p) => `${p}/:path*`),
 }
