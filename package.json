@@ -2,6 +2,9 @@
   "name": "my-project",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -13,7 +16,7 @@
     "test:unit:coverage": "vitest run --coverage",
     "test:unit:watch": "vitest",
     "test:integration": "vitest run --config vitest.integration.config.ts",
-    "test:e2e": "playwright test tests/e2e/pages-reference.spec.ts",
+    "test:e2e": "pnpm exec jiti tests/setup/with-embedded-pg.ts pnpm exec playwright test tests/e2e/pages-reference.spec.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
@@ -40,6 +43,11 @@
     "workflow": "4.1.0-beta.60",
     "zod": "^3.24.1"
   },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@embedded-postgres/linux-x64"
+    ]
+  },
   "devDependencies": {
     "@biomejs/biome": "2.4.4",
     "@playwright/test": "^1.58.2",
@@ -49,6 +57,8 @@
     "@types/react-dom": "^19",
     "@vitest/coverage-v8": "^4.0.18",
     "drizzle-kit": "^0.31.9",
+    "embedded-postgres": "18.3.0-beta.16",
+    "jiti": "^2.6.1",
     "knip": "^5.85.0",
     "postcss": "^8.5",
     "tailwindcss": "^4.2.1",
