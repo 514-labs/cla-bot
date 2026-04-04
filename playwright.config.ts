@@ -49,6 +49,7 @@ const CHANNEL = process.env.PLAYWRIGHT_CHANNEL
 const REPORTER = process.env.PLAYWRIGHT_REPORTER ?? (process.env.CI ? "line" : "list")
 
 export default defineConfig({
+  globalSetup: "./tests/setup/embedded-postgres.ts",
   testDir: "./tests/e2e",
   fullyParallel: false,
   workers: 1,

@@ -12,6 +12,7 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["tests/integration/**/*.test.ts"],
+    globalSetup: ["./tests/setup/embedded-postgres.ts"],
     testTimeout: 300_000,
     hookTimeout: 120_000,
     maxWorkers: 1,

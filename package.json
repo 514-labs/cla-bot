@@ -40,6 +40,11 @@
     "workflow": "4.1.0-beta.60",
     "zod": "^3.24.1"
   },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@embedded-postgres/linux-x64"
+    ]
+  },
   "devDependencies": {
     "@biomejs/biome": "2.4.4",
     "@playwright/test": "^1.58.2",
@@ -49,6 +54,7 @@
     "@types/react-dom": "^19",
     "@vitest/coverage-v8": "^4.0.18",
     "drizzle-kit": "^0.31.9",
+    "embedded-postgres": "18.3.0-beta.16",
     "knip": "^5.85.0",
     "postcss": "^8.5",
     "tailwindcss": "^4.2.1",

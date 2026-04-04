@@ -80,22 +80,7 @@ jobs:
   test-integration:
     name: Integration Tests
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: clabot_test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
     env:
-      DATABASE_URL: postgres://postgres:postgres@localhost:5432/clabot_test
       SESSION_SECRET: ci-integration-test-secret
     steps:
       - uses: actions/checkout@v6
@@ -112,31 +97,13 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Apply database migrations
-        run: pnpm db:migrate
-
       - name: Run integration tests
         run: pnpm test:integration
 
   test-e2e:
     name: E2E Tests
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: clabot_test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
     env:
-      DATABASE_URL: postgres://postgres:postgres@localhost:5432/clabot_test
       SESSION_SECRET: ci-e2e-test-secret
     steps:
       - uses: actions/checkout@v6
@@ -155,9 +122,6 @@ jobs:
 
       - name: Install Playwright browsers
         run: pnpm exec playwright install chromium --with-deps
-
-      - name: Apply database migrations
-        run: pnpm db:migrate
 
       - name: Run e2e tests
         run: pnpm test:e2e
