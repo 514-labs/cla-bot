@@ -2,6 +2,7 @@ import EmbeddedPostgres from "embedded-postgres"
 import { execSync } from "node:child_process"
 import { existsSync, readFileSync, rmSync } from "node:fs"
 import { resolve } from "node:path"
+import { userInfo } from "node:os"
 
 let pg: EmbeddedPostgres | null = null
 
@@ -33,13 +34,17 @@ export async function setup() {
     rmSync(DATA_DIR, { recursive: true, force: true })
   }
 
+  // Only create a postgres system user when running as root (e.g. sandboxed environments).
+  // On CI (GitHub Actions), the postgres user/group already exists and we run as non-root.
+  const isRoot = userInfo().uid === 0
+
   pg = new EmbeddedPostgres({
     databaseDir: DATA_DIR,
     user: "postgres",
     password: "postgres",
     port: EMBEDDED_PG_PORT,
     persistent: false,
-    createPostgresUser: true,
+    ...(isRoot ? { createPostgresUser: true } : {}),
   })
 
   console.log("[embedded-postgres] Starting embedded PostgreSQL...")
