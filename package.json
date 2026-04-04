@@ -13,7 +13,7 @@
     "test:unit:coverage": "vitest run --coverage",
     "test:unit:watch": "vitest",
     "test:integration": "vitest run --config vitest.integration.config.ts",
-    "test:e2e": "jiti tests/setup/with-embedded-pg.ts pnpm exec playwright test tests/e2e/pages-reference.spec.ts",
+    "test:e2e": "pnpm exec jiti tests/setup/with-embedded-pg.ts pnpm exec playwright test tests/e2e/pages-reference.spec.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
