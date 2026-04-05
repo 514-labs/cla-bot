@@ -1,5 +1,8 @@
 # See All CLAs I Signed
 
+## Screenshot
+![Contributor history screenshot](/docs/screenshots/contributor-history.svg)
+
 ## Purpose
 View your full CLA signature history across organizations.
 

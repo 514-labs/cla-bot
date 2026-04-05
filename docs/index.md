@@ -1,5 +1,8 @@
 # CLA Bot Documentation
 
+## Screenshot
+![Documentation home screenshot](/docs/screenshots/docs-home.svg)
+
 Choose the path that matches your role.
 
 ## Repo Contributor (`cla.fiveonefour.com`)
