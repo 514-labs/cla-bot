@@ -52,7 +52,7 @@ const nextConfig = {
       `script-src-elem ${scriptSrc.join(" ")}`,
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: https:",
-      "font-src 'self' data:",
+      "font-src 'self' data: https://vercel.live https://*.vercel.live",
       `connect-src ${connectSrc.join(" ")}`,
       "frame-src 'self' https://vercel.live https://*.vercel.live",
       "form-action 'self' https://github.com",
