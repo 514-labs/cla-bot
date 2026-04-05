@@ -105,6 +105,13 @@ pnpm dev
 
 The app will be available at `http://localhost:3000`.
 
+## Documentation
+
+- [Documentation Home](docs/index.md)
+- [Repo Contributor docs](docs/contributor/signing-a-cla.md)
+- [Repo Admin docs](docs/admin/setup-cla-bot-with-my-org.md)
+- [Operator docs](docs/operator/deploy-on-my-infrastructure.md)
+
 ## Commands
 
 | Command | Description |

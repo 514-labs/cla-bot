@@ -1,6 +1,7 @@
 "use client"
 
 import { cn } from "@/lib/utils"
+import { slugifyHeading } from "@/lib/markdown"
 
 /**
  * A simple markdown-to-HTML renderer for CLA display.
@@ -19,12 +20,30 @@ export function MarkdownRenderer({ content, className }: { content: string; clas
 
 export function simpleMarkdownToHtml(md: string): string {
   const escaped = escapeHtml(md)
+  const imageTokens: string[] = []
 
   const html = escaped
     // Headers
-    .replace(/^### (.+)$/gm, "<h3>$1</h3>")
-    .replace(/^## (.+)$/gm, "<h2>$1</h2>")
-    .replace(/^# (.+)$/gm, "<h1>$1</h1>")
+    .replace(/^### (.+)$/gm, (_match, heading: string) => {
+      const id = slugifyHeading(heading)
+      return `<h3 id="${id}">${heading}</h3>`
+    })
+    .replace(/^## (.+)$/gm, (_match, heading: string) => {
+      const id = slugifyHeading(heading)
+      return `<h2 id="${id}">${heading}</h2>`
+    })
+    .replace(/^# (.+)$/gm, (_match, heading: string) => {
+      const id = slugifyHeading(heading)
+      return `<h1 id="${id}">${heading}</h1>`
+    })
+    // Images: ![alt](url)
+    .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_match, altText, rawUrl) => {
+      const src = sanitizeImageUrl(rawUrl)
+      const safeAlt = altText.replaceAll('"', "&quot;")
+      const token = `__IMG_TOKEN_${imageTokens.length}__`
+      imageTokens.push(`<img src="${src}" alt="${safeAlt}" loading="lazy" decoding="async" />`)
+      return token
+    })
     // Bold
     .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
     // Italic
@@ -33,14 +52,16 @@ export function simpleMarkdownToHtml(md: string): string {
     .replace(/`(.+?)`/g, "<code>$1</code>")
     // Links: [text](url)
     .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_match, text, rawUrl) => {
-      const safeUrl = sanitizeLinkUrl(rawUrl)
-      return `<a href="${safeUrl}" target="_blank" rel="noopener noreferrer">$1</a>`.replace(
-        "$1",
-        text
-      )
+      const { href, attrs } = sanitizeLinkUrl(rawUrl)
+      return `<a href="${href}"${attrs}>$1</a>`.replace("$1", text)
     })
     // Horizontal rules
     .replace(/^---$/gm, "<hr>")
+    // Restore image placeholders after inline transforms
+    .replace(/__IMG_TOKEN_(\d+)__/g, (_match, index: string) => {
+      const resolved = imageTokens[Number.parseInt(index, 10)]
+      return resolved ?? ""
+    })
 
   // Process lists and blockquotes
   const lines = html.split("\n")
@@ -70,10 +91,47 @@ export function simpleMarkdownToHtml(md: string): string {
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
+    const nextLine = lines[i + 1]
     const olMatch = line.match(/^(\s*)(\d+)[.)]\s+(.+)$/)
     const alphaMatch = line.match(/^(\s*)([a-zA-Z])[.)]\s+(.+)$/)
     const ulMatch = line.match(/^(\s*)[-*]\s+(.+)$/)
     const bqMatch = line.match(/^>\s?(.*)$/)
+    const startsTable = isTableRow(line) && isTableSeparator(nextLine)
+
+    if (startsTable) {
+      listState = closeList(listState)
+      if (inBlockquote) {
+        result.push("</blockquote>")
+        inBlockquote = false
+      }
+
+      const headers = splitTableRow(line)
+      result.push("<table>")
+      result.push("<thead>")
+      result.push("<tr>")
+      for (const header of headers) {
+        result.push(`<th>${header}</th>`)
+      }
+      result.push("</tr>")
+      result.push("</thead>")
+      result.push("<tbody>")
+
+      i += 2
+      while (i < lines.length && isTableRow(lines[i])) {
+        const cells = splitTableRow(lines[i])
+        result.push("<tr>")
+        for (const cell of cells) {
+          result.push(`<td>${cell}</td>`)
+        }
+        result.push("</tr>")
+        i += 1
+      }
+      result.push("</tbody>")
+      result.push("</table>")
+
+      i -= 1
+      continue
+    }
 
     if (olMatch) {
       const indent = getListIndentLevel(olMatch[1])
@@ -171,12 +229,69 @@ function escapeHtml(input: string) {
 
 function sanitizeLinkUrl(rawUrl: string) {
   const trimmed = rawUrl.trim()
+  const escapedHref = trimmed.replaceAll('"', "&quot;")
+
+  if (trimmed.startsWith("//")) {
+    return {
+      href: escapedHref,
+      attrs: ' target="_blank" rel="noopener noreferrer"',
+    }
+  }
+
   if (
     trimmed.startsWith("http://") ||
     trimmed.startsWith("https://") ||
     trimmed.startsWith("mailto:")
   ) {
+    return {
+      href: escapedHref,
+      attrs: ' target="_blank" rel="noopener noreferrer"',
+    }
+  }
+
+  if (
+    (trimmed.startsWith("/") && !trimmed.startsWith("//")) ||
+    trimmed.startsWith("./") ||
+    trimmed.startsWith("../") ||
+    trimmed.startsWith("#")
+  ) {
+    return { href: escapedHref, attrs: "" }
+  }
+
+  return { href: "#", attrs: "" }
+}
+
+function sanitizeImageUrl(rawUrl: string) {
+  const trimmed = rawUrl.trim()
+  if (
+    trimmed.startsWith("http://") ||
+    trimmed.startsWith("https://") ||
+    (trimmed.startsWith("/") && !trimmed.startsWith("//")) ||
+    trimmed.startsWith("./") ||
+    trimmed.startsWith("../")
+  ) {
     return trimmed.replaceAll('"', "&quot;")
   }
-  return "#"
+  return ""
+}
+
+function isTableRow(line: string | undefined) {
+  if (!line) return false
+  const trimmed = line.trim()
+  if (!trimmed.startsWith("|") || !trimmed.endsWith("|")) return false
+  return true
+}
+
+function isTableSeparator(line: string | undefined) {
+  if (!line) return false
+  const trimmed = line.trim()
+  return /^\|(?:\s*:?-{3,}:?\s*\|)+$/.test(trimmed)
+}
+
+function splitTableRow(line: string) {
+  return line
+    .trim()
+    .slice(1, -1)
+    .split("|")
+    .map((cell) => cell.trim())
 }
