@@ -44,6 +44,12 @@ describe("simpleMarkdownToHtml", () => {
     expect(html).toContain('<img src="" alt="x"')
   })
 
+  it("does not apply inline markdown transforms inside image alt text", () => {
+    const html = simpleMarkdownToHtml("![my **bold** alt](/docs/img.svg)")
+    expect(html).toContain('alt="my **bold** alt"')
+    expect(html).not.toContain('<img src="/docs/img.svg" alt="my <strong>bold</strong> alt"')
+  })
+
   it("adds anchor ids to headings", () => {
     const html = simpleMarkdownToHtml("## First Section\n### Sub Clause")
     expect(html).toContain('<h2 id="first-section">First Section</h2>')

@@ -23,7 +23,7 @@ Publish clear, versioned, publicly accessible documentation for CLA Bot with **t
 - Deploy CLA Bot on my infrastructure
 
 ## Execution Artifact
-- Detailed implementation checklist: `docs/public-documentation-task-list.md`
+- Detailed implementation checklist: `planning/public-documentation-task-list.md`
 
 ## Success Criteria
 - The public docs homepage clearly routes users into one of the three tracks above.

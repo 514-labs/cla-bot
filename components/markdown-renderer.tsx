@@ -20,6 +20,7 @@ export function MarkdownRenderer({ content, className }: { content: string; clas
 
 export function simpleMarkdownToHtml(md: string): string {
   const escaped = escapeHtml(md)
+  const imageTokens: string[] = []
 
   const html = escaped
     // Headers
@@ -39,7 +40,9 @@ export function simpleMarkdownToHtml(md: string): string {
     .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_match, altText, rawUrl) => {
       const src = sanitizeImageUrl(rawUrl)
       const safeAlt = altText.replaceAll('"', "&quot;")
-      return `<img src="${src}" alt="${safeAlt}" loading="lazy" decoding="async" />`
+      const token = `__IMG_TOKEN_${imageTokens.length}__`
+      imageTokens.push(`<img src="${src}" alt="${safeAlt}" loading="lazy" decoding="async" />`)
+      return token
     })
     // Bold
     .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
@@ -54,6 +57,11 @@ export function simpleMarkdownToHtml(md: string): string {
     })
     // Horizontal rules
     .replace(/^---$/gm, "<hr>")
+    // Restore image placeholders after inline transforms
+    .replace(/__IMG_TOKEN_(\d+)__/g, (_match, index: string) => {
+      const resolved = imageTokens[Number.parseInt(index, 10)]
+      return resolved ?? ""
+    })
 
   // Process lists and blockquotes
   const lines = html.split("\n")
@@ -271,7 +279,7 @@ function isTableRow(line: string | undefined) {
   if (!line) return false
   const trimmed = line.trim()
   if (!trimmed.startsWith("|") || !trimmed.endsWith("|")) return false
-  return trimmed.includes("|")
+  return true
 }
 
 function isTableSeparator(line: string | undefined) {
