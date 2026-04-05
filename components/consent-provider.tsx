@@ -145,8 +145,15 @@ const dialogTheme = {
 } as const
 
 const options = backendURL
-  ? ({ mode: "c15t" as const, backendURL, legalLinks: { privacyPolicy: { href: "/privacy" }, termsOfService: { href: "/terms" } } })
-  : ({ mode: "offline" as const, legalLinks: { privacyPolicy: { href: "/privacy" }, termsOfService: { href: "/terms" } } })
+  ? {
+      mode: "c15t" as const,
+      backendURL,
+      legalLinks: { privacyPolicy: { href: "/privacy" }, termsOfService: { href: "/terms" } },
+    }
+  : {
+      mode: "offline" as const,
+      legalLinks: { privacyPolicy: { href: "/privacy" }, termsOfService: { href: "/terms" } },
+    }
 
 export function ConsentProvider({ children }: { children: React.ReactNode }) {
   return (
