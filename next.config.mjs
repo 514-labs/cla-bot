@@ -25,13 +25,22 @@ const nextConfig = {
   },
   serverExternalPackages: [],
   async headers() {
-    const scriptSrc = ["'self'", "'unsafe-inline'", "https://vercel.live", "https://*.vercel.live"]
+    const scriptSrc = [
+      "'self'",
+      "'unsafe-inline'",
+      "https://vercel.live",
+      "https://*.vercel.live",
+      "https://va.vercel-scripts.com",
+    ]
     const connectSrc = [
       "'self'",
       "https://api.github.com",
       "https://github.com",
       "https://vercel.live",
       "https://*.vercel.live",
+      "https://va.vercel-scripts.com",
+      "https://vitals.vercel-insights.com",
+      "https://*.c15t.dev",
     ]
 
     const csp = [
