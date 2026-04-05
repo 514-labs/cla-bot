@@ -3,8 +3,24 @@ import { jwtVerify } from "jose"
 
 const COOKIE_NAME = "cla-session"
 
-const PROTECTED_PAGE_PREFIXES = ["/admin", "/contributor"]
-const PROTECTED_API_PREFIXES = ["/api/orgs", "/api/contributor", "/api/github/install"]
+/**
+ * Static matcher required by Next.js (must be a literal array — cannot be computed).
+ * This is the single source of truth for which routes the proxy intercepts.
+ */
+export const config = {
+  matcher: [
+    "/admin/:path*",
+    "/contributor/:path*",
+    "/api/orgs/:path*",
+    "/api/contributor/:path*",
+    "/api/github/install/:path*",
+  ],
+}
+
+/** Derive runtime prefix sets from the static matcher. */
+const allPrefixes = config.matcher.map((m) => m.replace("/:path*", ""))
+const PROTECTED_API_PREFIXES = allPrefixes.filter((p) => p.startsWith("/api/"))
+const PROTECTED_PAGE_PREFIXES = allPrefixes.filter((p) => !p.startsWith("/api/"))
 
 export default async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
@@ -38,8 +54,4 @@ async function verifyToken(token: string): Promise<boolean> {
   } catch {
     return false
   }
-}
-
-export const config = {
-  matcher: [...PROTECTED_PAGE_PREFIXES, ...PROTECTED_API_PREFIXES].map((p) => `${p}/:path*`),
 }
