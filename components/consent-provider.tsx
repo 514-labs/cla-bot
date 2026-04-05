@@ -1,7 +1,8 @@
 "use client"
 
 import type React from "react"
-import { ConsentManagerProvider, CookieBanner, ConsentManagerDialog } from "@c15t/nextjs"
+import { ConsentManagerProvider } from "@c15t/nextjs/client"
+import { CookieBanner, ConsentManagerDialog } from "@c15t/nextjs"
 
 const backendURL = process.env.NEXT_PUBLIC_C15T_URL
 
@@ -143,18 +144,13 @@ const dialogTheme = {
   },
 } as const
 
+const options = backendURL
+  ? ({ mode: "c15t" as const, backendURL, legalLinks: { privacyPolicy: { href: "/privacy" }, termsOfService: { href: "/terms" } } })
+  : ({ mode: "offline" as const, legalLinks: { privacyPolicy: { href: "/privacy" }, termsOfService: { href: "/terms" } } })
+
 export function ConsentProvider({ children }: { children: React.ReactNode }) {
   return (
-    <ConsentManagerProvider
-      options={{
-        mode: backendURL ? "c15t" : "offline",
-        backendURL,
-        legalLinks: {
-          privacyPolicy: { href: "/privacy" },
-          termsOfService: { href: "/terms" },
-        },
-      }}
-    >
+    <ConsentManagerProvider options={options}>
       {children}
       <CookieBanner theme={bannerTheme} />
       <ConsentManagerDialog theme={dialogTheme} />
