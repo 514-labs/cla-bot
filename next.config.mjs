@@ -54,6 +54,7 @@ const nextConfig = {
       "img-src 'self' data: https:",
       "font-src 'self' data:",
       `connect-src ${connectSrc.join(" ")}`,
+      "frame-src 'self' https://vercel.live https://*.vercel.live",
       "form-action 'self' https://github.com",
     ].join("; ")
 
