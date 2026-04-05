@@ -28,14 +28,33 @@ const darkButton = {
   "--button-focus-ring": "0 0 0 2px hsl(163 69% 47%)",
 } as const
 
-const primaryButton = {
+const acceptButton = {
+  "--button-background-color": "hsl(163 69% 47%)",
+  "--button-background-color-dark": "hsl(163 69% 47%)",
+  "--button-text": "hsl(204 100% 3%)",
+  "--button-text-dark": "hsl(204 100% 3%)",
+  "--button-text-hover": "hsl(204 100% 3%)",
+  "--button-text-hover-dark": "hsl(204 100% 3%)",
+  "--button-border-color": "hsl(163 69% 47%)",
+  "--button-border-radius": "0.625rem",
+  "--button-neutral-soft": "hsl(163 69% 47%)",
+  "--button-neutral-soft-dark": "hsl(163 69% 47%)",
+  "--button-shadow": "none",
+  "--button-shadow-dark": "none",
+  "--button-shadow-neutral": "none",
+  "--button-shadow-neutral-dark": "none",
+  "--button-shadow-neutral-hover": "none",
+  "--button-shadow-neutral-hover-dark": "none",
+  "--button-shadow-neutral-focus": "0 0 0 2px hsl(163 69% 47%)",
+  "--button-shadow-neutral-focus-dark": "0 0 0 2px hsl(163 69% 47%)",
+  "--button-focus-ring": "0 0 0 2px hsl(163 69% 47%)",
+} as const
+
+const saveButton = {
   "--button-background-color": "hsl(204 100% 3%)",
   "--button-background-color-dark": "hsl(204 100% 3%)",
-  "--button-background-color-hover": "hsl(163 69% 40%)",
   "--button-text": "hsl(0 0% 97%)",
   "--button-text-dark": "hsl(0 0% 97%)",
-  "--button-text-hover": "hsl(0 0% 97%)",
-  "--button-text-hover-dark": "hsl(0 0% 97%)",
   "--button-border-color": "hsl(163 69% 47%)",
   "--button-border-radius": "0.625rem",
   "--button-primary": "hsl(163 69% 47%)",
@@ -71,7 +90,7 @@ const theme = {
   "banner.footer": {
     style: { "--banner-footer-background-color": "hsl(212 36% 10%)" },
   },
-  "banner.footer.accept-button": { style: primaryButton },
+  "banner.footer.accept-button": { style: acceptButton },
   "banner.footer.reject-button": { style: darkButton },
   "banner.footer.customize-button": { style: darkButton },
   "banner.overlay": {
@@ -146,9 +165,9 @@ const theme = {
       "--switch-background-color-checked": "hsl(163 69% 47%)",
     },
   },
-  "widget.footer.accept-button": { style: primaryButton },
+  "widget.footer.accept-button": { style: acceptButton },
   "widget.footer.reject-button": { style: darkButton },
-  "widget.footer.save-button": { style: primaryButton },
+  "widget.footer.save-button": { style: saveButton },
   "widget.branding": {
     style: { display: "none" },
   },
