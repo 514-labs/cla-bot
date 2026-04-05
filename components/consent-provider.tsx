@@ -6,7 +6,27 @@ import { CookieBanner, ConsentManagerDialog } from "@c15t/nextjs"
 
 const backendURL = process.env.NEXT_PUBLIC_C15T_URL
 
-const bannerTheme = {
+const darkButton = {
+  "--button-background-color": "hsl(212 30% 15%)",
+  "--button-background-color-hover": "hsl(212 30% 20%)",
+  "--button-text": "hsl(0 0% 97%)",
+  "--button-border-color": "hsl(213 19% 25%)",
+  "--button-border-radius": "0.625rem",
+  "--button-shadow": "none",
+  "--button-shadow-neutral-focus": "0 0 0 2px hsl(213 19% 25%)",
+} as const
+
+const primaryButton = {
+  "--button-background-color": "hsl(163 69% 47%)",
+  "--button-background-color-hover": "hsl(163 69% 40%)",
+  "--button-text": "hsl(204 100% 3%)",
+  "--button-border-color": "hsl(163 69% 47%)",
+  "--button-border-radius": "0.625rem",
+  "--button-shadow": "none",
+  "--button-shadow-primary-focus": "0 0 0 2px hsl(163 69% 47%)",
+} as const
+
+const theme = {
   "banner.card": {
     style: {
       "--banner-background-color": "hsl(212 36% 10%)",
@@ -16,81 +36,39 @@ const bannerTheme = {
     },
   },
   "banner.header.title": {
-    style: {
-      "--banner-title-color": "hsl(0 0% 97%)",
-    },
+    style: { "--banner-title-color": "hsl(0 0% 97%)" },
   },
   "banner.header.description": {
-    style: {
-      "--banner-description-color": "hsl(213 14% 70%)",
-    },
+    style: { "--banner-description-color": "hsl(213 14% 70%)" },
   },
   "banner.footer": {
-    style: {
-      "--banner-footer-background-color": "hsl(212 36% 10%)",
-    },
+    style: { "--banner-footer-background-color": "hsl(212 36% 10%)" },
   },
-  "banner.footer.accept-button": {
-    style: {
-      "--button-background-color": "hsl(163 69% 47%)",
-      "--button-background-color-hover": "hsl(163 69% 40%)",
-      "--button-text": "hsl(204 100% 3%)",
-      "--button-border-color": "hsl(163 69% 47%)",
-      "--button-border-radius": "0.625rem",
-    },
-  },
-  "banner.footer.reject-button": {
-    style: {
-      "--button-background-color": "hsl(212 30% 15%)",
-      "--button-background-color-hover": "hsl(212 30% 20%)",
-      "--button-text": "hsl(0 0% 97%)",
-      "--button-border-color": "hsl(213 19% 25%)",
-      "--button-border-radius": "0.625rem",
-    },
-  },
-  "banner.footer.customize-button": {
-    style: {
-      "--button-background-color": "hsl(212 30% 15%)",
-      "--button-background-color-hover": "hsl(212 30% 20%)",
-      "--button-text": "hsl(0 0% 97%)",
-      "--button-border-color": "hsl(213 19% 25%)",
-      "--button-border-radius": "0.625rem",
-    },
-  },
+  "banner.footer.accept-button": { style: primaryButton },
+  "banner.footer.reject-button": { style: darkButton },
+  "banner.footer.customize-button": { style: darkButton },
   "banner.overlay": {
-    style: {
-      "--banner-overlay-background-color": "rgba(0,0,0,0.6)",
-    },
+    style: { "--banner-overlay-background-color": "rgba(0,0,0,0.6)" },
   },
-} as const
-
-const dialogTheme = {
+  "dialog.root": {
+    style: { "--widget-font-family": "var(--font-body), sans-serif" },
+  },
   "dialog.card": {
     style: {
       "--banner-background-color": "hsl(212 36% 10%)",
       "--banner-border-color": "hsl(213 19% 25%)",
       "--banner-border-radius": "0.875rem",
+      "--banner-shadow": "0 8px 32px rgba(0,0,0,0.4)",
     },
   },
   "dialog.title": {
-    style: {
-      "--banner-title-color": "hsl(0 0% 97%)",
-    },
+    style: { "--banner-title-color": "hsl(0 0% 97%)" },
   },
   "dialog.description": {
-    style: {
-      "--banner-description-color": "hsl(213 14% 70%)",
-    },
+    style: { "--banner-description-color": "hsl(213 14% 70%)" },
   },
   "dialog.overlay": {
-    style: {
-      "--banner-overlay-background-color": "rgba(0,0,0,0.6)",
-    },
-  },
-  "widget.root": {
-    style: {
-      "--widget-font-family": "var(--font-body), sans-serif",
-    },
+    style: { "--banner-overlay-background-color": "rgba(0,0,0,0.6)" },
   },
   "widget.accordion": {
     style: {
@@ -115,32 +93,11 @@ const dialogTheme = {
       "--switch-background-color-checked": "hsl(163 69% 47%)",
     },
   },
-  "widget.footer.accept-button": {
-    style: {
-      "--button-background-color": "hsl(163 69% 47%)",
-      "--button-background-color-hover": "hsl(163 69% 40%)",
-      "--button-text": "hsl(204 100% 3%)",
-      "--button-border-color": "hsl(163 69% 47%)",
-      "--button-border-radius": "0.625rem",
-    },
-  },
-  "widget.footer.reject-button": {
-    style: {
-      "--button-background-color": "hsl(212 30% 15%)",
-      "--button-background-color-hover": "hsl(212 30% 20%)",
-      "--button-text": "hsl(0 0% 97%)",
-      "--button-border-color": "hsl(213 19% 25%)",
-      "--button-border-radius": "0.625rem",
-    },
-  },
-  "widget.footer.save-button": {
-    style: {
-      "--button-background-color": "hsl(163 69% 47%)",
-      "--button-background-color-hover": "hsl(163 69% 40%)",
-      "--button-text": "hsl(204 100% 3%)",
-      "--button-border-color": "hsl(163 69% 47%)",
-      "--button-border-radius": "0.625rem",
-    },
+  "widget.footer.accept-button": { style: primaryButton },
+  "widget.footer.reject-button": { style: darkButton },
+  "widget.footer.save-button": { style: primaryButton },
+  "widget.branding": {
+    style: { color: "hsl(213 14% 70%)" },
   },
 } as const
 
@@ -159,8 +116,8 @@ export function ConsentProvider({ children }: { children: React.ReactNode }) {
   return (
     <ConsentManagerProvider options={options}>
       {children}
-      <CookieBanner theme={bannerTheme} />
-      <ConsentManagerDialog theme={dialogTheme} />
+      <CookieBanner theme={theme} />
+      <ConsentManagerDialog theme={theme} />
     </ConsentManagerProvider>
   )
 }
