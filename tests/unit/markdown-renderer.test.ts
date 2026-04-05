@@ -24,6 +24,12 @@ describe("simpleMarkdownToHtml", () => {
     expect(html).toContain('rel="noopener noreferrer"')
   })
 
+  it("adds anchor ids to headings", () => {
+    const html = simpleMarkdownToHtml("## First Section\n### Sub Clause")
+    expect(html).toContain('<h2 id="first-section">First Section</h2>')
+    expect(html).toContain('<h3 id="sub-clause">Sub Clause</h3>')
+  })
+
   it("preserves authored ordered-list numbers", () => {
     const html = simpleMarkdownToHtml("1. One\n2. Two\n7. Seven")
     expect(html).toContain('<li value="1">One</li>')

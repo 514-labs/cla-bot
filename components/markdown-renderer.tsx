@@ -22,9 +22,18 @@ export function simpleMarkdownToHtml(md: string): string {
 
   const html = escaped
     // Headers
-    .replace(/^### (.+)$/gm, "<h3>$1</h3>")
-    .replace(/^## (.+)$/gm, "<h2>$1</h2>")
-    .replace(/^# (.+)$/gm, "<h1>$1</h1>")
+    .replace(/^### (.+)$/gm, (_match, heading: string) => {
+      const id = slugifyHeading(heading)
+      return `<h3 id="${id}">${heading}</h3>`
+    })
+    .replace(/^## (.+)$/gm, (_match, heading: string) => {
+      const id = slugifyHeading(heading)
+      return `<h2 id="${id}">${heading}</h2>`
+    })
+    .replace(/^# (.+)$/gm, (_match, heading: string) => {
+      const id = slugifyHeading(heading)
+      return `<h1 id="${id}">${heading}</h1>`
+    })
     // Bold
     .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
     // Italic
@@ -191,4 +200,13 @@ function sanitizeLinkUrl(rawUrl: string) {
   }
 
   return { href: "#", attrs: "" }
+}
+
+function slugifyHeading(text: string) {
+  return text
+    .toLowerCase()
+    .replace(/&[^;\s]+;/g, "")
+    .replace(/[^a-z0-9\s-]/g, "")
+    .trim()
+    .replace(/\s+/g, "-")
 }
