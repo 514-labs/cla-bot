@@ -1,8 +1,5 @@
 # Manage the Installation (Admin)
 
-## Screenshot
-![Admin manage installation screenshot](/docs/screenshots/admin-manage.svg)
-
 ## Purpose
 Operate CLA Bot after initial setup for an organization.
 

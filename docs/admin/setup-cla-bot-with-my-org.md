@@ -1,8 +1,5 @@
 # Setup CLA Bot with My Org (Admin)
 
-## Screenshot
-![Admin setup screenshot](/docs/screenshots/admin-setup.svg)
-
 ## Purpose
 Install CLA Bot for your organization and configure initial CLA enforcement.
 

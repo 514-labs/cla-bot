@@ -1,8 +1,5 @@
 # Signing a CLA (Contributor)
 
-## Screenshot
-![Contributor signing screenshot](/docs/screenshots/contributor-signing.svg)
-
 ## Purpose
 Sign or re-sign an organization's current Contributor License Agreement so CLA checks pass on your pull requests.
 

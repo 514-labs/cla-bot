@@ -1,8 +1,5 @@
 # Deploy CLA Bot on My Infrastructure (Operator)
 
-## Screenshot
-![Operator deploy screenshot](/docs/screenshots/operator-deploy.svg)
-
 ## Purpose
 Run CLA Bot in your own infrastructure with production-ready configuration.
 
