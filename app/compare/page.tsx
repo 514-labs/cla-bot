@@ -568,6 +568,34 @@ export default function ComparePage() {
           </div>
         </section>
 
+        {/* Correction notice */}
+        <section className="border-t border-white/10 px-4 py-10">
+          <div className="mx-auto max-w-5xl">
+            <p className="text-center text-sm leading-relaxed text-muted-foreground">
+              We strive to keep this comparison accurate and fair. If you spot a mistake or
+              something has changed,{" "}
+              <a
+                href="https://github.com/514-labs/cla-bot/issues/new?title=Comparison+page+correction&labels=documentation"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary hover:underline"
+              >
+                open an issue
+              </a>{" "}
+              or{" "}
+              <a
+                href="https://github.com/514-labs/cla-bot/edit/main/app/compare/page.tsx"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary hover:underline"
+              >
+                submit a PR
+              </a>{" "}
+              to correct it.
+            </p>
+          </div>
+        </section>
+
         {/* CTA */}
         <section className="border-t border-white/10 px-4 py-20">
           <div className="mx-auto max-w-5xl text-center">
