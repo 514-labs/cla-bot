@@ -29,14 +29,17 @@ const darkButton = {
 } as const
 
 const primaryButton = {
-  "--button-background-color": "hsl(163 69% 47%)",
+  "--button-background-color": "hsl(204 100% 3%)",
+  "--button-background-color-dark": "hsl(204 100% 3%)",
   "--button-background-color-hover": "hsl(163 69% 40%)",
   "--button-text": "hsl(204 100% 3%)",
   "--button-text-hover": "hsl(204 100% 3%)",
   "--button-border-color": "hsl(163 69% 47%)",
   "--button-border-radius": "0.625rem",
   "--button-primary": "hsl(163 69% 47%)",
+  "--button-primary-dark": "hsl(163 69% 47%)",
   "--button-primary-hover": "hsl(163 69% 40%)",
+  "--button-primary-hover-dark": "hsl(163 69% 40%)",
   "--button-shadow": "none",
   "--button-shadow-dark": "none",
   "--button-shadow-primary": "none",
@@ -145,7 +148,7 @@ const theme = {
   "widget.footer.reject-button": { style: darkButton },
   "widget.footer.save-button": { style: primaryButton },
   "widget.branding": {
-    style: { color: "hsl(213 14% 70%)" },
+    style: { display: "none" },
   },
 } as const
 
