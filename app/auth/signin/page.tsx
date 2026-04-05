@@ -7,10 +7,11 @@ import Link from "next/link"
 export default async function SignInPage({
   searchParams,
 }: {
-  searchParams: Promise<{ returnTo?: string }>
+  searchParams: Promise<{ returnTo?: string; reason?: string }>
 }) {
   const params = await searchParams
   const returnTo = sanitizeReturnTo(params.returnTo ?? null, "/dashboard")
+  const sessionExpired = params.reason === "session_expired"
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center px-4">
@@ -21,6 +22,12 @@ export default async function SignInPage({
           subtitleClassName="text-xs"
         />
       </Link>
+
+      {sessionExpired && (
+        <div className="mb-4 w-full max-w-sm rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-center text-sm text-amber-200">
+          Your session has expired. Please sign in again.
+        </div>
+      )}
 
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
