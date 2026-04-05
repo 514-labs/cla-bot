@@ -22,5 +22,5 @@ Download a CLA version from your personal signing history.
 - **404/Not found**: the signature record does not exist.
 
 ## Related
-- [See all CLAs I signed](./signed-cla-history.md)
-- [Contributor FAQ](./faq.md)
+- [See all CLAs I signed](/docs/contributor/signed-cla-history)
+- [Contributor FAQ](/docs/contributor/faq)

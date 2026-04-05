@@ -31,6 +31,6 @@ These parameters let CLA Bot target the relevant PR when updating CLA status aft
 - **PR still failing immediately after signing**: wait for async check sync, then refresh PR checks.
 
 ## Related
-- [See all CLAs I signed](./signed-cla-history.md)
-- [Download a CLA](./download-a-cla.md)
-- [Contributor FAQ](./faq.md)
+- [See all CLAs I signed](/docs/contributor/signed-cla-history)
+- [Download a CLA](/docs/contributor/download-a-cla)
+- [Contributor FAQ](/docs/contributor/faq)

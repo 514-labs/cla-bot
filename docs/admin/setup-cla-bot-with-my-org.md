@@ -27,5 +27,5 @@ To block merges for non-compliant PRs, require this status check in branch prote
 - Signing URL tested by a non-member account
 
 ## Related
-- [Manage the installation](./manage-installation.md)
-- [Admin FAQ](./faq.md)
+- [Manage the installation](/docs/admin/manage-installation)
+- [Admin FAQ](/docs/admin/faq)

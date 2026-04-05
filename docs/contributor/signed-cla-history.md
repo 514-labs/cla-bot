@@ -22,6 +22,6 @@ View your full CLA signature history across organizations.
 You can audit what you signed, when you signed it, and whether you must re-sign for any org.
 
 ## Related
-- [Signing a CLA](./signing-a-cla.md)
-- [Download a CLA](./download-a-cla.md)
-- [Contributor FAQ](./faq.md)
+- [Signing a CLA](/docs/contributor/signing-a-cla)
+- [Download a CLA](/docs/contributor/download-a-cla)
+- [Contributor FAQ](/docs/contributor/faq)

@@ -45,4 +45,4 @@ Use Drizzle migrations in `drizzle/`. Do not apply ad hoc manual schema edits ou
 | App boot fails on deploy | DB unreachable or migrations pending | Validate `DATABASE_URL`, run `pnpm db:migrate`, retry |
 
 ## Related
-- [Documentation Home](../index.md)
+- [Documentation Home](/docs)

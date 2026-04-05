@@ -26,5 +26,5 @@ Supported tabs are controlled by `?tab=`:
 CLA Bot schedules async rechecks of relevant open PRs so status/comments converge with current policy.
 
 ## Related
-- [Setup CLA Bot with my org](./setup-cla-bot-with-my-org.md)
-- [Admin FAQ](./faq.md)
+- [Setup CLA Bot with my org](/docs/admin/setup-cla-bot-with-my-org)
+- [Admin FAQ](/docs/admin/faq)
