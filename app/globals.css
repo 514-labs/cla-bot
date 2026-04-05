@@ -244,3 +244,9 @@ h4 {
 .cla-markdown sub a {
   @apply text-muted-foreground hover:text-foreground;
 }
+
+/* Hide c15t consent branding */
+dialog [class*="c15t-branding"],
+[class*="c15t-footer"] > [class*="c15t-branding"] {
+  display: none;
+}
