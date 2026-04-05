@@ -13,6 +13,17 @@ describe("simpleMarkdownToHtml", () => {
     expect(html).toContain('href="#"')
   })
 
+  it("allows internal links", () => {
+    const html = simpleMarkdownToHtml("[docs](/docs)")
+    expect(html).toContain('href="/docs"')
+  })
+
+  it("opens external links in a new tab", () => {
+    const html = simpleMarkdownToHtml("[site](https://example.com)")
+    expect(html).toContain('target="_blank"')
+    expect(html).toContain('rel="noopener noreferrer"')
+  })
+
   it("preserves authored ordered-list numbers", () => {
     const html = simpleMarkdownToHtml("1. One\n2. Two\n7. Seven")
     expect(html).toContain('<li value="1">One</li>')

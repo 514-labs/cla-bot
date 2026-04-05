@@ -18,6 +18,7 @@ type SiteHeaderClientProps = {
 const navItems = [
   { href: "/admin", label: "Admin" },
   { href: "/contributor", label: "Contributor" },
+  { href: "/docs", label: "Docs" },
 ]
 
 export function SiteHeaderClient({ user }: SiteHeaderClientProps) {

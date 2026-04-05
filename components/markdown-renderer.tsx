@@ -33,11 +33,8 @@ export function simpleMarkdownToHtml(md: string): string {
     .replace(/`(.+?)`/g, "<code>$1</code>")
     // Links: [text](url)
     .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_match, text, rawUrl) => {
-      const safeUrl = sanitizeLinkUrl(rawUrl)
-      return `<a href="${safeUrl}" target="_blank" rel="noopener noreferrer">$1</a>`.replace(
-        "$1",
-        text
-      )
+      const { href, attrs } = sanitizeLinkUrl(rawUrl)
+      return `<a href="${href}"${attrs}>$1</a>`.replace("$1", text)
     })
     // Horizontal rules
     .replace(/^---$/gm, "<hr>")
@@ -171,12 +168,27 @@ function escapeHtml(input: string) {
 
 function sanitizeLinkUrl(rawUrl: string) {
   const trimmed = rawUrl.trim()
+  const escapedHref = trimmed.replaceAll('"', "&quot;")
+
   if (
     trimmed.startsWith("http://") ||
     trimmed.startsWith("https://") ||
     trimmed.startsWith("mailto:")
   ) {
-    return trimmed.replaceAll('"', "&quot;")
+    return {
+      href: escapedHref,
+      attrs: ' target="_blank" rel="noopener noreferrer"',
+    }
   }
-  return "#"
+
+  if (
+    trimmed.startsWith("/") ||
+    trimmed.startsWith("./") ||
+    trimmed.startsWith("../") ||
+    trimmed.startsWith("#")
+  ) {
+    return { href: escapedHref, attrs: "" }
+  }
+
+  return { href: "#", attrs: "" }
 }
