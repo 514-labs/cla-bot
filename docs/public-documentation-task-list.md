@@ -26,7 +26,7 @@ This checklist translates the documentation plan into concrete implementation wo
   - Sign page: `/sign/[orgSlug]`
   - Signing API: `POST /api/sign/[orgSlug]`
 - [x] Explain special query params (`repo`, `pr`) used during PR-driven signing links.
-- [ ] Add screenshots or UI callouts for:
+- [ ] Add UI callouts for:
   - sign-in required state
   - scroll-to-bottom before sign enabled
   - signed/re-sign required states
