@@ -30,6 +30,17 @@ describe("simpleMarkdownToHtml", () => {
     expect(html).toContain('<h3 id="sub-clause">Sub Clause</h3>')
   })
 
+  it("renders markdown pipe tables", () => {
+    const html = simpleMarkdownToHtml(
+      "| Symptom | Action |\n| --- | --- |\n| Failing check | Re-sign CLA |\n| Missing auth | Sign in |"
+    )
+    expect(html).toContain("<table>")
+    expect(html).toContain("<thead>")
+    expect(html).toContain("<tbody>")
+    expect(html).toContain("<th>Symptom</th>")
+    expect(html).toContain("<td>Re-sign CLA</td>")
+  })
+
   it("preserves authored ordered-list numbers", () => {
     const html = simpleMarkdownToHtml("1. One\n2. Two\n7. Seven")
     expect(html).toContain('<li value="1">One</li>')

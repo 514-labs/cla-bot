@@ -76,10 +76,47 @@ export function simpleMarkdownToHtml(md: string): string {
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
+    const nextLine = lines[i + 1]
     const olMatch = line.match(/^(\s*)(\d+)[.)]\s+(.+)$/)
     const alphaMatch = line.match(/^(\s*)([a-zA-Z])[.)]\s+(.+)$/)
     const ulMatch = line.match(/^(\s*)[-*]\s+(.+)$/)
     const bqMatch = line.match(/^>\s?(.*)$/)
+    const startsTable = isTableRow(line) && isTableSeparator(nextLine)
+
+    if (startsTable) {
+      listState = closeList(listState)
+      if (inBlockquote) {
+        result.push("</blockquote>")
+        inBlockquote = false
+      }
+
+      const headers = splitTableRow(line)
+      result.push("<table>")
+      result.push("<thead>")
+      result.push("<tr>")
+      for (const header of headers) {
+        result.push(`<th>${header}</th>`)
+      }
+      result.push("</tr>")
+      result.push("</thead>")
+      result.push("<tbody>")
+
+      i += 2
+      while (i < lines.length && isTableRow(lines[i])) {
+        const cells = splitTableRow(lines[i])
+        result.push("<tr>")
+        for (const cell of cells) {
+          result.push(`<td>${cell}</td>`)
+        }
+        result.push("</tr>")
+        i += 1
+      }
+      result.push("</tbody>")
+      result.push("</table>")
+
+      i -= 1
+      continue
+    }
 
     if (olMatch) {
       const indent = getListIndentLevel(olMatch[1])
@@ -209,4 +246,25 @@ function slugifyHeading(text: string) {
     .replace(/[^a-z0-9\s-]/g, "")
     .trim()
     .replace(/\s+/g, "-")
+}
+
+function isTableRow(line: string | undefined) {
+  if (!line) return false
+  const trimmed = line.trim()
+  if (!trimmed.startsWith("|") || !trimmed.endsWith("|")) return false
+  return trimmed.includes("|")
+}
+
+function isTableSeparator(line: string | undefined) {
+  if (!line) return false
+  const trimmed = line.trim()
+  return /^\|(?:\s*:?-{3,}:?\s*\|)+$/.test(trimmed)
+}
+
+function splitTableRow(line: string) {
+  return line
+    .trim()
+    .slice(1, -1)
+    .split("|")
+    .map((cell) => cell.trim())
 }
