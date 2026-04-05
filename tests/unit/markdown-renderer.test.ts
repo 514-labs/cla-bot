@@ -24,6 +24,13 @@ describe("simpleMarkdownToHtml", () => {
     expect(html).toContain('rel="noopener noreferrer"')
   })
 
+  it("treats protocol-relative links as external", () => {
+    const html = simpleMarkdownToHtml("[offsite](//evil.com)")
+    expect(html).toContain('href="//evil.com"')
+    expect(html).toContain('target="_blank"')
+    expect(html).toContain('rel="noopener noreferrer"')
+  })
+
   it("renders markdown images", () => {
     const html = simpleMarkdownToHtml(
       "![Contributor signing screenshot](/docs/screenshots/foo.svg)"

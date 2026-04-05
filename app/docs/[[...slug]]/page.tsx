@@ -4,6 +4,7 @@ import { notFound } from "next/navigation"
 import { MarkdownRenderer } from "@/components/markdown-renderer"
 import { SiteHeader } from "@/components/site-header"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { slugifyHeading } from "@/lib/markdown"
 import { getAllDocRoutes, getDocRoute, getDocsNav, readDocContent } from "@/lib/docs"
 
 type PageProps = {
@@ -23,15 +24,6 @@ function toHref(slug: string[]) {
 function sectionLabel(section: string) {
   if (section === "home") return "Documentation"
   return `${section[0].toUpperCase()}${section.slice(1)} Guide`
-}
-
-function slugifyHeading(text: string) {
-  return text
-    .toLowerCase()
-    .replace(/&[^\s;]+;/g, "")
-    .replace(/[^a-z0-9\s-]/g, "")
-    .trim()
-    .replace(/\s+/g, "-")
 }
 
 function extractToc(markdown: string): TocItem[] {

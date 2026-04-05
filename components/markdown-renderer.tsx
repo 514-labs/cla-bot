@@ -1,6 +1,7 @@
 "use client"
 
 import { cn } from "@/lib/utils"
+import { slugifyHeading } from "@/lib/markdown"
 
 /**
  * A simple markdown-to-HTML renderer for CLA display.
@@ -222,6 +223,13 @@ function sanitizeLinkUrl(rawUrl: string) {
   const trimmed = rawUrl.trim()
   const escapedHref = trimmed.replaceAll('"', "&quot;")
 
+  if (trimmed.startsWith("//")) {
+    return {
+      href: escapedHref,
+      attrs: ' target="_blank" rel="noopener noreferrer"',
+    }
+  }
+
   if (
     trimmed.startsWith("http://") ||
     trimmed.startsWith("https://") ||
@@ -234,7 +242,7 @@ function sanitizeLinkUrl(rawUrl: string) {
   }
 
   if (
-    trimmed.startsWith("/") ||
+    (trimmed.startsWith("/") && !trimmed.startsWith("//")) ||
     trimmed.startsWith("./") ||
     trimmed.startsWith("../") ||
     trimmed.startsWith("#")
@@ -250,22 +258,13 @@ function sanitizeImageUrl(rawUrl: string) {
   if (
     trimmed.startsWith("http://") ||
     trimmed.startsWith("https://") ||
-    trimmed.startsWith("/") ||
+    (trimmed.startsWith("/") && !trimmed.startsWith("//")) ||
     trimmed.startsWith("./") ||
     trimmed.startsWith("../")
   ) {
     return trimmed.replaceAll('"', "&quot;")
   }
   return ""
-}
-
-function slugifyHeading(text: string) {
-  return text
-    .toLowerCase()
-    .replace(/&[^;\s]+;/g, "")
-    .replace(/[^a-z0-9\s-]/g, "")
-    .trim()
-    .replace(/\s+/g, "-")
 }
 
 function isTableRow(line: string | undefined) {
