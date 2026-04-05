@@ -10,20 +10,42 @@ const darkButton = {
   "--button-background-color": "hsl(212 30% 15%)",
   "--button-background-color-hover": "hsl(212 30% 20%)",
   "--button-text": "hsl(0 0% 97%)",
+  "--button-text-hover": "hsl(0 0% 97%)",
   "--button-border-color": "hsl(213 19% 25%)",
   "--button-border-radius": "0.625rem",
+  "--button-neutral": "hsl(213 19% 25%)",
+  "--button-neutral-hover": "hsl(213 19% 30%)",
+  "--button-neutral-soft": "hsl(212 30% 15%)",
+  "--button-neutral-soft-dark": "hsl(212 30% 15%)",
   "--button-shadow": "none",
-  "--button-shadow-neutral-focus": "0 0 0 2px hsl(213 19% 25%)",
+  "--button-shadow-dark": "none",
+  "--button-shadow-neutral": "none",
+  "--button-shadow-neutral-dark": "none",
+  "--button-shadow-neutral-hover": "none",
+  "--button-shadow-neutral-hover-dark": "none",
+  "--button-shadow-neutral-focus": "0 0 0 2px hsl(163 69% 47%)",
+  "--button-shadow-neutral-focus-dark": "0 0 0 2px hsl(163 69% 47%)",
+  "--button-focus-ring": "0 0 0 2px hsl(163 69% 47%)",
 } as const
 
 const primaryButton = {
   "--button-background-color": "hsl(163 69% 47%)",
   "--button-background-color-hover": "hsl(163 69% 40%)",
   "--button-text": "hsl(204 100% 3%)",
+  "--button-text-hover": "hsl(204 100% 3%)",
   "--button-border-color": "hsl(163 69% 47%)",
   "--button-border-radius": "0.625rem",
+  "--button-primary": "hsl(163 69% 47%)",
+  "--button-primary-hover": "hsl(163 69% 40%)",
   "--button-shadow": "none",
+  "--button-shadow-dark": "none",
+  "--button-shadow-primary": "none",
+  "--button-shadow-primary-dark": "none",
+  "--button-shadow-primary-hover": "none",
+  "--button-shadow-primary-hover-dark": "none",
   "--button-shadow-primary-focus": "0 0 0 2px hsl(163 69% 47%)",
+  "--button-shadow-primary-focus-dark": "0 0 0 2px hsl(163 69% 47%)",
+  "--button-focus-ring": "0 0 0 2px hsl(163 69% 47%)",
 } as const
 
 const theme = {
@@ -51,24 +73,18 @@ const theme = {
     style: { "--banner-overlay-background-color": "rgba(0,0,0,0.6)" },
   },
   "dialog.root": {
-    style: { "--widget-font-family": "var(--font-body), sans-serif" },
-  },
-  "dialog.card": {
     style: {
-      "--banner-background-color": "hsl(212 36% 10%)",
-      "--banner-border-color": "hsl(213 19% 25%)",
-      "--banner-border-radius": "0.875rem",
-      "--banner-shadow": "0 8px 32px rgba(0,0,0,0.4)",
+      "--dialog-font-family": "var(--font-body), sans-serif",
+      "--dialog-background-color": "hsl(212 36% 10%)",
+      "--dialog-foreground-color": "hsl(0 0% 97%)",
+      "--dialog-border-color": "hsl(213 19% 25%)",
+      "--dialog-stroke-color": "hsl(213 19% 25%)",
+      "--dialog-muted-color": "hsl(213 14% 70%)",
+      "--dialog-card-radius": "0.875rem",
+      "--dialog-card-shadow": "0 8px 32px rgba(0,0,0,0.4)",
+      "--dialog-overlay-background-color": "rgba(0,0,0,0.6)",
+      "--dialog-link-text-color": "hsl(0 0% 97%)",
     },
-  },
-  "dialog.title": {
-    style: { "--banner-title-color": "hsl(0 0% 97%)" },
-  },
-  "dialog.description": {
-    style: { "--banner-description-color": "hsl(213 14% 70%)" },
-  },
-  "dialog.overlay": {
-    style: { "--banner-overlay-background-color": "rgba(0,0,0,0.6)" },
   },
   "widget.accordion": {
     style: {
