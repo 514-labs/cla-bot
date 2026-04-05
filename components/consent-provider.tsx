@@ -51,6 +51,28 @@ const acceptButton = {
   "--button-focus-ring": "0 0 0 2px hsl(163 69% 47%)",
 } as const
 
+const customizeButton = {
+  "--button-background-color": "hsl(212 30% 15%)",
+  "--button-background-color-dark": "hsl(212 30% 15%)",
+  "--button-text": "hsl(213 14% 70%)",
+  "--button-text-dark": "hsl(213 14% 70%)",
+  "--button-border-color": "hsl(213 19% 25%)",
+  "--button-border-radius": "0.625rem",
+  "--button-primary": "hsl(213 14% 70%)",
+  "--button-primary-dark": "hsl(213 14% 70%)",
+  "--button-primary-hover": "hsl(213 14% 80%)",
+  "--button-primary-hover-dark": "hsl(213 14% 80%)",
+  "--button-shadow": "none",
+  "--button-shadow-dark": "none",
+  "--button-shadow-primary": "inset 0 0 0 1px hsl(213 19% 25%)",
+  "--button-shadow-primary-dark": "inset 0 0 0 1px hsl(213 19% 25%)",
+  "--button-shadow-primary-hover": "inset 0 0 0 1px hsl(213 19% 30%)",
+  "--button-shadow-primary-hover-dark": "inset 0 0 0 1px hsl(213 19% 30%)",
+  "--button-shadow-primary-focus": "0 0 0 2px hsl(163 69% 47%)",
+  "--button-shadow-primary-focus-dark": "0 0 0 2px hsl(163 69% 47%)",
+  "--button-focus-ring": "0 0 0 2px hsl(163 69% 47%)",
+} as const
+
 const saveButton = {
   "--button-background-color": "hsl(163 69% 47%)",
   "--button-background-color-dark": "hsl(163 69% 47%)",
@@ -93,7 +115,7 @@ const theme = {
   },
   "banner.footer.accept-button": { style: acceptButton },
   "banner.footer.reject-button": { style: darkButton },
-  "banner.footer.customize-button": { style: darkButton },
+  "banner.footer.customize-button": { style: customizeButton },
   "banner.overlay": {
     style: { "--banner-overlay-background-color": "rgba(0,0,0,0.6)" },
   },
@@ -170,6 +192,9 @@ const theme = {
   "widget.footer.reject-button": { style: darkButton },
   "widget.footer.save-button": { style: saveButton },
   "widget.branding": {
+    style: { display: "none" },
+  },
+  "dialog.footer": {
     style: { display: "none" },
   },
 } as const
