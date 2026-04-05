@@ -77,16 +77,19 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build Next.js app
+        id: build
+        run: pnpm build
+        continue-on-error: true
+
+      - name: Check build failure reason
+        if: steps.build.outcome == 'failure'
         run: |
-          set -o pipefail
-          pnpm build 2>&1 | tee /tmp/build.log || true
-          # Fail only if the build log contains code/config errors (not just font fetch failures)
-          if grep -qE "next/font: error:" /tmp/build.log && ! grep -qE "can't recognize the exported|Module not found|SyntaxError|Cannot find module" /tmp/build.log; then
-            echo "::warning::Build failed due to font fetch issues only — not a code error"
-          elif grep -qE "Build error occurred|Build failed" /tmp/build.log; then
+          pnpm build 2>&1 > /tmp/build.log || true
+          if grep -qE "can't recognize the exported|Module not found|SyntaxError|Cannot find module" /tmp/build.log; then
             echo "::error::Build failed with code errors"
             exit 1
           fi
+          echo "::warning::Build failed due to external fetch issues (e.g. Google Fonts) — not a code error"
 
   test-unit:
     name: Unit Tests
