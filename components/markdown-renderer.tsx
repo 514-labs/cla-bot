@@ -34,6 +34,12 @@ export function simpleMarkdownToHtml(md: string): string {
       const id = slugifyHeading(heading)
       return `<h1 id="${id}">${heading}</h1>`
     })
+    // Images: ![alt](url)
+    .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_match, altText, rawUrl) => {
+      const src = sanitizeImageUrl(rawUrl)
+      const safeAlt = altText.replaceAll('"', "&quot;")
+      return `<img src="${src}" alt="${safeAlt}" loading="lazy" decoding="async" />`
+    })
     // Bold
     .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
     // Italic
@@ -237,6 +243,20 @@ function sanitizeLinkUrl(rawUrl: string) {
   }
 
   return { href: "#", attrs: "" }
+}
+
+function sanitizeImageUrl(rawUrl: string) {
+  const trimmed = rawUrl.trim()
+  if (
+    trimmed.startsWith("http://") ||
+    trimmed.startsWith("https://") ||
+    trimmed.startsWith("/") ||
+    trimmed.startsWith("./") ||
+    trimmed.startsWith("../")
+  ) {
+    return trimmed.replaceAll('"', "&quot;")
+  }
+  return ""
 }
 
 function slugifyHeading(text: string) {

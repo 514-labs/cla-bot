@@ -24,6 +24,19 @@ describe("simpleMarkdownToHtml", () => {
     expect(html).toContain('rel="noopener noreferrer"')
   })
 
+  it("renders markdown images", () => {
+    const html = simpleMarkdownToHtml(
+      "![Contributor signing screenshot](/docs/screenshots/foo.svg)"
+    )
+    expect(html).toContain('<img src="/docs/screenshots/foo.svg"')
+    expect(html).toContain('alt="Contributor signing screenshot"')
+  })
+
+  it("sanitizes unsafe image urls", () => {
+    const html = simpleMarkdownToHtml("![x](javascript:alert(1))")
+    expect(html).toContain('<img src="" alt="x"')
+  })
+
   it("adds anchor ids to headings", () => {
     const html = simpleMarkdownToHtml("## First Section\n### Sub Clause")
     expect(html).toContain('<h2 id="first-section">First Section</h2>')
