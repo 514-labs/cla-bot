@@ -1,7 +1,8 @@
 "use client"
 
 import type React from "react"
-import { ConsentManagerProvider } from "@c15t/nextjs/client"
+import { useEffect, useCallback } from "react"
+import { ConsentManagerProvider, useConsentManager } from "@c15t/nextjs/client"
 import { CookieBanner, ConsentManagerDialog } from "@c15t/nextjs"
 
 const backendURL = process.env.NEXT_PUBLIC_C15T_URL
@@ -184,12 +185,49 @@ const options = backendURL
       legalLinks: { privacyPolicy: { href: "/privacy" }, termsOfService: { href: "/terms" } },
     }
 
+function DialogDismissHandler() {
+  const { isPrivacyDialogOpen, setIsPrivacyDialogOpen, setShowPopup } = useConsentManager()
+
+  const dismiss = useCallback(() => {
+    setIsPrivacyDialogOpen(false)
+    setShowPopup(true)
+  }, [setIsPrivacyDialogOpen, setShowPopup])
+
+  useEffect(() => {
+    if (!isPrivacyDialogOpen) return
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault()
+        dismiss()
+      }
+    }
+
+    const handleClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement
+      if (target.dataset.testid === "consent-manager-dialog-overlay") {
+        dismiss()
+      }
+    }
+
+    document.addEventListener("keydown", handleKeyDown)
+    document.addEventListener("click", handleClick)
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown)
+      document.removeEventListener("click", handleClick)
+    }
+  }, [isPrivacyDialogOpen, dismiss])
+
+  return null
+}
+
 export function ConsentProvider({ children }: { children: React.ReactNode }) {
   return (
     <ConsentManagerProvider options={options}>
       {children}
       <CookieBanner theme={theme} />
       <ConsentManagerDialog theme={theme} />
+      <DialogDismissHandler />
     </ConsentManagerProvider>
   )
 }
