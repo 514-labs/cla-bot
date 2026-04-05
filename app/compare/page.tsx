@@ -307,43 +307,41 @@ function StatusIcon({ status }: { status: FeatureStatus }) {
   }
 }
 
-const SOLUTIONS = [
+type SolutionKey = keyof Pick<Feature, "claBot" | "claAssistant" | "easyCla" | "claBotFinos">
+
+type Solution = {
+  key: SolutionKey
+  name: string
+  subtitle: string
+  highlight: boolean
+}
+
+const SOLUTIONS: Solution[] = [
   {
+    key: "claBot",
     name: "CLA Bot",
     subtitle: "by fiveonefour",
     highlight: true,
   },
   {
+    key: "claAssistant",
     name: "CLA Assistant",
     subtitle: "by SAP",
     highlight: false,
   },
   {
+    key: "easyCla",
     name: "EasyCLA",
     subtitle: "by Linux Foundation",
     highlight: false,
   },
   {
+    key: "claBotFinos",
     name: "cla-bot",
     subtitle: "by FINOS",
     highlight: false,
   },
 ]
-
-function getStatusForSolution(feature: Feature, index: number): FeatureStatus {
-  switch (index) {
-    case 0:
-      return feature.claBot
-    case 1:
-      return feature.claAssistant
-    case 2:
-      return feature.easyCla
-    case 3:
-      return feature.claBotFinos
-    default:
-      return "no"
-  }
-}
 
 export default function ComparePage() {
   return (
@@ -463,7 +461,7 @@ export default function ComparePage() {
                               sol.highlight ? "bg-primary/5" : ""
                             }`}
                           >
-                            <StatusIcon status={getStatusForSolution(feature, solIdx)} />
+                            <StatusIcon status={feature[sol.key]} />
                           </div>
                         ))}
                       </div>
@@ -486,7 +484,7 @@ export default function ComparePage() {
                                 sol.highlight ? "bg-primary/10" : "bg-white/5"
                               }`}
                             >
-                              <StatusIcon status={getStatusForSolution(feature, solIdx)} />
+                              <StatusIcon status={feature[sol.key]} />
                               <span className="text-xs text-muted-foreground">{sol.name}</span>
                             </div>
                           ))}
