@@ -230,7 +230,12 @@ function DialogDismissHandler() {
 
     const handleClick = (e: MouseEvent) => {
       const target = e.target as HTMLElement
-      if (target.dataset.testid === "consent-manager-dialog-overlay") {
+      // Check data-testid (set by c15t) or detect the overlay structurally:
+      // it's a div rendered as a direct sibling before the <dialog> element
+      const isOverlay =
+        target.dataset.testid === "consent-manager-dialog-overlay" ||
+        (target.tagName === "DIV" && target.nextElementSibling?.tagName === "DIALOG")
+      if (isOverlay) {
         dismiss()
       }
     }
