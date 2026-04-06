@@ -49,7 +49,10 @@ export function SiteHeaderClient({ user }: SiteHeaderClientProps) {
             {isSignedIn && user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button className="flex items-center gap-2 rounded-md px-2 py-1.5 transition-colors hover:bg-secondary">
+                  <button
+                    type="button"
+                    className="flex items-center gap-2 rounded-md px-2 py-1.5 transition-colors hover:bg-secondary"
+                  >
                     <Image
                       src={user.avatarUrl || "/placeholder.svg"}
                       alt={user.name}
@@ -84,10 +87,7 @@ export function SiteHeaderClient({ user }: SiteHeaderClientProps) {
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
                     <form action={signOutAction} className="w-full">
-                      <button
-                        type="submit"
-                        className="flex w-full items-center gap-2 text-sm"
-                      >
+                      <button type="submit" className="flex w-full items-center gap-2 text-sm">
                         <LogOut className="h-3.5 w-3.5" />
                         Sign out
                       </button>
