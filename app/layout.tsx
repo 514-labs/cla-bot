@@ -4,6 +4,8 @@ import { Fraunces, IBM_Plex_Sans } from "next/font/google"
 import { VercelToolbar } from "@vercel/toolbar/next"
 import { AppFooter } from "@/components/app-footer"
 import { AppBackground } from "@/components/app-background"
+import { ConsentProvider } from "@/components/consent-provider"
+import { ConsentAnalytics } from "@/components/consent-analytics"
 import { buildFiveonefourUrl } from "@/lib/marketing-links"
 
 import "./globals.css"
@@ -102,11 +104,14 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${displayFont.variable} ${bodyFont.variable}`}>
       <body className="relative font-body antialiased">
-        <AppBackground />
-        <div className="relative z-10">
-          {children}
-          <AppFooter />
-        </div>
+        <ConsentProvider>
+          <AppBackground />
+          <div className="relative z-10">
+            {children}
+            <AppFooter />
+          </div>
+          <ConsentAnalytics />
+        </ConsentProvider>
         {process.env.NODE_ENV !== "production" && <VercelToolbar />}
       </body>
     </html>

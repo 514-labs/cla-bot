@@ -23,10 +23,12 @@
     "dead-code": "knip"
   },
   "dependencies": {
+    "@c15t/nextjs": "^1.8.6",
     "@neondatabase/serverless": "^0.10.0",
     "@octokit/auth-app": "^8.1.2",
     "@octokit/rest": "^22.0.1",
     "@radix-ui/react-slot": "1.1.1",
+    "@vercel/analytics": "^2.0.1",
     "@vercel/toolbar": "^0.2.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

@@ -25,13 +25,22 @@ const nextConfig = {
   },
   serverExternalPackages: [],
   async headers() {
-    const scriptSrc = ["'self'", "'unsafe-inline'", "https://vercel.live", "https://*.vercel.live"]
+    const scriptSrc = [
+      "'self'",
+      "'unsafe-inline'",
+      "https://vercel.live",
+      "https://*.vercel.live",
+      "https://va.vercel-scripts.com",
+    ]
     const connectSrc = [
       "'self'",
       "https://api.github.com",
       "https://github.com",
       "https://vercel.live",
       "https://*.vercel.live",
+      "https://va.vercel-scripts.com",
+      "https://vitals.vercel-insights.com",
+      "https://*.c15t.dev",
     ]
 
     const csp = [
@@ -43,8 +52,9 @@ const nextConfig = {
       `script-src-elem ${scriptSrc.join(" ")}`,
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: https:",
-      "font-src 'self' data:",
+      "font-src 'self' data: https://vercel.live https://*.vercel.live",
       `connect-src ${connectSrc.join(" ")}`,
+      "frame-src 'self' https://vercel.live https://*.vercel.live",
       "form-action 'self' https://github.com",
     ].join("; ")
 
