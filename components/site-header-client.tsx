@@ -8,7 +8,15 @@ import { cn } from "@/lib/utils"
 import { signOutAction } from "@/app/actions/auth"
 import { BrandLockup } from "@/components/brand-logo"
 import { Button } from "@/components/ui/button"
-import { Github, LogOut, Menu, X } from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { ChevronDown, Github, LogOut, Menu, X } from "lucide-react"
 import type { SessionUserDto } from "@/lib/session-user"
 import { SessionMonitor } from "@/components/session-monitor"
 
@@ -37,49 +45,56 @@ export function SiteHeaderClient({ user }: SiteHeaderClientProps) {
             <BrandLockup subtitleClassName="hidden sm:block text-[11px] text-muted-foreground" />
           </Link>
 
-          <nav className="hidden items-center gap-1 md:flex" aria-label="Primary navigation">
-            {navItems.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  "rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                  pathname.startsWith(item.href)
-                    ? "bg-secondary text-foreground"
-                    : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-                )}
-              >
-                {item.label}
-              </Link>
-            ))}
-          </nav>
-
           <div className="hidden items-center gap-3 md:flex">
             {isSignedIn && user ? (
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2">
-                  <Image
-                    src={user.avatarUrl || "/placeholder.svg"}
-                    alt={user.name}
-                    width={28}
-                    height={28}
-                    className="h-7 w-7 rounded-full"
-                    sizes="28px"
-                  />
-                  <span className="text-sm font-medium text-foreground">{user.name}</span>
-                </div>
-                <form action={signOutAction}>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="gap-1.5 text-muted-foreground hover:text-foreground"
-                    type="submit"
-                  >
-                    <LogOut className="h-3.5 w-3.5" />
-                    <span className="sr-only">Sign out</span>
-                  </Button>
-                </form>
-              </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="flex items-center gap-2 rounded-md px-2 py-1.5 transition-colors hover:bg-secondary">
+                    <Image
+                      src={user.avatarUrl || "/placeholder.svg"}
+                      alt={user.name}
+                      width={28}
+                      height={28}
+                      className="h-7 w-7 rounded-full"
+                      sizes="28px"
+                    />
+                    <span className="text-sm font-medium text-foreground">{user.name}</span>
+                    <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuLabel className="font-normal">
+                    <p className="text-sm font-medium">{user.name}</p>
+                    <p className="text-xs text-muted-foreground">@{user.githubUsername}</p>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {navItems.map((item) => (
+                    <DropdownMenuItem key={item.href} asChild>
+                      <Link
+                        href={item.href}
+                        className={cn(
+                          "w-full cursor-pointer",
+                          pathname.startsWith(item.href) && "bg-secondary"
+                        )}
+                      >
+                        {item.label}
+                      </Link>
+                    </DropdownMenuItem>
+                  ))}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <form action={signOutAction} className="w-full">
+                      <button
+                        type="submit"
+                        className="flex w-full items-center gap-2 text-sm"
+                      >
+                        <LogOut className="h-3.5 w-3.5" />
+                        Sign out
+                      </button>
+                    </form>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             ) : (
               <Link href="/auth/signin">
                 <Button variant="outline" size="sm" className="gap-2 bg-transparent">
