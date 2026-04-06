@@ -4,7 +4,13 @@ import { scheduleSignerPrSyncAfterSign } from "@/lib/cla/signer-pr-sync-schedule
 import { SignClaError, resolveRequestEvidenceFromHeaders, signClaForUser } from "@/lib/cla/signing"
 
 export async function POST(request: NextRequest) {
-  const body = await request.json()
+  let body: unknown
+  try {
+    body = await request.json()
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 })
+  }
+
   const { orgSlug, repoName, prNumber, acceptedSha256, assented, consentTextVersion } = body as {
     orgSlug?: string
     repoName?: string

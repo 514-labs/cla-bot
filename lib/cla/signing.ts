@@ -206,7 +206,8 @@ export function getBaseUrlFromHeaders(headers: Pick<Headers, "get">): string {
   if (configured) return configured
 
   const host = headers.get("x-forwarded-host") ?? headers.get("host")
-  const protocol = headers.get("x-forwarded-proto") ?? "https"
+  const rawProtocol = headers.get("x-forwarded-proto") ?? "https"
+  const protocol = rawProtocol === "http" || rawProtocol === "https" ? rawProtocol : "https"
   if (!host) return getAppBaseUrl()
 
   return `${protocol}://${host}`

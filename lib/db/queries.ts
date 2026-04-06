@@ -121,7 +121,7 @@ export async function upsertUser(data: {
   const rows = await db
     .insert(users)
     .values({
-      id: `user_${Date.now()}`,
+      id: `user_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       githubUsername: data.githubUsername,
       githubId: normalizedGithubId,
       email: data.email ?? "",
@@ -390,7 +390,7 @@ export async function createOrganization(data: {
   const rows = await db
     .insert(organizations)
     .values({
-      id: `org_${Date.now()}`,
+      id: `org_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       githubOrgSlug: data.githubOrgSlug,
       githubAccountType: data.githubAccountType ?? "organization",
       githubAccountId:
@@ -483,7 +483,7 @@ export async function getOrCreateArchive(orgId: string, hash: string, claText: s
   const rows = await db
     .insert(claArchives)
     .values({
-      id: `archive_${Date.now()}`,
+      id: `archive_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       orgId,
       sha256: hash,
       claText,
@@ -703,7 +703,7 @@ export async function createSignature(data: {
   const rows = await db
     .insert(claSignatures)
     .values({
-      id: `sig_${Date.now()}`,
+      id: `sig_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       orgId: data.orgId,
       userId: data.userId,
       claSha256: data.claSha256,

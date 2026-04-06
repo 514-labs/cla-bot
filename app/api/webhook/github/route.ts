@@ -1024,6 +1024,9 @@ function isPersonalAccountOwner(
 }
 
 function getBaseUrl(request: NextRequest): string {
+  const configured = process.env.NEXT_PUBLIC_APP_URL?.trim()
+  if (configured) return configured
+
   const url = new URL(request.url)
   return `${url.protocol}//${url.host}`
 }
