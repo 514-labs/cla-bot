@@ -9,7 +9,7 @@
  */
 
 import { type NextRequest, NextResponse } from "next/server"
-import { verifyGitHubWebhookSignature } from "@/lib/github/webhook-signature"
+import { verifyWebhookSignatureFromEnv } from "@/lib/github/webhook-signature"
 import { createAuditEvent } from "@/lib/db/queries"
 
 type MarketplacePurchase = {
@@ -58,9 +58,10 @@ const VALID_ACTIONS = new Set([
 export async function POST(request: NextRequest) {
   const rawPayload = await request.text()
 
-  const signatureError = verifyMarketplaceWebhook(
+  const signatureError = verifyWebhookSignatureFromEnv(
     rawPayload,
-    request.headers.get("x-hub-signature-256")
+    request.headers.get("x-hub-signature-256"),
+    "GITHUB_MARKETPLACE_WEBHOOK_SECRET"
   )
   if (signatureError) return signatureError
 
@@ -123,47 +124,4 @@ export async function POST(request: NextRequest) {
   )
 
   return NextResponse.json({ ok: true, action })
-}
-
-function verifyMarketplaceWebhook(rawPayload: string, signatureHeader: string | null) {
-  const secret = process.env.GITHUB_MARKETPLACE_WEBHOOK_SECRET
-  if (!secret) {
-    if (process.env.NODE_ENV === "production") {
-      return NextResponse.json(
-        { error: "GITHUB_MARKETPLACE_WEBHOOK_SECRET is not configured" },
-        { status: 500 }
-      )
-    }
-    return null
-  }
-
-  const trimmedSecret = normalizeSecret(secret)
-  if (!signatureHeader) {
-    if (process.env.NODE_ENV === "production") {
-      return NextResponse.json({ error: "Missing x-hub-signature-256 header" }, { status: 401 })
-    }
-    return null
-  }
-
-  const valid = verifyGitHubWebhookSignature({
-    secret: trimmedSecret,
-    payload: rawPayload,
-    signatureHeader: signatureHeader.trim(),
-  })
-  if (!valid) {
-    return NextResponse.json({ error: "Invalid webhook signature" }, { status: 401 })
-  }
-
-  return null
-}
-
-function normalizeSecret(secret: string): string {
-  const trimmed = secret.trim()
-  if (
-    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
-    (trimmed.startsWith("'") && trimmed.endsWith("'"))
-  ) {
-    return trimmed.slice(1, -1)
-  }
-  return trimmed
 }

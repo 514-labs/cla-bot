@@ -26,7 +26,7 @@ import {
   generateUnsignedComment,
   isClaBotManagedComment,
 } from "@/lib/pr-comment-template"
-import { verifyGitHubWebhookSignature } from "@/lib/github/webhook-signature"
+import { verifyWebhookSignatureFromEnv } from "@/lib/github/webhook-signature"
 
 const CHECK_NAME = "CLA Bot / Contributor License Agreement"
 
@@ -138,9 +138,10 @@ export async function POST(request: NextRequest) {
   }
 
   const rawBody = await request.text()
-  const verificationError = verifyWebhookRequest(
+  const verificationError = verifyWebhookSignatureFromEnv(
     rawBody,
-    request.headers.get("x-hub-signature-256")
+    request.headers.get("x-hub-signature-256"),
+    "GITHUB_WEBHOOK_SECRET"
   )
   if (verificationError) return verificationError
 
@@ -1020,55 +1021,6 @@ function isPersonalAccountOwner(
   if (typeof githubUserId !== "number") return false
   if (!org.githubAccountId) return false
   return String(githubUserId) === String(org.githubAccountId)
-}
-
-function verifyWebhookRequest(rawPayload: string, signatureHeader: string | null) {
-  const configuredSecret = process.env.GITHUB_WEBHOOK_SECRET
-  if (!configuredSecret) {
-    if (process.env.NODE_ENV === "production") {
-      return NextResponse.json(
-        { error: "GITHUB_WEBHOOK_SECRET is not configured" },
-        { status: 500 }
-      )
-    }
-    return null
-  }
-
-  const secret = normalizeWebhookSecret(configuredSecret)
-  if (!signatureHeader) {
-    if (process.env.NODE_ENV === "production") {
-      return NextResponse.json({ error: "Missing x-hub-signature-256 header" }, { status: 401 })
-    }
-    return null
-  }
-
-  const valid = verifyGitHubWebhookSignature({
-    secret,
-    payload: rawPayload,
-    signatureHeader: signatureHeader.trim(),
-  })
-  if (!valid) {
-    return NextResponse.json(
-      {
-        error:
-          "Invalid webhook signature. Ensure GITHUB_WEBHOOK_SECRET exactly matches the GitHub App webhook secret.",
-      },
-      { status: 401 }
-    )
-  }
-
-  return null
-}
-
-function normalizeWebhookSecret(secret: string): string {
-  const trimmed = secret.trim()
-  if (
-    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
-    (trimmed.startsWith("'") && trimmed.endsWith("'"))
-  ) {
-    return trimmed.slice(1, -1)
-  }
-  return trimmed
 }
 
 function getBaseUrl(request: NextRequest): string {
