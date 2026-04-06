@@ -43,6 +43,22 @@ export function AppFooter() {
           >
             Issues
           </Link>
+          <Link
+            href="https://cla.fiveonefour.com/docs"
+            className="transition-colors hover:text-foreground"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Docs
+          </Link>
+          <Link
+            href="https://cla.fiveonefour.com/compare"
+            className="transition-colors hover:text-foreground"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Compare
+          </Link>
           <Link href="/terms" className="transition-colors hover:text-foreground">
             Terms
           </Link>

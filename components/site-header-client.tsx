@@ -27,7 +27,6 @@ type SiteHeaderClientProps = {
 const navItems = [
   { href: "/admin", label: "Admin" },
   { href: "/contributor", label: "Contributor" },
-  { href: "/compare", label: "Compare" },
   { href: "/docs", label: "Docs" },
 ]
 
