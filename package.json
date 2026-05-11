@@ -48,7 +48,9 @@
   },
   "pnpm": {
     "onlyBuiltDependencies": [
-      "@embedded-postgres/linux-x64"
+      "@embedded-postgres/linux-x64",
+      "esbuild",
+      "protobufjs"
     ]
   },
   "devDependencies": {
