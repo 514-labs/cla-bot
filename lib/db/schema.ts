@@ -6,12 +6,20 @@ export const users = pgTable("users", {
   githubUsername: text("github_username").notNull(),
   /** Immutable GitHub account ID (string form) — used for identity matching */
   githubId: text("github_id").notNull().unique(),
-  /** OAuth token encrypted at rest; used for org-admin authorization checks */
+  /** GitHub App user access token, encrypted at rest. Short-lived (~8h). */
   githubAccessTokenEncrypted: text("github_access_token_encrypted"),
-  /** Comma-separated scopes granted to the OAuth token */
+  /** ISO expiry of the user access token (absolute timestamp). */
+  githubAccessTokenExpiresAt: text("github_access_token_expires_at"),
+  /** GitHub App refresh token, encrypted at rest. Long-lived (6 months). Single-use. */
+  githubRefreshTokenEncrypted: text("github_refresh_token_encrypted"),
+  /** ISO expiry of the refresh token. */
+  githubRefreshTokenExpiresAt: text("github_refresh_token_expires_at"),
+  /** Comma-separated scopes granted to the user OAuth token */
   githubTokenScopes: text("github_token_scopes"),
-  /** ISO timestamp for when the OAuth token was last updated */
+  /** ISO timestamp for when the user OAuth token was last updated */
   githubTokenUpdatedAt: text("github_token_updated_at"),
+  /** Discriminator: 'legacy_user' (pre-refresh-token rows; treat as expired) | 'refreshable'. */
+  githubTokenKind: text("github_token_kind").notNull().default("legacy_user"),
   /** GitHub email at last OAuth sync */
   email: text("email").notNull().default(""),
   /** Whether the synced email is currently verified by GitHub */

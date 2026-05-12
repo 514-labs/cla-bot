@@ -136,14 +136,17 @@ export async function upsertUser(data: {
 }
 
 /**
- * Store encrypted GitHub OAuth token metadata for a user.
- * Used for org-admin authorization checks against GitHub.
+ * Persist a freshly-issued GitHub App user OAuth token pair.
+ * Marks the row as 'refreshable' so subsequent reads use the refresh path.
  */
-export async function updateUserGithubAuth(
+export async function setUserGithubTokens(
   userId: string,
   data: {
     accessTokenEncrypted: string
-    tokenScopes?: string
+    accessTokenExpiresAt: string
+    refreshTokenEncrypted: string
+    refreshTokenExpiresAt: string
+    tokenScopes?: string | null
   }
 ) {
   const db = await ensureDbReady()
@@ -151,12 +154,78 @@ export async function updateUserGithubAuth(
     .update(users)
     .set({
       githubAccessTokenEncrypted: data.accessTokenEncrypted,
+      githubAccessTokenExpiresAt: data.accessTokenExpiresAt,
+      githubRefreshTokenEncrypted: data.refreshTokenEncrypted,
+      githubRefreshTokenExpiresAt: data.refreshTokenExpiresAt,
       githubTokenScopes: data.tokenScopes ?? null,
       githubTokenUpdatedAt: new Date().toISOString(),
+      githubTokenKind: "refreshable",
     })
     .where(eq(users.id, userId))
     .returning()
   return rows[0] ?? undefined
+}
+
+/**
+ * Atomically swap the user's token pair using optimistic concurrency.
+ * Returns the updated row only when the stored refresh token still matches
+ * `expectedRefreshTokenEncrypted`. A 0-row update means a peer rotated first;
+ * the caller should re-SELECT and return whatever access token is now current.
+ */
+export async function rotateUserGithubTokens(
+  userId: string,
+  args: {
+    expectedRefreshTokenEncrypted: string
+    next: {
+      accessTokenEncrypted: string
+      accessTokenExpiresAt: string
+      refreshTokenEncrypted: string
+      refreshTokenExpiresAt: string
+      tokenScopes?: string | null
+    }
+  }
+) {
+  const db = await ensureDbReady()
+  const rows = await db
+    .update(users)
+    .set({
+      githubAccessTokenEncrypted: args.next.accessTokenEncrypted,
+      githubAccessTokenExpiresAt: args.next.accessTokenExpiresAt,
+      githubRefreshTokenEncrypted: args.next.refreshTokenEncrypted,
+      githubRefreshTokenExpiresAt: args.next.refreshTokenExpiresAt,
+      githubTokenScopes: args.next.tokenScopes ?? null,
+      githubTokenUpdatedAt: new Date().toISOString(),
+      githubTokenKind: "refreshable",
+    })
+    .where(
+      and(
+        eq(users.id, userId),
+        eq(users.githubRefreshTokenEncrypted, args.expectedRefreshTokenEncrypted)
+      )
+    )
+    .returning()
+  return rows[0] ?? undefined
+}
+
+/**
+ * Clear every GitHub user-token column on logout or when refresh tokens
+ * become unusable. Tags the row 'legacy_user' so the helper treats it as
+ * needing re-auth on the next access.
+ */
+export async function clearUserGithubTokens(userId: string) {
+  const db = await ensureDbReady()
+  await db
+    .update(users)
+    .set({
+      githubAccessTokenEncrypted: null,
+      githubAccessTokenExpiresAt: null,
+      githubRefreshTokenEncrypted: null,
+      githubRefreshTokenExpiresAt: null,
+      githubTokenScopes: null,
+      githubTokenUpdatedAt: new Date().toISOString(),
+      githubTokenKind: "legacy_user",
+    })
+    .where(eq(users.id, userId))
 }
 
 // ---------- Organizations ----------

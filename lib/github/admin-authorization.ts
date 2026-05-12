@@ -1,12 +1,11 @@
 import { Octokit } from "@octokit/rest"
-import { decryptSecret } from "@/lib/security/encryption"
+import { getValidUserAccessToken } from "@/lib/github/user-token"
 
 type UserWithToken = {
   id: string
   role?: string
   githubId?: string
   githubUsername?: string
-  githubAccessTokenEncrypted?: string | null
 }
 
 type InstalledOrganization = {
@@ -19,10 +18,8 @@ type InstalledOrganization = {
 
 const ORG_LOG_LIMIT = 25
 
-function getGitHubAccessToken(user: UserWithToken): string | null {
-  const encryptedToken = user.githubAccessTokenEncrypted ?? null
-  if (!encryptedToken) return null
-  return decryptSecret(encryptedToken)
+async function getGitHubAccessToken(user: UserWithToken): Promise<string | null> {
+  return getValidUserAccessToken(user.id)
 }
 
 function createOctokitClientWithUserIdentity(accessToken: string): Octokit {
@@ -50,7 +47,7 @@ function isPersonalAccountOwner(user: UserWithToken, org: InstalledOrganization)
  * Returns true when the user is an active org admin/owner on GitHub.
  */
 export async function isGitHubOrgAdmin(user: UserWithToken, orgSlug: string): Promise<boolean> {
-  const accessToken = getGitHubAccessToken(user)
+  const accessToken = await getGitHubAccessToken(user)
   if (!accessToken) return false
 
   const octokit = createOctokitClientWithUserIdentity(accessToken)
@@ -137,8 +134,8 @@ export async function filterInstalledOrganizationsForAdmin<T extends InstalledOr
     checkType: "personal_account_owner",
   }))
 
-  const hasGitHubToken = Boolean(getGitHubAccessToken(user))
-  if (!hasGitHubToken) {
+  const accessToken = await getGitHubAccessToken(user)
+  if (!accessToken) {
     console.warn("[admin-auth] Missing GitHub OAuth token for org-admin checks", {
       userId: user.id,
       nodeEnv: process.env.NODE_ENV,
@@ -191,8 +188,7 @@ export async function filterInstalledOrganizationsForAdmin<T extends InstalledOr
   }[]
 
   try {
-    // Token presence is guaranteed by the hasGitHubToken guard above
-    const accessToken = getGitHubAccessToken(user) as string
+    // accessToken is non-null here — guarded by the early-return above.
     const adminOrgSlugs = await getUserAdminOrgSlugs(accessToken)
     orgCheckResults = orgAccountInstalls.map((org) => ({
       org,

@@ -9,7 +9,10 @@ export type MockOAuthScenario =
   | "user_fetch_error"
   | "network_failure"
 
-const MOCK_ACCESS_TOKEN = "gho_mock_access_token_1234567890"
+const MOCK_ACCESS_TOKEN = "ghu_mock_access_token_1234567890"
+const MOCK_REFRESH_TOKEN = "ghr_mock_refresh_token_1234567890"
+const MOCK_EXPIRES_IN = 28800 // 8 hours, matches GitHub App default
+const MOCK_REFRESH_TOKEN_EXPIRES_IN = 15897600 // ~6 months
 
 const MOCK_GITHUB_USER = {
   id: Number(TEST_USERS.admin.githubId),
@@ -44,6 +47,9 @@ export function createMockFetch(scenario: MockOAuthScenario = "success") {
       }
       return mockJsonResponse({
         access_token: MOCK_ACCESS_TOKEN,
+        expires_in: MOCK_EXPIRES_IN,
+        refresh_token: MOCK_REFRESH_TOKEN,
+        refresh_token_expires_in: MOCK_REFRESH_TOKEN_EXPIRES_IN,
         token_type: "bearer",
         scope: "read:user,read:org,user:email",
       })
@@ -77,4 +83,11 @@ function mockJsonResponse(body: unknown, status = 200): Response {
   })
 }
 
-export { MOCK_ACCESS_TOKEN, MOCK_GITHUB_USER, MOCK_GITHUB_EMAILS }
+export {
+  MOCK_ACCESS_TOKEN,
+  MOCK_EXPIRES_IN,
+  MOCK_GITHUB_EMAILS,
+  MOCK_GITHUB_USER,
+  MOCK_REFRESH_TOKEN,
+  MOCK_REFRESH_TOKEN_EXPIRES_IN,
+}

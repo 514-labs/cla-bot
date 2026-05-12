@@ -7,7 +7,7 @@ import { InstallSyncPoller } from "@/components/admin/install-sync-poller"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Github, Plus, Building2, ArrowRight } from "lucide-react"
+import { AlertTriangle, ArrowRight, Building2, Github, Plus, RefreshCw } from "lucide-react"
 import { getSessionUser } from "@/lib/auth"
 import { getOrganizations } from "@/lib/db/queries"
 import { filterInstalledOrganizationsForAdmin } from "@/lib/github/admin-authorization"
@@ -90,6 +90,29 @@ export default async function AdminPage({
             </a>
           </div>
 
+          {user.githubTokenKind !== "refreshable" && (
+            <div
+              className="mb-6 flex items-center gap-3 rounded-xl border border-amber-500/30 bg-amber-500/5 px-5 py-4"
+              data-testid="reauth-banner"
+            >
+              <AlertTriangle className="h-5 w-5 shrink-0 text-amber-500" />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-foreground">
+                  Re-authenticate to refresh GitHub access
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Some organizations may be hidden until you sign in again so we can refresh your
+                  GitHub permissions.
+                </p>
+              </div>
+              <a href="/api/auth/github?returnTo=%2Fadmin">
+                <Button size="sm" variant="outline" className="gap-2">
+                  <RefreshCw className="h-3 w-3" />
+                  Re-authenticate
+                </Button>
+              </a>
+            </div>
+          )}
           {hasApiError ? (
             <Card>
               <CardContent className="py-12 text-center">

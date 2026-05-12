@@ -3,7 +3,7 @@ import { SiteHeader } from "@/components/site-header"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { AlertTriangle, Download, ExternalLink, FileCheck2, Github } from "lucide-react"
+import { AlertTriangle, Download, ExternalLink, FileCheck2, Github, RefreshCw } from "lucide-react"
 import { getSessionUser } from "@/lib/auth"
 import { getOrganizations, getSignaturesByUser } from "@/lib/db/queries"
 
@@ -125,6 +125,29 @@ export default async function ContributorPage() {
                   <Badge variant="secondary">Contributor</Badge>
                 </CardContent>
               </Card>
+
+              {user.githubTokenKind !== "refreshable" && (
+                <div
+                  className="mb-6 flex items-center gap-3 rounded-xl border border-amber-500/30 bg-amber-500/5 px-5 py-4"
+                  data-testid="reauth-banner"
+                >
+                  <AlertTriangle className="h-5 w-5 shrink-0 text-amber-500" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-foreground">
+                      Re-authenticate to refresh GitHub access
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Sign in again so we can refresh your GitHub permissions.
+                    </p>
+                  </div>
+                  <a href="/api/auth/github?returnTo=%2Fcontributor">
+                    <Button size="sm" variant="outline" className="gap-2">
+                      <RefreshCw className="h-3 w-3" />
+                      Re-authenticate
+                    </Button>
+                  </a>
+                </div>
+              )}
 
               {outdatedCount > 0 && (
                 <div

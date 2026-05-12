@@ -7,7 +7,7 @@ Run CLA Bot in your own infrastructure with production-ready configuration.
 - Node.js >= 20
 - pnpm
 - PostgreSQL
-- GitHub OAuth app + GitHub App credentials
+- A GitHub App with user authorization enabled and "Expire user authorization tokens" turned on (provides both the user-OAuth and installation credentials)
 
 ## Required environment variables
 - `DATABASE_URL`
@@ -40,7 +40,7 @@ Use Drizzle migrations in `drizzle/`. Do not apply ad hoc manual schema edits ou
 | Symptom | Likely cause | Action |
 | --- | --- | --- |
 | Webhook requests rejected | Signature mismatch or wrong secret | Verify `GITHUB_WEBHOOK_SECRET` and GitHub webhook settings |
-| OAuth sign-in fails | Invalid GitHub OAuth credentials | Re-check `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` |
+| OAuth sign-in fails | Invalid GitHub App user-OAuth credentials, or "Expire user authorization tokens" disabled | Re-check `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` and confirm the App's token-expiry setting |
 | PR checks stale after signing | Async sync backlog/transient failure | Retry after short wait; inspect webhook and app logs |
 | App boot fails on deploy | DB unreachable or migrations pending | Validate `DATABASE_URL`, run `pnpm db:migrate`, retry |
 
