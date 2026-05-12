@@ -5,7 +5,7 @@ import { createMockFetch, MOCK_GITHUB_USER } from "../utils/mock-oauth-server"
 // Mock dependencies
 vi.mock("@/lib/db/queries", () => ({
   upsertUser: vi.fn(),
-  updateUserGithubAuth: vi.fn(),
+  setUserGithubTokens: vi.fn(),
 }))
 
 vi.mock("@/lib/security/encryption", () => ({
@@ -24,7 +24,7 @@ vi.mock("@/lib/auth", () => ({
   })),
 }))
 
-import { upsertUser, updateUserGithubAuth } from "@/lib/db/queries"
+import { upsertUser, setUserGithubTokens } from "@/lib/db/queries"
 import { encryptSecret } from "@/lib/security/encryption"
 import { createSessionToken } from "@/lib/auth"
 import { GET } from "@/app/api/auth/github/route"
@@ -79,10 +79,10 @@ beforeEach(() => {
     role: "admin",
   } as unknown as Awaited<ReturnType<typeof upsertUser>>)
 
-  vi.mocked(updateUserGithubAuth).mockResolvedValue(
-    undefined as unknown as Awaited<ReturnType<typeof updateUserGithubAuth>>
+  vi.mocked(setUserGithubTokens).mockResolvedValue(
+    undefined as unknown as Awaited<ReturnType<typeof setUserGithubTokens>>
   )
-  vi.mocked(encryptSecret).mockReturnValue("encrypted-token-value")
+  vi.mocked(encryptSecret).mockImplementation((value) => `enc(${value})`)
   vi.mocked(createSessionToken).mockResolvedValue("mock-jwt-token")
 })
 
@@ -149,8 +149,22 @@ describe("OAuth callback (with code param)", () => {
 
     // DB calls were made
     expect(upsertUser).toHaveBeenCalledOnce()
-    expect(updateUserGithubAuth).toHaveBeenCalledOnce()
+    expect(setUserGithubTokens).toHaveBeenCalledOnce()
     expect(createSessionToken).toHaveBeenCalledOnce()
+
+    const tokenCall = vi.mocked(setUserGithubTokens).mock.calls[0]
+    expect(tokenCall[0]).toBe("user_1")
+    expect(tokenCall[1]).toMatchObject({
+      accessTokenEncrypted: expect.stringContaining("ghu_"),
+      refreshTokenEncrypted: expect.stringContaining("ghr_"),
+      accessTokenExpiresAt: expect.any(String),
+      refreshTokenExpiresAt: expect.any(String),
+    })
+    // Expiries are ISO timestamps in the future
+    expect(new Date(tokenCall[1].accessTokenExpiresAt).getTime()).toBeGreaterThan(Date.now())
+    expect(new Date(tokenCall[1].refreshTokenExpiresAt).getTime()).toBeGreaterThan(
+      new Date(tokenCall[1].accessTokenExpiresAt).getTime()
+    )
   })
 
   it("redirects to error page when state cookie is missing", async () => {

@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-vi.mock("@/lib/security/encryption", () => ({
-  decryptSecret: vi.fn((encrypted: string | null | undefined) =>
-    encrypted === "enc-token" ? "oauth-token" : null
+vi.mock("@/lib/github/user-token", () => ({
+  getValidUserAccessToken: vi.fn(async (userId: string) =>
+    userId === "user_1" ? "oauth-token" : null
   ),
 }))
 
@@ -10,6 +10,7 @@ import {
   filterInstalledOrganizationsForAdmin,
   isGitHubInstallationAccountAdmin,
 } from "@/lib/github/admin-authorization"
+import { getValidUserAccessToken } from "@/lib/github/user-token"
 
 const originalFetch = global.fetch
 
@@ -55,12 +56,7 @@ describe("admin authorization", () => {
       ) as typeof global.fetch
 
     const authorized = await filterInstalledOrganizationsForAdmin(
-      {
-        id: "user_1",
-        githubId: "1001",
-        githubUsername: "orgadmin",
-        githubAccessTokenEncrypted: "enc-token",
-      },
+      { id: "user_1", githubId: "1001", githubUsername: "orgadmin" },
       [
         {
           adminUserId: "user_2",
@@ -81,6 +77,7 @@ describe("admin authorization", () => {
 
     expect(authorized).toHaveLength(2)
     expect(authorized.map((org) => org.githubOrgSlug).sort()).toEqual(["fiveonefour", "orgadmin"])
+    expect(getValidUserAccessToken).toHaveBeenCalledWith("user_1")
     expect(global.fetch).toHaveBeenCalledTimes(1)
   })
 

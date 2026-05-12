@@ -1,8 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getBypassAccountsByOrg } from "@/lib/db/queries"
 import { searchGitHubUsersWithOAuth } from "@/lib/github/oauth-user-search"
+import { getValidUserAccessToken } from "@/lib/github/user-token"
 import { authorizeOrgAccess } from "@/lib/server/org-access"
-import { decryptSecret } from "@/lib/security/encryption"
 import {
   formatBypassActorLogin,
   isLikelyAppBotActor,
@@ -52,8 +52,7 @@ export async function GET(
     }
   }
 
-  const encryptedToken = access.user.githubAccessTokenEncrypted ?? null
-  const accessToken = encryptedToken ? decryptSecret(encryptedToken) : null
+  const accessToken = await getValidUserAccessToken(access.user.id)
   if (!accessToken) {
     if (bypassKind === "app_bot") {
       const manualSuggestion = toManualAppBotSuggestion()
@@ -61,7 +60,10 @@ export async function GET(
     }
 
     return NextResponse.json(
-      { error: "Missing GitHub OAuth token. Sign out and sign back in to enable autocomplete." },
+      {
+        error:
+          "GitHub authorization is no longer valid. Sign out and sign back in to enable autocomplete.",
+      },
       { status: 400 }
     )
   }

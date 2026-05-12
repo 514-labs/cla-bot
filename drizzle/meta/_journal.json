@@ -29,6 +29,13 @@
       "when": 1771999042524,
       "tag": "0003_familiar_rogue",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1778610740693,
+      "tag": "0004_youthful_wild_pack",
+      "breakpoints": true
     }
   ]
 }

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 const mockGetMembershipForAuthenticatedUser = vi.fn()
 const mockListMembershipsForAuthenticatedUser = vi.fn()
@@ -18,9 +18,11 @@ vi.mock("@octokit/rest", () => {
   }
 })
 
-vi.mock("@/lib/security/encryption", () => ({
-  decryptSecret: vi.fn((encrypted: string | null | undefined) =>
-    encrypted === "enc-token" ? "oauth-token" : null
+let mockTokenForUser1: string | null = null
+
+vi.mock("@/lib/github/user-token", () => ({
+  getValidUserAccessToken: vi.fn(async (userId: string) =>
+    userId === "user_1" ? mockTokenForUser1 : null
   ),
 }))
 
@@ -29,6 +31,10 @@ import {
   isGitHubInstallationAccountAdmin,
   filterInstalledOrganizationsForAdmin,
 } from "@/lib/github/admin-authorization"
+
+beforeEach(() => {
+  mockTokenForUser1 = null
+})
 
 afterEach(() => {
   vi.unstubAllEnvs()
@@ -45,86 +51,66 @@ describe("isGitHubOrgAdmin", () => {
   })
 
   it("returns false on 404 response", async () => {
+    mockTokenForUser1 = "oauth-token"
     mockGetMembershipForAuthenticatedUser.mockRejectedValue(
       Object.assign(new Error("Not Found"), { status: 404 })
     )
 
     const result = await isGitHubOrgAdmin(
-      {
-        id: "user_1",
-        githubId: "1001",
-        githubUsername: "orgadmin",
-        githubAccessTokenEncrypted: "enc-token",
-      },
+      { id: "user_1", githubId: "1001", githubUsername: "orgadmin" },
       "fiveonefour"
     )
     expect(result).toBe(false)
   })
 
   it("returns false on 403 response", async () => {
+    mockTokenForUser1 = "oauth-token"
     mockGetMembershipForAuthenticatedUser.mockRejectedValue(
       Object.assign(new Error("Forbidden"), { status: 403 })
     )
 
     const result = await isGitHubOrgAdmin(
-      {
-        id: "user_1",
-        githubId: "1001",
-        githubUsername: "orgadmin",
-        githubAccessTokenEncrypted: "enc-token",
-      },
+      { id: "user_1", githubId: "1001", githubUsername: "orgadmin" },
       "fiveonefour"
     )
     expect(result).toBe(false)
   })
 
   it("returns true for active admin", async () => {
+    mockTokenForUser1 = "oauth-token"
     mockGetMembershipForAuthenticatedUser.mockResolvedValue({
       data: { state: "active", role: "admin" },
     })
 
     const result = await isGitHubOrgAdmin(
-      {
-        id: "user_1",
-        githubId: "1001",
-        githubUsername: "orgadmin",
-        githubAccessTokenEncrypted: "enc-token",
-      },
+      { id: "user_1", githubId: "1001", githubUsername: "orgadmin" },
       "fiveonefour"
     )
     expect(result).toBe(true)
   })
 
   it("returns false for member (non-admin)", async () => {
+    mockTokenForUser1 = "oauth-token"
     mockGetMembershipForAuthenticatedUser.mockResolvedValue({
       data: { state: "active", role: "member" },
     })
 
     const result = await isGitHubOrgAdmin(
-      {
-        id: "user_1",
-        githubId: "1001",
-        githubUsername: "orgadmin",
-        githubAccessTokenEncrypted: "enc-token",
-      },
+      { id: "user_1", githubId: "1001", githubUsername: "orgadmin" },
       "fiveonefour"
     )
     expect(result).toBe(false)
   })
 
   it("throws on non-OK non-404 response", async () => {
+    mockTokenForUser1 = "oauth-token"
     mockGetMembershipForAuthenticatedUser.mockRejectedValue(
       Object.assign(new Error("Server Error"), { status: 500 })
     )
 
     await expect(
       isGitHubOrgAdmin(
-        {
-          id: "user_1",
-          githubId: "1001",
-          githubUsername: "orgadmin",
-          githubAccessTokenEncrypted: "enc-token",
-        },
+        { id: "user_1", githubId: "1001", githubUsername: "orgadmin" },
         "fiveonefour"
       )
     ).rejects.toThrow("Server Error")
@@ -245,15 +231,11 @@ describe("filterInstalledOrganizationsForAdmin - additional coverage", () => {
 
   it("treats failed org-admin checks as non-admin instead of throwing", async () => {
     vi.stubEnv("NODE_ENV", "production")
+    mockTokenForUser1 = "oauth-token"
     mockPaginate.mockRejectedValue(new Error("Network error"))
 
     const result = await filterInstalledOrganizationsForAdmin(
-      {
-        id: "user_1",
-        githubId: "1001",
-        githubUsername: "orgadmin",
-        githubAccessTokenEncrypted: "enc-token",
-      },
+      { id: "user_1", githubId: "1001", githubUsername: "orgadmin" },
       [
         {
           adminUserId: "user_2",
@@ -269,17 +251,13 @@ describe("filterInstalledOrganizationsForAdmin - additional coverage", () => {
 
   it("filters to only orgs where user has admin membership", async () => {
     vi.stubEnv("NODE_ENV", "production")
+    mockTokenForUser1 = "oauth-token"
     mockPaginate.mockResolvedValue([
       { state: "active", role: "admin", organization: { login: "514-labs" } },
     ])
 
     const result = await filterInstalledOrganizationsForAdmin(
-      {
-        id: "user_1",
-        githubId: "1001",
-        githubUsername: "orgadmin",
-        githubAccessTokenEncrypted: "enc-token",
-      },
+      { id: "user_1", githubId: "1001", githubUsername: "orgadmin" },
       [
         {
           adminUserId: "user_2",

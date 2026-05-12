@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { upsertUser, updateUserGithubAuth } from "@/lib/db/queries"
+import { upsertUser, setUserGithubTokens } from "@/lib/db/queries"
 import { createSessionToken, getSessionCookieOptions } from "@/lib/auth"
 import { encryptSecret } from "@/lib/security/encryption"
 
@@ -100,9 +100,29 @@ export async function GET(request: NextRequest) {
     return makeAuthErrorRedirect("github_token")
   }
 
-  const accessToken = tokenData.access_token
+  const accessToken: string | undefined = tokenData.access_token
+  const refreshToken: string | undefined = tokenData.refresh_token
+  const expiresIn: number | undefined =
+    typeof tokenData.expires_in === "number" ? tokenData.expires_in : undefined
+  const refreshTokenExpiresIn: number | undefined =
+    typeof tokenData.refresh_token_expires_in === "number"
+      ? tokenData.refresh_token_expires_in
+      : undefined
+
   if (!accessToken) {
     console.error("GitHub OAuth token error: missing access token", tokenData)
+    return makeAuthErrorRedirect("github_token")
+  }
+  if (!refreshToken || !expiresIn || !refreshTokenExpiresIn) {
+    console.error(
+      "GitHub OAuth token error: response missing refresh_token / expires_in fields. " +
+        "Confirm that 'Expire user authorization tokens' is enabled on the GitHub App.",
+      {
+        hasRefreshToken: Boolean(refreshToken),
+        hasExpiresIn: Boolean(expiresIn),
+        hasRefreshTokenExpiresIn: Boolean(refreshTokenExpiresIn),
+      }
+    )
     return makeAuthErrorRedirect("github_token")
   }
 
@@ -134,15 +154,20 @@ export async function GET(request: NextRequest) {
   })
 
   const encryptedAccessToken = encryptSecret(accessToken)
-  if (!encryptedAccessToken) {
+  const encryptedRefreshToken = encryptSecret(refreshToken)
+  if (!encryptedAccessToken || !encryptedRefreshToken) {
     console.error(
-      "Failed to encrypt GitHub OAuth token: ENCRYPTION_KEY or SESSION_SECRET is missing"
+      "Failed to encrypt GitHub OAuth tokens: ENCRYPTION_KEY or SESSION_SECRET is missing"
     )
     return makeAuthErrorRedirect("server_config")
   }
 
-  await updateUserGithubAuth(user.id, {
+  const now = Date.now()
+  await setUserGithubTokens(user.id, {
     accessTokenEncrypted: encryptedAccessToken,
+    accessTokenExpiresAt: new Date(now + expiresIn * 1000).toISOString(),
+    refreshTokenEncrypted: encryptedRefreshToken,
+    refreshTokenExpiresAt: new Date(now + refreshTokenExpiresIn * 1000).toISOString(),
     tokenScopes: tokenData.scope ?? "",
   })
 

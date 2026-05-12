@@ -80,11 +80,13 @@ DATABASE_URL=postgres://user:pass@localhost:5432/clabot
 SESSION_SECRET=your-secret-key
 ENCRYPTION_KEY=your-encryption-key
 
-# GitHub OAuth
+# GitHub App — user authorization (sign-in) credentials.
+# Found under the App's "Client ID" + "Client secrets".
+# The App must have "Expire user authorization tokens" enabled.
 GITHUB_CLIENT_ID=...
 GITHUB_CLIENT_SECRET=...
 
-# GitHub App
+# GitHub App — installation/identification credentials.
 GITHUB_APP_SLUG=...
 GITHUB_APP_ID=...
 GITHUB_PRIVATE_KEY=...
@@ -185,8 +187,8 @@ tests/
 
 | Variable | Description |
 | --- | --- |
-| `GITHUB_CLIENT_ID` | OAuth app client ID |
-| `GITHUB_CLIENT_SECRET` | OAuth app client secret |
+| `GITHUB_CLIENT_ID` | GitHub App user-authorization client ID (the App's own client_id) |
+| `GITHUB_CLIENT_SECRET` | GitHub App user-authorization client secret |
 | `GITHUB_APP_SLUG` | GitHub App slug |
 | `GITHUB_APP_ID` | GitHub App ID |
 | `GITHUB_PRIVATE_KEY` | GitHub App private key |
