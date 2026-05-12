@@ -181,8 +181,11 @@ export async function revokeUserGithubTokens(userId: string): Promise<void> {
 
     if (accessToken && clientId && clientSecret) {
       const basic = Buffer.from(`${clientId}:${clientSecret}`).toString("base64")
+      // /grant (not /token) revokes the user's entire authorization for the App —
+      // both the current access token and the long-lived refresh token. /token
+      // would leave the 6-month refresh token usable until natural expiry.
       const response = await fetch(
-        `https://api.github.com/applications/${encodeURIComponent(clientId)}/token`,
+        `https://api.github.com/applications/${encodeURIComponent(clientId)}/grant`,
         {
           method: "DELETE",
           headers: {
