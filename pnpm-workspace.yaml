@@ -1,8 +1,8 @@
-onlyBuiltDependencies:
-  - "@embedded-postgres/linux-x64"
-  - "@nestjs/core"
-  - "@swc/core"
-  - cbor-extract
-  - esbuild
-  - protobufjs
-  - sharp
+allowBuilds:
+  "@embedded-postgres/linux-x64": true
+  "@nestjs/core": true
+  "@swc/core": true
+  cbor-extract: true
+  esbuild: true
+  protobufjs: true
+  sharp: true
