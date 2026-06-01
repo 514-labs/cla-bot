@@ -2,9 +2,9 @@ import Script from "next/script"
 import Link from "next/link"
 import { SiteHeader } from "@/components/site-header"
 import { Button } from "@/components/ui/button"
+import { Github } from "@/components/icons/github"
 import {
   FileCheck2,
-  Github,
   ShieldCheck,
   Users,
   GitPullRequest,

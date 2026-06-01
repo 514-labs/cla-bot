@@ -16,7 +16,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { ChevronDown, Github, LogOut, Menu, X } from "lucide-react"
+import { ChevronDown, LogOut, Menu, X } from "lucide-react"
+import { Github } from "@/components/icons/github"
 import type { SessionUserDto } from "@/lib/session-user"
 import { SessionMonitor } from "@/components/session-monitor"
 

@@ -3,7 +3,8 @@ import Link from "next/link"
 import { SiteHeader } from "@/components/site-header"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Github, ArrowRight, Check, X, Minus, ExternalLink } from "lucide-react"
+import { ArrowRight, Check, X, Minus, ExternalLink } from "lucide-react"
+import { Github } from "@/components/icons/github"
 
 export const metadata: Metadata = {
   title: "CLA Bot vs CLA Assistant vs EasyCLA — Feature Comparison",

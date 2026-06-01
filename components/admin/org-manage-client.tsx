@@ -19,7 +19,6 @@ import {
   Check,
   Download,
   FileEdit,
-  Github,
   History,
   Search,
   LinkIcon,
@@ -30,6 +29,7 @@ import {
   UserPlus,
   Users,
 } from "lucide-react"
+import { Github } from "@/components/icons/github"
 import {
   addBypassAccountAction,
   removeBypassAccountAction,
