@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { BrandLockup } from "@/components/brand-logo"
-import { Github } from "lucide-react"
+import { Github } from "@/components/icons/github"
 import Link from "next/link"
 
 export default async function SignInPage({

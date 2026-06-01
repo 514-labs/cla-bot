@@ -8,15 +8,8 @@ import { MarkdownRenderer } from "@/components/markdown-renderer"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import {
-  ArrowLeft,
-  AlertTriangle,
-  Check,
-  FileCheck2,
-  Github,
-  Loader2,
-  ScrollText,
-} from "lucide-react"
+import { ArrowLeft, AlertTriangle, Check, FileCheck2, Loader2, ScrollText } from "lucide-react"
+import { Github } from "@/components/icons/github"
 import { signClaAction } from "@/app/sign/[orgSlug]/actions"
 
 type SignPageOrg = {
