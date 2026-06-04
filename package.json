@@ -23,7 +23,7 @@
     "dead-code": "knip"
   },
   "dependencies": {
-    "@c15t/nextjs": "^1.8.6",
+    "@c15t/nextjs": "^2.1.0",
     "@neondatabase/serverless": "^1.1.0",
     "@octokit/auth-app": "^8.2.0",
     "@octokit/rest": "^22.0.1",
