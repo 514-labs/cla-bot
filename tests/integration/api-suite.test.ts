@@ -1842,6 +1842,93 @@ test("Webhook: installation suspend and unsuspend toggles active state", async (
   assertEqual(orgAfterUnsuspend.org.isActive, true, "org is active after unsuspend")
 })
 
+test("Webhook: organization renamed reconciles slug in place", async (baseUrl) => {
+  await resetDb(baseUrl)
+
+  const before = await fetch(`${baseUrl}/api/orgs/fiveonefour`).then((r) => r.json())
+
+  const { res, data } = await sendWebhook(baseUrl, "organization", {
+    action: "renamed",
+    organization: { id: 2001, login: "fiveonefour-renamed" },
+  })
+  assertEqual(res.status, 200, "status")
+  assert(data.message.includes("fiveonefour -> fiveonefour-renamed"), "rename message")
+
+  const oldSlugRes = await fetch(`${baseUrl}/api/orgs/fiveonefour`)
+  assertEqual(oldSlugRes.status, 404, "old slug no longer resolves")
+
+  const after = await fetch(`${baseUrl}/api/orgs/fiveonefour-renamed`).then((r) => r.json())
+  assertEqual(after.org.id, before.org.id, "same underlying org row, not a duplicate")
+  assertEqual(after.org.isActive, true, "org still active after rename")
+  assertEqual(after.signers.length, before.signers.length, "signatures preserved across rename")
+})
+
+test("Webhook: organization renamed for unknown account id is a no-op", async (baseUrl) => {
+  await resetDb(baseUrl)
+
+  const { res, data } = await sendWebhook(baseUrl, "organization", {
+    action: "renamed",
+    organization: { id: 999999, login: "someone-elses-org" },
+  })
+  assertEqual(res.status, 200, "status")
+  assert(data.message.includes("No org record"), "ignored: no matching account id")
+
+  const orgRes = await fetch(`${baseUrl}/api/orgs/someone-elses-org`)
+  assertEqual(orgRes.status, 404, "no org created for unrelated rename")
+})
+
+test("Webhook: installation created after external rename reconciles slug instead of duplicating", async (baseUrl) => {
+  await resetDb(baseUrl)
+
+  // Simulates a rename GitHub delivered as an `installation` event (e.g. a
+  // re-sent/backfilled `created` delivery) without a prior `organization`
+  // webhook having reconciled the slug yet.
+  const { res, data } = await sendWebhook(baseUrl, "installation", {
+    action: "created",
+    installation: {
+      id: 10001,
+      account: { login: "fiveonefour-new-name", id: 2001, type: "Organization" },
+    },
+    sender: { id: 1, login: "orgadmin" },
+  })
+  assertEqual(res.status, 200, "status")
+  assert(data.message.includes("fiveonefour-new-name"), "message references new slug")
+
+  const orgsRes = await fetch(`${baseUrl}/api/orgs`)
+  const orgsData = await orgsRes.json()
+  const matching = orgsData.orgs.filter((org: { githubOrgSlug: string }) =>
+    org.githubOrgSlug.startsWith("fiveonefour")
+  )
+  assertEqual(matching.length, 1, "no duplicate org row created for the renamed account")
+
+  const oldSlugRes = await fetch(`${baseUrl}/api/orgs/fiveonefour`)
+  assertEqual(oldSlugRes.status, 404, "old slug no longer resolves")
+})
+
+test("Webhook: installation_repositories after external rename reconciles slug", async (baseUrl) => {
+  await resetDb(baseUrl)
+
+  const { res, data } = await sendWebhook(baseUrl, "installation_repositories", {
+    action: "added",
+    installation: {
+      id: 10001,
+      account: { login: "fiveonefour-repos-renamed", id: 2001, type: "Organization" },
+    },
+  })
+  assertEqual(res.status, 200, "status")
+  assert(data.message.includes("fiveonefour-repos-renamed"), "message references new slug")
+
+  const renamedOrgRes = await fetch(`${baseUrl}/api/orgs/fiveonefour-repos-renamed`)
+  assertEqual(renamedOrgRes.status, 200, "org reachable under new slug")
+
+  const orgsRes = await fetch(`${baseUrl}/api/orgs`)
+  const orgsData = await orgsRes.json()
+  const matching = orgsData.orgs.filter((org: { githubOrgSlug: string }) =>
+    org.githubOrgSlug.startsWith("fiveonefour")
+  )
+  assertEqual(matching.length, 1, "no duplicate org row created")
+})
+
 test("Webhook: ping event is acknowledged", async (baseUrl) => {
   await resetDb(baseUrl)
   const { res, data } = await sendWebhook(baseUrl, "ping", {
