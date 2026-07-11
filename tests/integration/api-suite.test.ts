@@ -1850,6 +1850,7 @@ test("Webhook: organization renamed reconciles slug in place", async (baseUrl) =
   const { res, data } = await sendWebhook(baseUrl, "organization", {
     action: "renamed",
     organization: { id: 2001, login: "fiveonefour-renamed" },
+    changes: { login: { from: "fiveonefour" } },
   })
   assertEqual(res.status, 200, "status")
   assert(data.message.includes("fiveonefour -> fiveonefour-renamed"), "rename message")
@@ -1860,6 +1861,27 @@ test("Webhook: organization renamed reconciles slug in place", async (baseUrl) =
   const after = await fetch(`${baseUrl}/api/orgs/fiveonefour-renamed`).then((r) => r.json())
   assertEqual(after.org.id, before.org.id, "same underlying org row, not a duplicate")
   assertEqual(after.org.isActive, true, "org still active after rename")
+  assertEqual(after.signers.length, before.signers.length, "signatures preserved across rename")
+})
+
+test("Webhook: organization renamed reconciles legacy org without account id via previous slug", async (baseUrl) => {
+  await resetDb(baseUrl)
+  await sql`UPDATE organizations SET github_account_id = NULL WHERE github_org_slug = ${"fiveonefour"}`
+
+  const before = await fetch(`${baseUrl}/api/orgs/fiveonefour`).then((r) => r.json())
+  assertEqual(before.org.githubAccountId, null, "legacy org has no account id")
+
+  const { res, data } = await sendWebhook(baseUrl, "organization", {
+    action: "renamed",
+    organization: { id: 2001, login: "fiveonefour-legacy-renamed" },
+    changes: { login: { from: "fiveonefour" } },
+  })
+  assertEqual(res.status, 200, "status")
+  assert(data.message.includes("fiveonefour -> fiveonefour-legacy-renamed"), "rename message")
+
+  const after = await fetch(`${baseUrl}/api/orgs/fiveonefour-legacy-renamed`).then((r) => r.json())
+  assertEqual(after.org.id, before.org.id, "same underlying org row, not a duplicate")
+  assertEqual(after.org.githubAccountId, "2001", "account id backfilled during rename")
   assertEqual(after.signers.length, before.signers.length, "signatures preserved across rename")
 })
 
@@ -1905,6 +1927,36 @@ test("Webhook: installation created after external rename reconciles slug instea
   assertEqual(oldSlugRes.status, 404, "old slug no longer resolves")
 })
 
+test("Webhook: installation created reconciles legacy org without account id via installation id", async (baseUrl) => {
+  await resetDb(baseUrl)
+  await sql`UPDATE organizations SET github_account_id = NULL WHERE github_org_slug = ${"fiveonefour"}`
+
+  const before = await fetch(`${baseUrl}/api/orgs/fiveonefour`).then((r) => r.json())
+  assertEqual(before.org.githubAccountId, null, "legacy org has no account id")
+
+  const { res, data } = await sendWebhook(baseUrl, "installation", {
+    action: "created",
+    installation: {
+      id: 10001,
+      account: { login: "fiveonefour-legacy-install", id: 2001, type: "Organization" },
+    },
+    sender: { id: 1, login: "orgadmin" },
+  })
+  assertEqual(res.status, 200, "status")
+  assert(data.message.includes("fiveonefour-legacy-install"), "message references new slug")
+
+  const after = await fetch(`${baseUrl}/api/orgs/fiveonefour-legacy-install`).then((r) => r.json())
+  assertEqual(after.org.id, before.org.id, "same underlying org row, not a duplicate")
+  assertEqual(after.org.githubAccountId, "2001", "account id backfilled during reconcile")
+
+  const orgsRes = await fetch(`${baseUrl}/api/orgs`)
+  const orgsData = await orgsRes.json()
+  const matching = orgsData.orgs.filter((org: { githubOrgSlug: string }) =>
+    org.githubOrgSlug.startsWith("fiveonefour")
+  )
+  assertEqual(matching.length, 1, "no duplicate org row created for the renamed account")
+})
+
 test("Webhook: installation_repositories after external rename reconciles slug", async (baseUrl) => {
   await resetDb(baseUrl)
 
@@ -1920,6 +1972,35 @@ test("Webhook: installation_repositories after external rename reconciles slug",
 
   const renamedOrgRes = await fetch(`${baseUrl}/api/orgs/fiveonefour-repos-renamed`)
   assertEqual(renamedOrgRes.status, 200, "org reachable under new slug")
+
+  const orgsRes = await fetch(`${baseUrl}/api/orgs`)
+  const orgsData = await orgsRes.json()
+  const matching = orgsData.orgs.filter((org: { githubOrgSlug: string }) =>
+    org.githubOrgSlug.startsWith("fiveonefour")
+  )
+  assertEqual(matching.length, 1, "no duplicate org row created")
+})
+
+test("Webhook: installation_repositories reconciles legacy org without account id via installation id", async (baseUrl) => {
+  await resetDb(baseUrl)
+  await sql`UPDATE organizations SET github_account_id = NULL WHERE github_org_slug = ${"fiveonefour"}`
+
+  const before = await fetch(`${baseUrl}/api/orgs/fiveonefour`).then((r) => r.json())
+  assertEqual(before.org.githubAccountId, null, "legacy org has no account id")
+
+  const { res, data } = await sendWebhook(baseUrl, "installation_repositories", {
+    action: "added",
+    installation: {
+      id: 10001,
+      account: { login: "fiveonefour-legacy-repos", id: 2001, type: "Organization" },
+    },
+  })
+  assertEqual(res.status, 200, "status")
+  assert(data.message.includes("fiveonefour-legacy-repos"), "message references new slug")
+
+  const after = await fetch(`${baseUrl}/api/orgs/fiveonefour-legacy-repos`).then((r) => r.json())
+  assertEqual(after.org.id, before.org.id, "same underlying org row, not a duplicate")
+  assertEqual(after.org.githubAccountId, "2001", "account id backfilled during reconcile")
 
   const orgsRes = await fetch(`${baseUrl}/api/orgs`)
   const orgsData = await orgsRes.json()

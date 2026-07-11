@@ -12,6 +12,7 @@ import { getGitHubClient, upsertMockPullRequest } from "@/lib/github"
 import {
   getOrganizationBySlug,
   getOrganizationByGithubAccountId,
+  getOrganizationByInstallationId,
   updateOrganizationSlug,
   isBypassAccountForOrg,
   getSignatureStatusByGithubId,
@@ -123,6 +124,11 @@ type OrganizationPayload = {
   organization?: {
     id?: number
     login?: string
+  }
+  changes?: {
+    login?: {
+      from?: string
+    }
   }
 }
 
@@ -908,13 +914,15 @@ async function handleInstallation(payload: InstallationPayload) {
     return NextResponse.json({ error: "Missing installation account login" }, { status: 400 })
   }
 
-  // Reconcile a renamed account before doing any slug-keyed lookup below --
-  // the account id is immutable, the login/slug is not.
-  const existingByAccountId = accountId
-    ? await getOrganizationByGithubAccountId(String(accountId))
-    : undefined
-  if (existingByAccountId && existingByAccountId.githubOrgSlug !== orgSlug) {
-    await updateOrganizationSlug(existingByAccountId.id, orgSlug)
+  const existing = await resolveOrganizationForReconciliation({
+    accountId,
+    installationId,
+    currentSlug: orgSlug,
+  })
+  if (existing && existing.githubOrgSlug !== orgSlug) {
+    await updateOrganizationSlug(existing.id, orgSlug, {
+      githubAccountId: accountId ?? existing.githubAccountId,
+    })
   }
 
   if (payload.action === "created" || payload.action === "unsuspend") {
@@ -932,7 +940,6 @@ async function handleInstallation(payload: InstallationPayload) {
       return NextResponse.json({ error: "Missing installation sender info" }, { status: 400 })
     }
 
-    const existing = existingByAccountId ?? (await getOrganizationBySlug(orgSlug))
     if (existing) {
       await setOrganizationActive(orgSlug, true)
       const updated = await updateOrganizationInstallationId(orgSlug, installationId ?? null, {
@@ -989,11 +996,15 @@ async function handleInstallationRepositories(payload: InstallationPayload) {
     return NextResponse.json({ error: "Missing installation account login" }, { status: 400 })
   }
 
-  if (accountId) {
-    const existing = await getOrganizationByGithubAccountId(String(accountId))
-    if (existing && existing.githubOrgSlug !== orgSlug) {
-      await updateOrganizationSlug(existing.id, orgSlug)
-    }
+  const existing = await resolveOrganizationForReconciliation({
+    accountId,
+    installationId,
+    currentSlug: orgSlug,
+  })
+  if (existing && existing.githubOrgSlug !== orgSlug) {
+    await updateOrganizationSlug(existing.id, orgSlug, {
+      githubAccountId: accountId ?? existing.githubAccountId,
+    })
   }
 
   await updateOrganizationInstallationId(orgSlug, installationId ?? null, {
@@ -1014,11 +1025,15 @@ async function handleOrganization(payload: OrganizationPayload) {
 
   const accountId = payload.organization?.id
   const newSlug = payload.organization?.login
+  const previousSlug = payload.changes?.login?.from
   if (!accountId || !newSlug) {
     return NextResponse.json({ error: "Missing organization id/login" }, { status: 400 })
   }
 
-  const existing = await getOrganizationByGithubAccountId(String(accountId))
+  const existing = await resolveOrganizationForReconciliation({
+    accountId,
+    previousSlug,
+  })
   if (!existing) {
     return NextResponse.json({
       message: `No org record for account id ${accountId}, ignoring rename`,
@@ -1026,10 +1041,15 @@ async function handleOrganization(payload: OrganizationPayload) {
   }
 
   if (existing.githubOrgSlug === newSlug) {
+    if (!existing.githubAccountId) {
+      await updateOrganizationSlug(existing.id, newSlug, { githubAccountId: accountId })
+    }
     return NextResponse.json({ message: "Org slug already up to date" })
   }
 
-  const updated = await updateOrganizationSlug(existing.id, newSlug)
+  const updated = await updateOrganizationSlug(existing.id, newSlug, {
+    githubAccountId: accountId,
+  })
   return NextResponse.json({
     message: `Renamed org slug ${existing.githubOrgSlug} -> ${newSlug}`,
     org: updated,
@@ -1062,6 +1082,35 @@ export async function GET(request: NextRequest) {
 
 function normalizeGitHubAccountType(type?: "Organization" | "User"): GitHubAccountType {
   return type === "User" ? "user" : "organization"
+}
+
+async function resolveOrganizationForReconciliation(params: {
+  accountId?: number | null
+  installationId?: number | null
+  previousSlug?: string | null
+  currentSlug?: string | null
+}) {
+  if (params.accountId) {
+    const byAccountId = await getOrganizationByGithubAccountId(String(params.accountId))
+    if (byAccountId) return byAccountId
+  }
+
+  if (params.installationId) {
+    const byInstallationId = await getOrganizationByInstallationId(params.installationId)
+    if (byInstallationId) return byInstallationId
+  }
+
+  if (params.previousSlug) {
+    const byPreviousSlug = await getOrganizationBySlug(params.previousSlug)
+    if (byPreviousSlug) return byPreviousSlug
+  }
+
+  if (params.currentSlug) {
+    const byCurrentSlug = await getOrganizationBySlug(params.currentSlug)
+    if (byCurrentSlug) return byCurrentSlug
+  }
+
+  return undefined
 }
 
 function isPersonalAccountOwner(

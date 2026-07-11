@@ -269,11 +269,36 @@ export async function getOrganizationByGithubAccountId(accountId: string) {
   return rows[0] ?? undefined
 }
 
-export async function updateOrganizationSlug(orgId: string, newSlug: string) {
+export async function getOrganizationByInstallationId(installationId: number) {
   const db = await ensureDbReady()
   const rows = await db
+    .select()
+    .from(organizations)
+    .where(eq(organizations.installationId, installationId))
+    .limit(1)
+  return rows[0] ?? undefined
+}
+
+export async function updateOrganizationSlug(
+  orgId: string,
+  newSlug: string,
+  options?: { githubAccountId?: string | number | null }
+) {
+  const db = await ensureDbReady()
+  const updateData: {
+    githubOrgSlug: string
+    githubAccountId?: string | null
+  } = { githubOrgSlug: newSlug }
+  if (options && "githubAccountId" in options) {
+    updateData.githubAccountId =
+      options.githubAccountId === undefined || options.githubAccountId === null
+        ? null
+        : String(options.githubAccountId)
+  }
+
+  const rows = await db
     .update(organizations)
-    .set({ githubOrgSlug: newSlug })
+    .set(updateData)
     .where(eq(organizations.id, orgId))
     .returning()
   return rows[0] ?? undefined
