@@ -252,6 +252,58 @@ export async function getOrganizationById(id: string) {
   return rows[0] ?? undefined
 }
 
+/**
+ * Look up an org by its immutable GitHub account id. Slugs (org logins) are
+ * mutable -- an org can be renamed on GitHub -- so any code path that needs
+ * to survive a rename must resolve through this first and reconcile
+ * `githubOrgSlug` via `updateOrganizationSlug` before falling back to
+ * slug-keyed lookups/mutations.
+ */
+export async function getOrganizationByGithubAccountId(accountId: string) {
+  const db = await ensureDbReady()
+  const rows = await db
+    .select()
+    .from(organizations)
+    .where(eq(organizations.githubAccountId, accountId))
+    .limit(1)
+  return rows[0] ?? undefined
+}
+
+export async function getOrganizationByInstallationId(installationId: number) {
+  const db = await ensureDbReady()
+  const rows = await db
+    .select()
+    .from(organizations)
+    .where(eq(organizations.installationId, installationId))
+    .limit(1)
+  return rows[0] ?? undefined
+}
+
+export async function updateOrganizationSlug(
+  orgId: string,
+  newSlug: string,
+  options?: { githubAccountId?: string | number | null }
+) {
+  const db = await ensureDbReady()
+  const updateData: {
+    githubOrgSlug: string
+    githubAccountId?: string | null
+  } = { githubOrgSlug: newSlug }
+  if (options && "githubAccountId" in options) {
+    updateData.githubAccountId =
+      options.githubAccountId === undefined || options.githubAccountId === null
+        ? null
+        : String(options.githubAccountId)
+  }
+
+  const rows = await db
+    .update(organizations)
+    .set(updateData)
+    .where(eq(organizations.id, orgId))
+    .returning()
+  return rows[0] ?? undefined
+}
+
 export async function getBypassAccountsByOrg(orgId: string) {
   const db = await ensureDbReady()
   return db
