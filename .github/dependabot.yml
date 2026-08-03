@@ -6,6 +6,10 @@ updates:
       interval: "weekly"
     reviewers:
       - "callicles"
+    ignore:
+      # Vercel deploys on Node 24 — keep @types/node on 24.x
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "github-actions"
     directory: "/"
