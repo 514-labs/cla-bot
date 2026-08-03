@@ -73,16 +73,16 @@ const options: ConsentManagerOptions = backendURL
 
 function DialogDismissHandler() {
   const { activeUI, setActiveUI } = useConsentManager()
-  const isPrivacyDialogOpen = activeUI === "dialog"
+  const isDialogOpen = activeUI === "dialog"
 
-  // 1.x used setIsPrivacyDialogOpen(false) + setShowPopup(true); in 2.x a single
-  // setActiveUI("banner") closes the dialog and re-shows the banner.
+  // 1.x used two separate setters; in 2.x a single setActiveUI("banner") closes
+  // the dialog and re-shows the banner.
   const dismiss = useCallback(() => {
     setActiveUI("banner")
   }, [setActiveUI])
 
   useEffect(() => {
-    if (!isPrivacyDialogOpen) return
+    if (!isDialogOpen) return
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -104,7 +104,7 @@ function DialogDismissHandler() {
       document.removeEventListener("keydown", handleKeyDown)
       document.removeEventListener("click", handleClick)
     }
-  }, [isPrivacyDialogOpen, dismiss])
+  }, [isDialogOpen, dismiss])
 
   return null
 }
