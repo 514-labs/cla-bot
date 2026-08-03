@@ -21,8 +21,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        language: [javascript-typescript]
-        build-mode: [none]
+        include:
+          - language: javascript-typescript
+            build-mode: none
+            queries: security-and-quality
+          - language: actions
+            build-mode: none
+            queries: security-extended
 
     steps:
       - uses: actions/checkout@v6
@@ -32,6 +37,7 @@ jobs:
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
+          queries: ${{ matrix.queries }}
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v4
