@@ -1,12 +1,12 @@
 "use client"
 
-import { useConsentManager } from "@c15t/nextjs/client"
+import { useConsentManager } from "@c15t/nextjs"
 import { Analytics } from "@vercel/analytics/react"
 
 export function ConsentAnalytics() {
-  const { hasConsentFor } = useConsentManager()
+  const { has } = useConsentManager()
 
-  if (!hasConsentFor("measurement")) {
+  if (!has("measurement")) {
     return null
   }
 
