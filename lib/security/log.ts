@@ -31,7 +31,12 @@ export function sanitizeForLog(value: unknown): string {
   return (
     toLoggableString(value)
       // Newlines are what make log forging possible; strip them first.
-      .replace(/[\r\n]+/g, " ")
+      // Deliberately quantifier-free: CodeQL's log-injection sanitizer
+      // heuristic only recognizes a `String.replace` barrier when it can
+      // enumerate the matched strings, which a `+` quantifier defeats. Each
+      // CR/LF therefore becomes its own space rather than a run collapsing
+      // into one — equally safe, and it keeps the barrier recognized.
+      .replace(/[\r\n]/g, " ")
       // Then the remaining control characters (NUL, ESC, backspace, DEL, ...).
       // biome-ignore lint/suspicious/noControlCharactersInRegex: matching control characters in order to strip them is the whole point of this helper
       .replace(/[\x00-\x1f\x7f]+/g, " ")
