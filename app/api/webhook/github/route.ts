@@ -30,6 +30,7 @@ import {
   isClaBotManagedComment,
 } from "@/lib/pr-comment-template"
 import { verifyWebhookSignatureFromEnv } from "@/lib/github/webhook-signature"
+import { sanitizeForLog, sanitizeForLogOrNull } from "@/lib/security/log"
 
 const CHECK_NAME = "CLA Bot / Contributor License Agreement"
 
@@ -225,31 +226,31 @@ export async function POST(request: NextRequest) {
       const sender = prPayload.sender
       const headRef = prPayload.pull_request?.head?.ref ?? null
       console.info("[webhook][dependabot-like] pull_request event received", {
-        deliveryId,
-        action,
+        deliveryId: sanitizeForLogOrNull(deliveryId),
+        action: sanitizeForLog(action),
         installationId: prPayload.installation?.id ?? null,
         repository: {
-          owner: orgSlug,
-          name: repoName,
-          fullName: prPayload.repository?.full_name ?? null,
+          owner: sanitizeForLog(orgSlug),
+          name: sanitizeForLog(repoName),
+          fullName: sanitizeForLogOrNull(prPayload.repository?.full_name),
         },
         prNumber,
         author: {
-          login: author?.login ?? null,
+          login: sanitizeForLogOrNull(author?.login),
           id: author?.id ?? null,
-          type: author?.type ?? null,
+          type: sanitizeForLogOrNull(author?.type),
         },
         sender: {
-          login: sender?.login ?? null,
+          login: sanitizeForLogOrNull(sender?.login),
           id: sender?.id ?? null,
-          type: sender?.type ?? null,
+          type: sanitizeForLogOrNull(sender?.type),
         },
         head: {
-          ref: headRef,
-          sha: headSha.slice(0, 12),
+          ref: sanitizeForLogOrNull(headRef),
+          sha: sanitizeForLog(headSha.slice(0, 12)),
         },
-        baseRef: prPayload.pull_request?.base?.ref ?? null,
-        authorAssociation: prPayload.pull_request?.author_association ?? null,
+        baseRef: sanitizeForLogOrNull(prPayload.pull_request?.base?.ref),
+        authorAssociation: sanitizeForLogOrNull(prPayload.pull_request?.author_association),
         heuristics: {
           authorLoginLooksDependabot: (author?.login ?? "").toLowerCase().includes("dependabot"),
           senderLoginLooksDependabot: (sender?.login ?? "").toLowerCase().includes("dependabot"),
@@ -467,7 +468,7 @@ export async function POST(request: NextRequest) {
             permission === "admin" || permission === "maintain" || permission === "write"
         }
       } catch (err) {
-        console.error("Failed to authorize /recheck requester:", err)
+        console.error("Failed to authorize /recheck requester:", sanitizeForLog(err))
         return NextResponse.json(
           { error: "Failed to authorize /recheck requester" },
           { status: 502 }
@@ -495,7 +496,7 @@ export async function POST(request: NextRequest) {
       headSha = await github.getPullRequestHeadSha(orgSlug, repoName, prNumber)
     } catch (err) {
       if (process.env.NODE_ENV === "production") {
-        console.error("Failed to resolve PR head SHA for /recheck:", err)
+        console.error("Failed to resolve PR head SHA for /recheck:", sanitizeForLog(err))
         return NextResponse.json({ error: "Failed to resolve PR head SHA" }, { status: 502 })
       }
       headSha = `recheck-${Date.now()}`

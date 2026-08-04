@@ -11,6 +11,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { verifyWebhookSignatureFromEnv } from "@/lib/github/webhook-signature"
 import { createAuditEvent } from "@/lib/db/queries"
+import { sanitizeForLog } from "@/lib/security/log"
 
 type MarketplacePurchase = {
   account?: {
@@ -120,7 +121,11 @@ export async function POST(request: NextRequest) {
   })
 
   console.log(
-    `[marketplace] ${action} — account=${account?.login ?? "unknown"} plan=${plan?.name ?? "unknown"} sender=${sender?.login ?? "unknown"}`
+    `[marketplace] ${sanitizeForLog(action)} — account=${sanitizeForLog(
+      account?.login ?? "unknown"
+    )} plan=${sanitizeForLog(plan?.name ?? "unknown")} sender=${sanitizeForLog(
+      sender?.login ?? "unknown"
+    )}`
   )
 
   return NextResponse.json({ ok: true, action })
