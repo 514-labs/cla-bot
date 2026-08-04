@@ -128,7 +128,7 @@ async function addBypassAccountForOrg(params: {
     bypassKind === "app_bot"
       ? await sql`
           INSERT INTO org_cla_bypass_accounts (id, org_id, bypass_kind, github_user_id, github_username, actor_slug, created_by_user_id, created_at)
-          SELECT ${`bypass_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`}, id, 'app_bot', ${null}, ${params.githubUsername}, ${actorSlug}, 'user_1', NOW()::text
+          SELECT ${`bypass_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`}, id, 'app_bot', NULL::text, ${params.githubUsername}, ${actorSlug}, 'user_1', NOW()::text
           FROM organizations
           WHERE github_org_slug = ${params.orgSlug}
           ON CONFLICT (org_id, bypass_kind, actor_slug) DO NOTHING
@@ -136,7 +136,7 @@ async function addBypassAccountForOrg(params: {
         `
       : await sql`
           INSERT INTO org_cla_bypass_accounts (id, org_id, bypass_kind, github_user_id, github_username, actor_slug, created_by_user_id, created_at)
-          SELECT ${`bypass_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`}, id, 'user', ${githubUserId}, ${params.githubUsername}, ${null}, 'user_1', NOW()::text
+          SELECT ${`bypass_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`}, id, 'user', ${githubUserId}, ${params.githubUsername}, NULL::text, 'user_1', NOW()::text
           FROM organizations
           WHERE github_org_slug = ${params.orgSlug}
           ON CONFLICT (org_id, bypass_kind, github_user_id) DO NOTHING

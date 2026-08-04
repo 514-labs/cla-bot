@@ -140,7 +140,7 @@ export function simpleMarkdownToHtml(md: string): string {
         inBlockquote = false
       }
       if (!listState || listState.kind !== "ol" || listState.indent !== indent) {
-        listState = closeList(listState)
+        closeList(listState)
         listState = openList("ol", indent)
       }
       result.push(`<li value="${olMatch[2]}">${olMatch[3]}</li>`)
@@ -155,7 +155,7 @@ export function simpleMarkdownToHtml(md: string): string {
         inBlockquote = false
       }
       if (!listState || listState.kind !== listKind || listState.indent !== indent) {
-        listState = closeList(listState)
+        closeList(listState)
         listState = openList(listKind, indent)
       }
       result.push(`<li value="${markerValue}">${alphaMatch[3]}</li>`)
@@ -166,7 +166,7 @@ export function simpleMarkdownToHtml(md: string): string {
         inBlockquote = false
       }
       if (!listState || listState.kind !== "ul" || listState.indent !== indent) {
-        listState = closeList(listState)
+        closeList(listState)
         listState = openList("ul", indent)
       }
       result.push(`<li>${ulMatch[2]}</li>`)
@@ -201,7 +201,7 @@ export function simpleMarkdownToHtml(md: string): string {
     }
   }
 
-  listState = closeList(listState)
+  closeList(listState)
   if (inBlockquote) result.push("</blockquote>")
 
   return result.join("\n")
