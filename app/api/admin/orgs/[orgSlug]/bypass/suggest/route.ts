@@ -4,6 +4,7 @@ import { searchGitHubUsersWithOAuth } from "@/lib/github/oauth-user-search"
 import { getValidUserAccessToken } from "@/lib/github/user-token"
 import { authorizeOrgAccess } from "@/lib/server/org-access"
 import {
+  type BypassKind,
   formatBypassActorLogin,
   isLikelyAppBotActor,
   normalizeBypassActorSlug,
@@ -24,7 +25,17 @@ export async function GET(
   }
 
   const query = request.nextUrl.searchParams.get("q")?.trim() ?? ""
-  const bypassKind = parseBypassKind(request.nextUrl.searchParams.get("kind")) ?? "user"
+
+  // Validate the kind param explicitly instead of silently falling back to
+  // "user": the resolved value gates behaviour below, so it must be a known
+  // enum member rather than raw request input.
+  const rawBypassKind = request.nextUrl.searchParams.get("kind")
+  const bypassKind: BypassKind | null =
+    rawBypassKind === null ? "user" : parseBypassKind(rawBypassKind)
+  if (bypassKind === null) {
+    return NextResponse.json({ error: "Invalid kind parameter" }, { status: 400 })
+  }
+
   if (query.length < MIN_QUERY_LENGTH) {
     return NextResponse.json({ suggestions: [] })
   }

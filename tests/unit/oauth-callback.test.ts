@@ -29,7 +29,10 @@ import { encryptSecret } from "@/lib/security/encryption"
 import { createSessionToken } from "@/lib/auth"
 import { GET } from "@/app/api/auth/github/route"
 
-const NONCE = "test-nonce-123"
+// The route generates the state nonce with crypto.randomUUID(), and now
+// validates that the callback `state` matches that shape.
+const NONCE = "3f1d2c4b-5a6e-4f80-9b1c-2d3e4f5a6b7c"
+const OTHER_NONCE = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee"
 const RETURN_TO = "/dashboard"
 const STATE_COOKIE_VALUE = `${NONCE}:${encodeURIComponent(RETURN_TO)}`
 
@@ -177,7 +180,7 @@ describe("OAuth callback (with code param)", () => {
   })
 
   it("redirects to error page when state nonce mismatches", async () => {
-    const req = makeCallbackRequest({ state: "wrong-nonce" })
+    const req = makeCallbackRequest({ state: OTHER_NONCE })
     const res = await GET(req)
 
     expect(res.status).toBe(307)
@@ -252,6 +255,66 @@ describe("OAuth callback (with code param)", () => {
     expect(res.status).toBe(307)
     const location = res.headers.get("location")!
     expect(location).toContain("error=server_config")
+  })
+})
+
+describe("callback param validation", () => {
+  it("rejects a malformed code without exchanging it for a token", async () => {
+    const mockFetch = createMockFetch("success")
+    vi.stubGlobal("fetch", mockFetch)
+
+    const req = makeCallbackRequest({ code: "not a valid code!" })
+    const res = await GET(req)
+
+    expect(res.status).toBe(307)
+    expect(res.headers.get("location") ?? "").toContain("error=github_code")
+    expect(mockFetch).not.toHaveBeenCalled()
+  })
+
+  it("rejects an over-long code", async () => {
+    const mockFetch = createMockFetch("success")
+    vi.stubGlobal("fetch", mockFetch)
+
+    const req = makeCallbackRequest({ code: "a".repeat(257) })
+    const res = await GET(req)
+
+    expect(res.status).toBe(307)
+    expect(res.headers.get("location") ?? "").toContain("error=github_code")
+    expect(mockFetch).not.toHaveBeenCalled()
+  })
+
+  it("rejects a non-UUID state without exchanging the code", async () => {
+    const mockFetch = createMockFetch("success")
+    vi.stubGlobal("fetch", mockFetch)
+
+    const req = makeCallbackRequest({ state: "not-a-uuid" })
+    const res = await GET(req)
+
+    expect(res.status).toBe(307)
+    expect(res.headers.get("location") ?? "").toContain("error=github_state")
+    expect(mockFetch).not.toHaveBeenCalled()
+  })
+
+  it("rejects a missing state without exchanging the code", async () => {
+    const mockFetch = createMockFetch("success")
+    vi.stubGlobal("fetch", mockFetch)
+
+    const headers = new Headers({ cookie: `cla-github-oauth-state=${STATE_COOKIE_VALUE}` })
+    const req = new NextRequest("http://localhost:3000/api/auth/github?code=valid-code", {
+      headers,
+    })
+    const res = await GET(req)
+
+    expect(res.status).toBe(307)
+    expect(res.headers.get("location") ?? "").toContain("error=github_state")
+    expect(mockFetch).not.toHaveBeenCalled()
+  })
+
+  it("clears the OAuth state cookie when a param is rejected", async () => {
+    const req = makeCallbackRequest({ code: "bad code" })
+    const res = await GET(req)
+
+    expect(res.cookies.get("cla-github-oauth-state")?.value).toBe("")
   })
 })
 
