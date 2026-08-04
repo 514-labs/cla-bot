@@ -49,31 +49,13 @@ export async function GET(request: NextRequest) {
     return response
   }
 
+  // Step 1: an absent `code` means the browser is starting the flow rather than
+  // GitHub calling us back, so send it on to GitHub's authorize endpoint. The
+  // whole branch is a single early return into `startSignInRedirect` — nothing
+  // below this point runs for a start request, and none of the callback-side
+  // work is nested inside a branch chosen by a query parameter.
   if (!rawCode) {
-    // Step 1: Redirect to GitHub authorize
-    const clientId = process.env.GITHUB_CLIENT_ID
-    if (!clientId) {
-      return NextResponse.json({ error: "GITHUB_CLIENT_ID is not configured" }, { status: 500 })
-    }
-
-    const redirectUri = `${new URL(request.url).origin}/api/auth/github`
-    const returnTo = sanitizeReturnTo(searchParams.get("returnTo"), "/dashboard")
-    const nonce = crypto.randomUUID()
-    const githubAuthUrl = new URL("https://github.com/login/oauth/authorize")
-    githubAuthUrl.searchParams.set("client_id", clientId)
-    githubAuthUrl.searchParams.set("redirect_uri", redirectUri)
-    githubAuthUrl.searchParams.set("scope", "read:user,read:org,user:email")
-    githubAuthUrl.searchParams.set("state", nonce)
-
-    const response = NextResponse.redirect(githubAuthUrl.toString())
-    response.cookies.set(OAUTH_STATE_COOKIE, encodeOAuthStateCookie({ nonce, returnTo }), {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: OAUTH_STATE_TTL_SECONDS,
-    })
-    return response
+    return startSignInRedirect(request, searchParams)
   }
 
   // Validate the shape of both callback params before they are used for any
@@ -214,6 +196,37 @@ export async function GET(request: NextRequest) {
     maxAge: cookieOpts.maxAge,
   })
 
+  return response
+}
+
+/**
+ * Step 1 of the flow: redirect the browser to GitHub's authorize endpoint,
+ * remembering the state nonce and the post-sign-in destination in an HttpOnly
+ * cookie so the callback can verify them.
+ */
+function startSignInRedirect(request: NextRequest, searchParams: URLSearchParams): NextResponse {
+  const clientId = process.env.GITHUB_CLIENT_ID
+  if (!clientId) {
+    return NextResponse.json({ error: "GITHUB_CLIENT_ID is not configured" }, { status: 500 })
+  }
+
+  const redirectUri = `${new URL(request.url).origin}/api/auth/github`
+  const returnTo = sanitizeReturnTo(searchParams.get("returnTo"), "/dashboard")
+  const nonce = crypto.randomUUID()
+  const githubAuthUrl = new URL("https://github.com/login/oauth/authorize")
+  githubAuthUrl.searchParams.set("client_id", clientId)
+  githubAuthUrl.searchParams.set("redirect_uri", redirectUri)
+  githubAuthUrl.searchParams.set("scope", "read:user,read:org,user:email")
+  githubAuthUrl.searchParams.set("state", nonce)
+
+  const response = NextResponse.redirect(githubAuthUrl.toString())
+  response.cookies.set(OAUTH_STATE_COOKIE, encodeOAuthStateCookie({ nonce, returnTo }), {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: OAUTH_STATE_TTL_SECONDS,
+  })
   return response
 }
 

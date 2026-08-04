@@ -11,8 +11,8 @@ describe("sanitizeForLog", () => {
     const result = sanitizeForLog(forged)
     expect(result).not.toContain("\r")
     expect(result).not.toContain("\n")
-    // CR and LF are replaced one-for-one, so "\r\n" yields two spaces.
-    expect(result).toBe("attacker  [marketplace] purchased — account=victim")
+    // A run of line breaks collapses to a single space, so "\r\n" yields one.
+    expect(result).toBe("attacker [marketplace] purchased — account=victim")
   })
 
   it("strips other ASCII control characters", () => {
@@ -23,10 +23,10 @@ describe("sanitizeForLog", () => {
     )
   })
 
-  it("replaces every character of a CR/LF run with its own space", () => {
-    // Six newline characters in, six spaces out — no run collapsing here, so
-    // that the replace stays a CodeQL-recognizable sanitizer.
-    expect(sanitizeForLog("a\r\n\r\n\r\nb")).toBe("a      b")
+  it("collapses a whole CR/LF run into a single space", () => {
+    // Six line-break characters in, one space out: the run is normalized to a
+    // single LF plus a separator, then the LF itself is deleted.
+    expect(sanitizeForLog("a\r\n\r\n\r\nb")).toBe("a b")
   })
 
   it("collapses a run of other control characters into a single space", () => {
@@ -47,7 +47,7 @@ describe("sanitizeForLog", () => {
 
   it("reduces an Error to its name and single-line message", () => {
     const err = new Error("Not Found - /repos/acme\r\nfake log line")
-    expect(sanitizeForLog(err)).toBe("Error: Not Found - /repos/acme  fake log line")
+    expect(sanitizeForLog(err)).toBe("Error: Not Found - /repos/acme fake log line")
   })
 
   it("does not throw on a value whose toString throws", () => {
