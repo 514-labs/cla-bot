@@ -10,7 +10,6 @@ import {
   type Theme,
   useConsentManager,
 } from "@c15t/nextjs"
-import "@c15t/nextjs/styles.css"
 
 const backendURL = process.env.NEXT_PUBLIC_C15T_URL
 
@@ -65,6 +64,11 @@ const uiOptions = {
   theme,
   colorScheme: "dark",
   legalLinks: { privacyPolicy: { href: "/privacy" }, termsOfService: { href: "/terms" } },
+  // 2.x gates both the preferences toggles and `has(...)` on this list: the store
+  // defaults to `["necessary"]`, and "Accept all" only grants categories listed
+  // here. Without `measurement`, `has("measurement")` stays false forever and
+  // `ConsentAnalytics` never mounts Vercel Analytics.
+  consentCategories: ["necessary", "measurement"],
 } satisfies Partial<ConsentManagerOptions>
 
 const options: ConsentManagerOptions = backendURL

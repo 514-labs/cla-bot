@@ -1,5 +1,8 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+/* Keep c15t last in the top-level @import block so its component layer and
+   theme tokens are not overridden by preset styles (Tailwind v4 setup). */
+@import "@c15t/nextjs/styles.css";
 
 @theme {
   /* Font families */
