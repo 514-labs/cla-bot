@@ -36,7 +36,7 @@
     "drizzle-orm": "^0.45.2",
     "jose": "^6.2.3",
     "lucide-react": "^1.17.0",
-    "next": "16.2.6",
+    "next": "16.2.11",
     "postgres": "^3.4.9",
     "react": "^19",
     "react-dom": "^19",
@@ -58,7 +58,7 @@
     "embedded-postgres": "18.3.0-beta.17",
     "jiti": "^2.7.0",
     "knip": "6.31.0",
-    "postcss": "^8.5",
+    "postcss": "^8.5.25",
     "tailwindcss": "^4.3.0",
     "typescript": "6.0.3",
     "vitest": "4.1.7"

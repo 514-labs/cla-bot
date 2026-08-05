@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useRef } from "react"
-import { usePathname } from "next/navigation"
 
 const POLL_INTERVAL_MS = 5 * 60 * 1000 // 5 minutes
 
@@ -10,7 +9,6 @@ type SessionMonitorProps = {
 }
 
 export function SessionMonitor({ isAuthenticated }: SessionMonitorProps) {
-  const pathname = usePathname()
   const wasAuthenticated = useRef(isAuthenticated)
 
   useEffect(() => {

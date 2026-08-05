@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "node:crypto"
 import { NextRequest, NextResponse } from "next/server"
 import { upsertUser, setUserGithubTokens } from "@/lib/db/queries"
 import { createSessionToken, getSessionCookieOptions } from "@/lib/auth"
@@ -5,6 +6,13 @@ import { encryptSecret } from "@/lib/security/encryption"
 
 const OAUTH_STATE_COOKIE = "cla-github-oauth-state"
 const OAUTH_STATE_TTL_SECONDS = 60 * 10
+
+/** Upper bound for both callback params; real values are far shorter. */
+const MAX_OAUTH_PARAM_LENGTH = 256
+/** GitHub authorization codes are URL-safe opaque strings. */
+const OAUTH_CODE_PATTERN = /^[A-Za-z0-9_-]+$/
+/** We always generate the state nonce with crypto.randomUUID(). */
+const OAUTH_STATE_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 type OAuthStateCookie = {
   nonce: string
@@ -32,35 +40,8 @@ type ResolvedGitHubEmail = {
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
-  const code = searchParams.get("code")
-  const state = searchParams.get("state")
-
-  if (!code) {
-    // Step 1: Redirect to GitHub authorize
-    const clientId = process.env.GITHUB_CLIENT_ID
-    if (!clientId) {
-      return NextResponse.json({ error: "GITHUB_CLIENT_ID is not configured" }, { status: 500 })
-    }
-
-    const redirectUri = `${new URL(request.url).origin}/api/auth/github`
-    const returnTo = sanitizeReturnTo(searchParams.get("returnTo"), "/dashboard")
-    const nonce = crypto.randomUUID()
-    const githubAuthUrl = new URL("https://github.com/login/oauth/authorize")
-    githubAuthUrl.searchParams.set("client_id", clientId)
-    githubAuthUrl.searchParams.set("redirect_uri", redirectUri)
-    githubAuthUrl.searchParams.set("scope", "read:user,read:org,user:email")
-    githubAuthUrl.searchParams.set("state", nonce)
-
-    const response = NextResponse.redirect(githubAuthUrl.toString())
-    response.cookies.set(OAUTH_STATE_COOKIE, encodeOAuthStateCookie({ nonce, returnTo }), {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: OAUTH_STATE_TTL_SECONDS,
-    })
-    return response
-  }
+  const rawCode = searchParams.get("code")
+  const rawState = searchParams.get("state")
 
   const makeAuthErrorRedirect = (reason: string) => {
     const response = NextResponse.redirect(new URL(`/auth/signin?error=${reason}`, request.url))
@@ -68,8 +49,29 @@ export async function GET(request: NextRequest) {
     return response
   }
 
+  // Step 1: an absent `code` means the browser is starting the flow rather than
+  // GitHub calling us back, so send it on to GitHub's authorize endpoint. The
+  // whole branch is a single early return into `startSignInRedirect` — nothing
+  // below this point runs for a start request, and none of the callback-side
+  // work is nested inside a branch chosen by a query parameter.
+  if (!rawCode) {
+    return startSignInRedirect(request, searchParams)
+  }
+
+  // Validate the shape of both callback params before they are used for any
+  // control-flow decision or forwarded to GitHub. A present-but-malformed code
+  // is never treated as "start the flow again".
+  if (!isWellFormedOAuthParam(rawCode, OAUTH_CODE_PATTERN)) {
+    return makeAuthErrorRedirect("github_code")
+  }
+  if (!isWellFormedOAuthParam(rawState, OAUTH_STATE_PATTERN)) {
+    return makeAuthErrorRedirect("github_state")
+  }
+  const code: string = rawCode
+  const state: string = rawState
+
   const oauthState = parseOAuthStateCookie(request.cookies.get(OAUTH_STATE_COOKIE)?.value ?? null)
-  if (!state || !oauthState || oauthState.nonce !== state) {
+  if (!oauthState || !timingSafeEqualStrings(oauthState.nonce, state)) {
     return makeAuthErrorRedirect("github_state")
   }
   const returnTo = sanitizeReturnTo(oauthState.returnTo, "/dashboard")
@@ -195,6 +197,55 @@ export async function GET(request: NextRequest) {
   })
 
   return response
+}
+
+/**
+ * Step 1 of the flow: redirect the browser to GitHub's authorize endpoint,
+ * remembering the state nonce and the post-sign-in destination in an HttpOnly
+ * cookie so the callback can verify them.
+ */
+function startSignInRedirect(request: NextRequest, searchParams: URLSearchParams): NextResponse {
+  const clientId = process.env.GITHUB_CLIENT_ID
+  if (!clientId) {
+    return NextResponse.json({ error: "GITHUB_CLIENT_ID is not configured" }, { status: 500 })
+  }
+
+  const redirectUri = `${new URL(request.url).origin}/api/auth/github`
+  const returnTo = sanitizeReturnTo(searchParams.get("returnTo"), "/dashboard")
+  const nonce = crypto.randomUUID()
+  const githubAuthUrl = new URL("https://github.com/login/oauth/authorize")
+  githubAuthUrl.searchParams.set("client_id", clientId)
+  githubAuthUrl.searchParams.set("redirect_uri", redirectUri)
+  githubAuthUrl.searchParams.set("scope", "read:user,read:org,user:email")
+  githubAuthUrl.searchParams.set("state", nonce)
+
+  const response = NextResponse.redirect(githubAuthUrl.toString())
+  response.cookies.set(OAUTH_STATE_COOKIE, encodeOAuthStateCookie({ nonce, returnTo }), {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: OAUTH_STATE_TTL_SECONDS,
+  })
+  return response
+}
+
+/**
+ * Accepts only non-empty, length-bounded values matching a conservative charset.
+ * Anything else is rejected before it can influence control flow.
+ */
+function isWellFormedOAuthParam(raw: string | null, pattern: RegExp): raw is string {
+  if (!raw) return false
+  if (raw.length > MAX_OAUTH_PARAM_LENGTH) return false
+  return pattern.test(raw)
+}
+
+/** Constant-time string comparison; length mismatch short-circuits. */
+function timingSafeEqualStrings(a: string, b: string): boolean {
+  const bufferA = Buffer.from(a, "utf8")
+  const bufferB = Buffer.from(b, "utf8")
+  if (bufferA.length !== bufferB.length) return false
+  return timingSafeEqual(bufferA, bufferB)
 }
 
 function sanitizeReturnTo(raw: string | null, fallback: string): string {
