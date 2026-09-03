@@ -137,12 +137,16 @@ export type MockGitHubConfig = {
 }
 
 const MAX_CALL_LOG = 1000
-/** Upper bound for injected latency so a bad request can't park the server. */
-const MAX_LATENCY_MS = 10_000
+/**
+ * Injected latency snaps up to one of these steps. The timer duration therefore
+ * always comes from this table, never directly from a request, and is bounded.
+ */
+const LATENCY_STEPS_MS = [0, 25, 50, 100, 200, 300, 500, 750, 1000, 2000, 5000, 10_000] as const
+const MAX_LATENCY_MS = LATENCY_STEPS_MS[LATENCY_STEPS_MS.length - 1]
 
 function clampLatency(value: number): number {
   if (!Number.isFinite(value) || value <= 0) return 0
-  return Math.min(Math.floor(value), MAX_LATENCY_MS)
+  return LATENCY_STEPS_MS.find((step) => step >= value) ?? MAX_LATENCY_MS
 }
 
 function defaultLatencyMs(): number {
@@ -232,9 +236,7 @@ export function clearMockGitHubCallLog() {
 }
 
 function sleep(ms: number) {
-  // Bounded at the sink as well as at configuration time.
-  const bounded = Math.min(Math.max(0, ms), MAX_LATENCY_MS)
-  return new Promise<void>((resolve) => setTimeout(resolve, bounded))
+  return new Promise<void>((resolve) => setTimeout(resolve, ms))
 }
 
 function takeInjectedFailure(method: string): MockGitHubFailure | null {

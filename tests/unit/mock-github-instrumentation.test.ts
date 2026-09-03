@@ -102,7 +102,11 @@ describe("MockGitHubClient instrumentation", () => {
     expect(getMockGitHubConfig().failures).toEqual({})
   })
 
-  it("clamps injected latency to a sane upper bound and ignores garbage", () => {
+  it("snaps injected latency up to a fixed step, bounded above, and ignores garbage", () => {
+    configureMockGitHub({ latencyMs: 120 })
+    expect(getMockGitHubConfig().latencyMs).toBe(200)
+    configureMockGitHub({ latencyMs: 50 })
+    expect(getMockGitHubConfig().latencyMs).toBe(50)
     configureMockGitHub({ latencyMs: 999_999 })
     expect(getMockGitHubConfig().latencyMs).toBe(10_000)
     configureMockGitHub({ latencyMs: Number.NaN })

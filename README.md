@@ -201,10 +201,13 @@ and PR comments. The mock is instrumented:
   show up in wall-clock time
 - failures can be injected per method (e.g. make `checkOrgMembership` return a 403 once)
 
-### The `/api/test-support` endpoint (dev only, 404 in production)
+### The `/api/test-support` endpoint (dev only)
 
 The test runner and the Next.js dev server are separate processes, so server-side
-state is inspected and reset over HTTP:
+state is inspected and reset over HTTP. The endpoint returns 404 unless the server was
+started with `ENABLE_TEST_SUPPORT=true` (the integration runner and `pnpm dev:local`
+set this; a plain `pnpm dev` does not), and it is always disabled in production builds.
+The `reset-db` action additionally refuses to run against a non-local database host.
 
 ```bash
 # Snapshot: mock GitHub call log, check runs, comments, and the DB statement counter

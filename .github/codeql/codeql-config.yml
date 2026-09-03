@@ -1,0 +1,12 @@
+name: cla-bot CodeQL config
+
+# Application code (app/, lib/, components/, workflows/, proxy.ts) is scanned.
+#
+# Excluded:
+# - scripts/: local developer tooling that never runs in a deployment. The mock
+#   GitHub server in particular exists to let a caller pick which fake user to
+#   sign in as, which CodeQL correctly identifies as user-controlled auth flow.
+# - tests/: test code, fixtures and harness utilities.
+paths-ignore:
+  - scripts
+  - tests

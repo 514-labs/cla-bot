@@ -14,6 +14,7 @@
  */
 
 import { type NextRequest, NextResponse } from "next/server"
+import { databaseHostForDisplay, isLocalDatabaseUrl } from "@/lib/db/database-url"
 import { resetDatabase } from "@/lib/db/queries"
 import { getDbQueryStats, resetDbQueryStats } from "@/lib/db/query-stats"
 import {
@@ -29,8 +30,15 @@ function notFound() {
   return NextResponse.json({ error: "Not found" }, { status: 404 })
 }
 
+/**
+ * Two independent gates, both required:
+ *  - never in production builds
+ *  - only when the process was started with ENABLE_TEST_SUPPORT=true, which the
+ *    integration server and `pnpm dev:local` set. A plain `pnpm dev` does not,
+ *    so a developer pointed at a shared database cannot trip this by accident.
+ */
 function isDisabled() {
-  return process.env.NODE_ENV === "production"
+  return process.env.NODE_ENV === "production" || process.env.ENABLE_TEST_SUPPORT !== "true"
 }
 
 export async function GET() {
@@ -73,6 +81,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: true, action: body.action })
     }
     case "reset-db": {
+      // Truncates every table: refuse unless the database is on this machine.
+      const databaseUrl = process.env.DATABASE_URL
+      if (!isLocalDatabaseUrl(databaseUrl)) {
+        return NextResponse.json(
+          {
+            error: `Refusing to reset non-local database host "${databaseHostForDisplay(databaseUrl)}"`,
+          },
+          { status: 403 }
+        )
+      }
       await resetDatabase()
       resetMockGitHub()
       resetDbQueryStats()

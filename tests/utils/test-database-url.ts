@@ -12,14 +12,9 @@
  * 4. Unless `ALLOW_REMOTE_TEST_DATABASE=true`, the host must be local.
  */
 
-const LOCAL_HOSTS = new Set([
-  "localhost",
-  "127.0.0.1",
-  "::1",
-  "[::1]",
-  "0.0.0.0",
-  "host.docker.internal",
-])
+import { isLocalDatabaseUrl } from "@/lib/db/database-url"
+
+export { isLocalDatabaseUrl }
 
 export function getTestDatabaseUrl(): string | undefined {
   const url = process.env.TEST_DATABASE_URL?.trim() || process.env.DATABASE_URL?.trim()
@@ -36,16 +31,6 @@ export function requireTestDatabaseUrl(): string {
     )
   }
   return url
-}
-
-export function isLocalDatabaseUrl(url: string): boolean {
-  let host: string
-  try {
-    host = new URL(url).hostname
-  } catch {
-    return false
-  }
-  return LOCAL_HOSTS.has(host.toLowerCase())
 }
 
 export function assertSafeTestDatabaseUrl(url: string): void {

@@ -83,6 +83,7 @@ function buildChildEnv(mockGitHubBaseUrl: string): NodeJS.ProcessEnv {
     DATABASE_URL,
     SEED_DATABASE: "true",
     USE_REAL_GITHUB_APP: "false",
+    ENABLE_TEST_SUPPORT: "true",
     GITHUB_OAUTH_BASE_URL: mockGitHubBaseUrl,
     GITHUB_API_BASE_URL: mockGitHubBaseUrl,
     GITHUB_CLIENT_ID: "mock-client-id",

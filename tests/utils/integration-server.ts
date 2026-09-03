@@ -50,6 +50,7 @@ export async function startIntegrationServer(): Promise<IntegrationServer> {
       SESSION_SECRET: sessionSecret,
       USE_REAL_GITHUB_APP: "false",
       SEED_DATABASE: "false",
+      ENABLE_TEST_SUPPORT: "true",
       MOCK_GITHUB_LATENCY_MS: process.env.MOCK_GITHUB_LATENCY_MS ?? "0",
     },
     stdio: ["ignore", "pipe", "pipe"],
