@@ -59,6 +59,15 @@ describe("mock GitHub server", () => {
     expect(res.status).toBe(400)
   })
 
+  it("rejects redirect_uri values that do not point at a loopback host", async () => {
+    const url = new URL("/login/oauth/authorize", server.baseUrl)
+    url.searchParams.set("redirect_uri", "https://evil.example/api/auth/github")
+    url.searchParams.set("login", "orgadmin")
+    const res = await fetch(url, { redirect: "manual" })
+    expect(res.status).toBe(400)
+    expect(await res.json()).toMatchObject({ error: "redirect_uri_mismatch" })
+  })
+
   it("exchanges a mock code for tokens", async () => {
     const res = await fetch(`${server.baseUrl}/login/oauth/access_token`, {
       method: "POST",

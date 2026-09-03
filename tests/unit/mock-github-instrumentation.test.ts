@@ -92,6 +92,25 @@ describe("MockGitHubClient instrumentation", () => {
     await expect(client.getUser("orgadmin")).resolves.toMatchObject({ login: "orgadmin" })
   })
 
+  it("rejects failure injection for unknown method names", () => {
+    expect(() => configureMockGitHub({ failures: { __proto__x: { status: 500 } } })).toThrow(
+      /Unknown mock GitHub method "__proto__x"/
+    )
+    expect(() => configureMockGitHub({ failures: { constructor: { status: 500 } } })).toThrow(
+      /Unknown mock GitHub method "constructor"/
+    )
+    expect(getMockGitHubConfig().failures).toEqual({})
+  })
+
+  it("clamps injected latency to a sane upper bound and ignores garbage", () => {
+    configureMockGitHub({ latencyMs: 999_999 })
+    expect(getMockGitHubConfig().latencyMs).toBe(10_000)
+    configureMockGitHub({ latencyMs: Number.NaN })
+    expect(getMockGitHubConfig().latencyMs).toBe(0)
+    configureMockGitHub({ latencyMs: -5 })
+    expect(getMockGitHubConfig().latencyMs).toBe(0)
+  })
+
   it("reset restores default config and empties the log", async () => {
     configureMockGitHub({ latencyMs: 10, failures: { getUser: { status: 500 } } })
     const client = getMockGitHubClient()

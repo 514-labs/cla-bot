@@ -306,7 +306,7 @@ function handleAuthorize(
   if (!redirectUri) {
     return sendJson(res, 400, {
       error: "redirect_uri_mismatch",
-      error_description: "redirect_uri must be an absolute http(s) URL",
+      error_description: "redirect_uri must be an absolute http(s) URL on a loopback host",
     })
   }
   const state = url.searchParams.get("state") ?? ""
@@ -318,11 +318,15 @@ function handleAuthorize(
     return callback.toString()
   }
 
+  // `?login=<user>` skips the picker. The redirect target is always built from the
+  // server-side user record, never from the query string itself.
   const requestedLogin = url.searchParams.get("login")
-  if (requestedLogin) {
-    const user = findUserByLogin(requestedLogin)
-    if (!user) return sendJson(res, 404, { message: `Unknown mock user "${requestedLogin}"` })
-    res.writeHead(302, { Location: buildCallback(user.login) }).end()
+  const preselectedUser = requestedLogin ? findUserByLogin(requestedLogin) : null
+  if (requestedLogin && !preselectedUser) {
+    return sendJson(res, 404, { message: `Unknown mock user "${requestedLogin}"` })
+  }
+  if (preselectedUser) {
+    res.writeHead(302, { Location: buildCallback(preselectedUser.login) }).end()
     return
   }
 
@@ -379,16 +383,21 @@ async function handleAccessToken(
 ) {
   const body = await readBody(req)
   const contentType = req.headers["content-type"] ?? ""
-  let params: Record<string, string> = {}
+  // Only the OAuth fields we act on are read; anything else in the body is ignored.
+  const params: { grant_type?: string; code?: string; refresh_token?: string } = {}
   try {
+    const raw: Map<string, string> = new Map()
     if (contentType.includes("application/json")) {
       const parsed = JSON.parse(body || "{}") as Record<string, unknown>
       for (const [key, value] of Object.entries(parsed)) {
-        if (typeof value === "string") params[key] = value
+        if (typeof value === "string") raw.set(key, value)
       }
     } else {
-      params = Object.fromEntries(new URLSearchParams(body))
+      for (const [key, value] of new URLSearchParams(body)) raw.set(key, value)
     }
+    params.grant_type = raw.get("grant_type")
+    params.code = raw.get("code")
+    params.refresh_token = raw.get("refresh_token")
   } catch {
     return sendJson(res, 400, { error: "invalid_request", error_description: "Malformed body" })
   }
@@ -492,11 +501,20 @@ function membershipPayload(membership: OrgMembership, user: MockUser) {
 
 // ── Low-level helpers ───────────────────────────────────────────────
 
+const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "[::1]"])
+
+/**
+ * The mock only ever fronts a local app, so unlike real GitHub (which checks
+ * the App's registered callback URLs) it accepts any redirect_uri as long as it
+ * points back at a loopback address. This keeps it from being usable as an
+ * open redirector if someone exposes it by accident.
+ */
 function parseRedirectUri(raw: string | null): URL | null {
   if (!raw) return null
   try {
     const parsed = new URL(raw)
     if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null
+    if (!LOOPBACK_HOSTS.has(parsed.hostname.toLowerCase())) return null
     return parsed
   } catch {
     return null

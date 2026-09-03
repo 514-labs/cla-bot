@@ -54,7 +54,7 @@ describe("test database URL guard", () => {
     setEnv({ DATABASE_URL: "postgres://u:p@ep-x-pooler.us-east-1.aws.neon.tech/neondb" })
     expect(() => getTestDatabaseUrl()).toThrow(/Refusing to run tests against non-local database/)
     expect(() => assertSafeTestDatabaseUrl("postgres://u:p@db.example.com/x")).toThrow(
-      /db\.example\.com/
+      'non-local database host "db.example.com"'
     )
   })
 

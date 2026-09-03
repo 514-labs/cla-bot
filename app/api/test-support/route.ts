@@ -79,7 +79,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: true, action: body.action })
     }
     case "configure-github": {
-      configureMockGitHub({ latencyMs: body.latencyMs, failures: body.failures })
+      try {
+        configureMockGitHub({ latencyMs: body.latencyMs, failures: body.failures })
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        return NextResponse.json({ error: message }, { status: 400 })
+      }
       return NextResponse.json({ ok: true, action: body.action, config: getMockGitHubConfig() })
     }
     default:

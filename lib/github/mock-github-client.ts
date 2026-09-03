@@ -137,16 +137,40 @@ export type MockGitHubConfig = {
 }
 
 const MAX_CALL_LOG = 1000
+/** Upper bound for injected latency so a bad request can't park the server. */
+const MAX_LATENCY_MS = 10_000
+
+function clampLatency(value: number): number {
+  if (!Number.isFinite(value) || value <= 0) return 0
+  return Math.min(Math.floor(value), MAX_LATENCY_MS)
+}
 
 function defaultLatencyMs(): number {
   const raw = process.env.MOCK_GITHUB_LATENCY_MS
-  const parsed = raw ? Number.parseInt(raw, 10) : 0
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0
+  return clampLatency(raw ? Number.parseInt(raw, 10) : 0)
+}
+
+type MockState = {
+  latencyMs: number
+  /** Keyed by GitHubClient method name; a Map avoids prototype-key writes. */
+  failures: Map<string, MockGitHubFailure>
 }
 
 let callLog: MockGitHubCall[] = []
 let callSeq = 0
-let mockConfig: MockGitHubConfig = { latencyMs: defaultLatencyMs(), failures: {} }
+let mockConfig: MockState = { latencyMs: defaultLatencyMs(), failures: new Map() }
+
+/** Names of the GitHubClient methods the mock implements (the only valid failure targets). */
+function knownMethodNames(): Set<string> {
+  return new Set(
+    Object.getOwnPropertyNames(MockGitHubClient.prototype).filter(
+      (name) =>
+        name !== "constructor" &&
+        typeof (MockGitHubClient.prototype as unknown as Record<string, unknown>)[name] ===
+          "function"
+    )
+  )
+}
 
 export class MockGitHubRequestError extends Error {
   status: number
@@ -157,20 +181,33 @@ export class MockGitHubRequestError extends Error {
   }
 }
 
-/** Set artificial latency and/or failures. `null` for a method clears its failure. */
+/**
+ * Set artificial latency and/or failures. `null` for a method clears its failure.
+ * Latency is clamped to MAX_LATENCY_MS; unknown method names are rejected.
+ */
 export function configureMockGitHub(config: {
   latencyMs?: number
   failures?: Record<string, MockGitHubFailure | null>
 }) {
-  if (typeof config.latencyMs === "number" && Number.isFinite(config.latencyMs)) {
-    mockConfig.latencyMs = Math.max(0, config.latencyMs)
+  if (typeof config.latencyMs === "number") {
+    mockConfig.latencyMs = clampLatency(config.latencyMs)
   }
   if (config.failures) {
+    const known = knownMethodNames()
     for (const [method, failure] of Object.entries(config.failures)) {
+      if (!known.has(method)) {
+        throw new Error(
+          `Unknown mock GitHub method "${method}". Valid: ${[...known].sort().join(", ")}`
+        )
+      }
       if (failure === null) {
-        delete mockConfig.failures[method]
+        mockConfig.failures.delete(method)
       } else {
-        mockConfig.failures[method] = { ...failure }
+        mockConfig.failures.set(method, {
+          ...(typeof failure.status === "number" ? { status: failure.status } : {}),
+          ...(typeof failure.message === "string" ? { message: failure.message } : {}),
+          ...(typeof failure.times === "number" ? { times: failure.times } : {}),
+        })
       }
     }
   }
@@ -180,7 +217,7 @@ export function getMockGitHubConfig(): MockGitHubConfig {
   return {
     latencyMs: mockConfig.latencyMs,
     failures: Object.fromEntries(
-      Object.entries(mockConfig.failures).map(([method, failure]) => [method, { ...failure }])
+      [...mockConfig.failures].map(([method, failure]) => [method, { ...failure }])
     ),
   }
 }
@@ -199,11 +236,11 @@ function sleep(ms: number) {
 }
 
 function takeInjectedFailure(method: string): MockGitHubFailure | null {
-  const failure = mockConfig.failures[method]
+  const failure = mockConfig.failures.get(method)
   if (!failure) return null
   if (typeof failure.times === "number") {
     if (failure.times <= 1) {
-      delete mockConfig.failures[method]
+      mockConfig.failures.delete(method)
     } else {
       failure.times -= 1
     }
@@ -521,7 +558,7 @@ export function resetMockGitHub() {
   nextCommentId = 1
   callLog = []
   callSeq = 0
-  mockConfig = { latencyMs: defaultLatencyMs(), failures: {} }
+  mockConfig = { latencyMs: defaultLatencyMs(), failures: new Map() }
 }
 
 /** Get all check runs (for debugging / test inspection). */
