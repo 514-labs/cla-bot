@@ -1,5 +1,6 @@
 import { Octokit } from "@octokit/rest"
 import { getValidUserAccessToken } from "@/lib/github/user-token"
+import { getGitHubApiBaseUrl } from "@/lib/github/base-urls"
 
 type UserWithToken = {
   id: string
@@ -23,7 +24,7 @@ async function getGitHubAccessToken(user: UserWithToken): Promise<string | null>
 }
 
 function createOctokitClientWithUserIdentity(accessToken: string): Octokit {
-  return new Octokit({ auth: accessToken })
+  return new Octokit({ auth: accessToken, baseUrl: getGitHubApiBaseUrl() })
 }
 
 function normalizeAccountType(org: InstalledOrganization): "organization" | "user" {

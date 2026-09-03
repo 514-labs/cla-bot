@@ -121,15 +121,129 @@ The app will be available at `http://localhost:3000`.
 | `pnpm dev` | Start development server |
 | `pnpm build` | Production build |
 | `pnpm start` | Run production server |
-| `pnpm lint` | Lint and format check (Biome) |
+| `pnpm lint` | Lint and format check (Biome); warnings fail, same as CI |
+| `pnpm lint:fix` | Apply Biome's safe fixes |
+| `pnpm dead-code` | Unused files, exports, types and unlisted dependencies (knip); runs in CI |
 | `pnpm test` | Unit + integration tests |
 | `pnpm test:all` | Unit + integration + E2E tests |
 | `pnpm test:unit` | Unit tests (Vitest) |
 | `pnpm test:integration` | Integration tests (Vitest + PostgreSQL) |
 | `pnpm test:e2e` | Browser tests (Playwright) |
+| `pnpm webhook -- [options]` | Fire a synthetic GitHub webhook at a local server and time it |
 | `pnpm db:generate` | Generate Drizzle migrations |
 | `pnpm db:migrate` | Apply migrations |
 | `pnpm db:studio` | Open Drizzle Studio |
+
+## Local development and testing
+
+Everything below runs with **no real GitHub App and no remote database**. External
+services are replaced by mocks that you can inspect and control.
+
+### Run the whole app locally: `pnpm dev:local`
+
+```bash
+pnpm dev:local
+```
+
+This starts three things and wires them together:
+
+- a persistent embedded PostgreSQL in `tmp/embedded-pg-dev` (port 5489, database
+  `clabot_dev`), migrated with `pnpm db:migrate` and seeded (`SEED_DATABASE=true`);
+- a mock GitHub server (`scripts/mock-github-server.ts`, default port 3998) that serves
+  both the github.com OAuth endpoints and the api.github.com endpoints the app calls
+  with a user token;
+- `next dev` with `GITHUB_OAUTH_BASE_URL` / `GITHUB_API_BASE_URL` pointing at the mock,
+  `USE_REAL_GITHUB_APP=false` (in-memory mock App client) and mock OAuth credentials.
+  These overrides take precedence over anything in your `.env.local`.
+
+Open http://localhost:3000/auth/signin and click "Continue with GitHub": instead of
+GitHub you get a "Mock GitHub — choose a user" page. Pick `orgadmin` (admin of the
+`fiveonefour` and `moose-stack` orgs) to use the admin pages, or any other user
+(`contributor1`, `dev-sarah`, `new-contributor`, `random-dev`, `external-contributor`)
+to act as a contributor. Append `&login=<user>` to the authorize URL to skip the picker.
+
+Set `PORT` / `MOCK_GITHUB_PORT` to change ports. Ctrl-C stops everything; the database
+survives between runs (delete `tmp/embedded-pg-dev` to start fresh). `pnpm mock:github`
+runs just the mock server. Next.js allows one `next dev` per checkout, so stop any other
+dev server first.
+
+To exercise the webhook path while `pnpm dev:local` is running, use `pnpm webhook`
+(below) and inspect the result at `/api/test-support`.
+
+### Which database do tests use?
+
+Integration and E2E runs always start an **embedded PostgreSQL** (`tmp/embedded-pg`,
+port 5488) and run migrations against it. `.env.local` is deliberately ignored by the
+test tooling because it usually holds a `vercel env pull` snapshot pointing at a real
+Neon database, and the suites `TRUNCATE` tables on every reset.
+
+- To run the suites against another database, set `TEST_DATABASE_URL` explicitly.
+- Non-local hosts are refused unless you also set `ALLOW_REMOTE_TEST_DATABASE=true`.
+- The embedded Postgres binaries need their `postinstall` script (it hydrates library
+  symlinks). pnpm 10 only runs it for packages listed under `pnpm.onlyBuiltDependencies`
+  in `package.json`, which is already configured. If `initdb` aborts with a
+  `Library not loaded` error, run `pnpm install` again.
+- `pnpm test:e2e` needs a browser once: `pnpm exec playwright install chromium`.
+- Exit codes are trustworthy: a failing integration or e2e run exits non-zero. (The
+  `embedded-postgres` package installs a process exit hook that used to force exit code
+  0; `tests/setup/embedded-postgres-loader.ts` removes it.)
+
+### Mock GitHub
+
+When `NODE_ENV !== production` and `USE_REAL_GITHUB_APP` is not `"true"`, the app talks
+to an in-memory GitHub App client (`lib/github/mock-github-client.ts`) instead of
+Octokit. It ships with a pool of GitHub users (`orgadmin`, `contributor1`, `dev-sarah`,
+`new-contributor`, `random-dev`, `external-contributor`), org memberships, check runs
+and PR comments. The mock is instrumented:
+
+- every call is recorded (method, args, duration, error) in an ordered call log
+- `MOCK_GITHUB_LATENCY_MS=200` adds artificial latency to each call so serial chains
+  show up in wall-clock time
+- failures can be injected per method (e.g. make `checkOrgMembership` return a 403 once)
+
+### The `/api/test-support` endpoint (dev only, 404 in production)
+
+The test runner and the Next.js dev server are separate processes, so server-side
+state is inspected and reset over HTTP:
+
+```bash
+# Snapshot: mock GitHub call log, check runs, comments, and the DB statement counter
+curl -s localhost:3000/api/test-support | jq
+
+# Reset in-memory state (mock GitHub + counters)
+curl -s -X POST localhost:3000/api/test-support -H 'content-type: application/json' \
+  -d '{"action":"reset"}'
+
+# Truncate + re-seed the local database
+curl -s -X POST localhost:3000/api/test-support -H 'content-type: application/json' \
+  -d '{"action":"reset-db"}'
+
+# Inject latency and a one-shot failure into the mock GitHub client
+curl -s -X POST localhost:3000/api/test-support -H 'content-type: application/json' \
+  -d '{"action":"configure-github","latencyMs":150,"failures":{"checkOrgMembership":{"status":403,"times":1}}}'
+```
+
+The DB statement counter comes from a Drizzle logger that is attached outside
+production, so `db.count` after a request is the number of SQL round trips it cost.
+Integration tests use this to pin a budget on the PR-check path (see the
+"TEST HARNESS" section of `tests/integration/api-suite.test.ts`).
+
+### Sending webhooks by hand
+
+```bash
+# Unsigned external contributor opens a PR against fiveonefour/sdk
+pnpm webhook -- --author external-contributor --org fiveonefour --repo sdk --pr 42
+
+# Org member, synchronize event, 10 deliveries with p50/p95 timing
+pnpm webhook -- --author orgadmin --action synchronize --repeat 10 --quiet
+
+# /recheck comment
+pnpm webhook -- --event issue_comment --author contributor1 --pr 42
+```
+
+The CLI signs the payload with `GITHUB_WEBHOOK_SECRET` when set and always sends a
+fresh `x-github-delivery` id, so it also works against a server that enforces
+signatures and delivery dedup.
 
 ## Tech Stack
 

@@ -1,31 +1,30 @@
-import EmbeddedPostgres from "embedded-postgres"
 import { execSync } from "node:child_process"
-import { existsSync, readFileSync, rmSync } from "node:fs"
+import { existsSync, rmSync } from "node:fs"
 import { resolve } from "node:path"
 import { userInfo } from "node:os"
+import { assertSafeTestDatabaseUrl } from "../utils/test-database-url"
+import { type EmbeddedPostgresCtor, loadEmbeddedPostgres } from "./embedded-postgres-loader"
 
-let pg: EmbeddedPostgres | null = null
+let pg: InstanceType<EmbeddedPostgresCtor> | null = null
 
 const EMBEDDED_PG_PORT = 5488
 const EMBEDDED_PG_DB = "clabot_test"
 const DATA_DIR = resolve(process.cwd(), "tmp", "embedded-pg")
 
-function hasDatabaseUrl(): boolean {
-  if (process.env.DATABASE_URL) return true
-
-  const envPath = resolve(process.cwd(), ".env.local")
-  if (!existsSync(envPath)) return false
-
-  const contents = readFileSync(envPath, "utf8")
-  return contents.split(/\r?\n/).some((line) => {
-    const trimmed = line.trim()
-    return !trimmed.startsWith("#") && trimmed.startsWith("DATABASE_URL=")
-  })
-}
-
+/**
+ * Embedded Postgres is the default for every test run. The ONLY way to point
+ * the suites at another database is the explicit `TEST_DATABASE_URL` opt-in.
+ *
+ * In particular `.env.local` (usually a `vercel env pull` snapshot with a real
+ * Neon URL) and a stray `DATABASE_URL` in the shell are ignored here, because
+ * the suites truncate tables on every reset.
+ */
 export async function setup() {
-  if (hasDatabaseUrl()) {
-    console.log("[embedded-postgres] DATABASE_URL already set, skipping embedded Postgres")
+  const explicitTestDatabaseUrl = process.env.TEST_DATABASE_URL?.trim()
+  if (explicitTestDatabaseUrl) {
+    assertSafeTestDatabaseUrl(explicitTestDatabaseUrl)
+    process.env.DATABASE_URL = explicitTestDatabaseUrl
+    console.log("[embedded-postgres] TEST_DATABASE_URL set, skipping embedded Postgres")
     return
   }
 
@@ -38,6 +37,7 @@ export async function setup() {
   // On CI (GitHub Actions), the postgres user/group already exists and we run as non-root.
   const isRoot = userInfo().uid === 0
 
+  const EmbeddedPostgres = await loadEmbeddedPostgres()
   pg = new EmbeddedPostgres({
     databaseDir: DATA_DIR,
     user: "postgres",

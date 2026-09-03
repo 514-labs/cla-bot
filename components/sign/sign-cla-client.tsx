@@ -89,6 +89,7 @@ export function SignClaClient({
     }
   }, [])
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: re-measure when the CLA text changes; a content-only change does not resize the scroll container, so ResizeObserver would miss it
   useEffect(() => {
     if (!showSignAction) return
     const scrollArea = scrollAreaRef.current

@@ -32,8 +32,32 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Biome lint & format check
+      # `pnpm lint` runs `biome check . --error-on-warnings`: warnings fail the job,
+      # so lint debt cannot accumulate silently.
+      - name: Biome lint & format check (warnings are errors)
         run: pnpm lint
+
+  dead-code:
+    name: Dead Code (knip)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with:
+          version: latest
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Fails on unused files, exports, types and unlisted dependencies.
+      - name: knip
+        run: pnpm dead-code
 
   type-check:
     name: Type Check

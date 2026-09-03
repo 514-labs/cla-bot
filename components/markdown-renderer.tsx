@@ -139,7 +139,7 @@ export function simpleMarkdownToHtml(md: string): string {
         result.push("</blockquote>")
         inBlockquote = false
       }
-      if (!listState || listState.kind !== "ol" || listState.indent !== indent) {
+      if (listState?.kind !== "ol" || listState.indent !== indent) {
         closeList(listState)
         listState = openList("ol", indent)
       }
@@ -165,7 +165,7 @@ export function simpleMarkdownToHtml(md: string): string {
         result.push("</blockquote>")
         inBlockquote = false
       }
-      if (!listState || listState.kind !== "ul" || listState.indent !== indent) {
+      if (listState?.kind !== "ul" || listState.indent !== indent) {
         closeList(listState)
         listState = openList("ul", indent)
       }

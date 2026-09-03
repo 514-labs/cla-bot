@@ -9,7 +9,7 @@ vi.mock("@/lib/db/queries", () => ({
   getUserById: vi.fn(),
 }))
 
-import { createSessionToken, verifySessionToken, type SessionPayload } from "@/lib/auth"
+import { createSessionToken, verifySessionToken } from "@/lib/auth"
 
 const TEST_SECRET = "test-session-secret-that-is-long-enough"
 

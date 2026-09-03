@@ -1,7 +1,7 @@
 import { spawn, type ChildProcessByStdio } from "node:child_process"
-import { existsSync, readFileSync } from "node:fs"
 import { resolve } from "node:path"
 import type { Readable } from "node:stream"
+import { requireTestDatabaseUrl } from "./test-database-url"
 
 type IntegrationServer = {
   baseUrl: string
@@ -24,20 +24,36 @@ export async function startIntegrationServer(): Promise<IntegrationServer> {
 
   const port = Number.parseInt(process.env.TEST_INTEGRATION_PORT ?? "3310", 10)
   const baseUrl = `http://127.0.0.1:${port}`
-  const databaseUrl = process.env.DATABASE_URL ?? readEnvLocalValue("DATABASE_URL")
-  if (!databaseUrl) {
-    throw new Error("DATABASE_URL is required to run integration tests")
-  }
+  const databaseUrl = requireTestDatabaseUrl()
   const sessionSecret =
     process.env.SESSION_SECRET ?? process.env.TEST_SESSION_SECRET ?? "cla-bot-test-session-secret"
 
-  const child = spawn("pnpm", ["dev", "--port", String(port)], {
+  // A server already answering on this port is almost certainly an orphan from
+  // an earlier run, wired to a database that no longer exists. Using it would
+  // make the whole suite hang, so fail loudly instead.
+  await assertPortIsFree(baseUrl, port)
+
+  // Spawn the Next.js binary directly (not through `pnpm dev`) so the process
+  // we hold is the one that owns the server, and put it in its own process
+  // group so `stop()` can take down `next dev` *and* the `next-server` worker it
+  // forks. Killing only a `pnpm` wrapper leaves that worker running.
+  //
+  // Next.js loads `.env.local` but never overrides variables already present in
+  // the process environment, so everything set here wins over a developer's
+  // local snapshot. Pin the knobs the suites depend on: the test database, the
+  // in-memory mock GitHub client, and no startup seeding (tests seed themselves).
+  const nextBin = resolve(process.cwd(), "node_modules", ".bin", "next")
+  const child = spawn(nextBin, ["dev", "--port", String(port)], {
     env: {
       ...process.env,
       DATABASE_URL: databaseUrl,
       SESSION_SECRET: sessionSecret,
+      USE_REAL_GITHUB_APP: "false",
+      SEED_DATABASE: "false",
+      MOCK_GITHUB_LATENCY_MS: process.env.MOCK_GITHUB_LATENCY_MS ?? "0",
     },
     stdio: ["ignore", "pipe", "pipe"],
+    detached: true,
   })
 
   const outputBuffer: string[] = []
@@ -100,13 +116,45 @@ async function waitForServerReady(params: {
   )
 }
 
+async function assertPortIsFree(baseUrl: string, port: number) {
+  let responded = false
+  try {
+    const response = await fetch(`${baseUrl}${HEALTHCHECK_PATH}`, {
+      signal: AbortSignal.timeout(1_500),
+    })
+    responded = response.status > 0
+  } catch {
+    // Connection refused / timeout = nobody is listening, which is what we want.
+  }
+  if (responded) {
+    throw new Error(
+      `Port ${port} is already serving ${HEALTHCHECK_PATH}. A stale integration server is probably still running ` +
+        `(try: lsof -nP -iTCP:${port} -sTCP:LISTEN). Stop it, or set TEST_INTEGRATION_PORT to another port.`
+    )
+  }
+}
+
+/** Signal the child's whole process group, falling back to the child alone. */
+function signalProcessTree(child: IntegrationServerProcess, signal: NodeJS.Signals) {
+  if (child.pid === undefined) return
+  try {
+    process.kill(-child.pid, signal)
+  } catch {
+    try {
+      child.kill(signal)
+    } catch {
+      // Already gone.
+    }
+  }
+}
+
 async function stopChildProcess(child: IntegrationServerProcess) {
   if (child.exitCode !== null) return
 
-  child.kill("SIGTERM")
+  signalProcessTree(child, "SIGTERM")
   const terminated = await waitForExit(child, 8_000)
   if (!terminated && child.exitCode === null) {
-    child.kill("SIGKILL")
+    signalProcessTree(child, "SIGKILL")
     await waitForExit(child, 2_000)
   }
 }
@@ -136,32 +184,4 @@ async function waitForExit(child: IntegrationServerProcess, timeoutMs: number) {
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms))
-}
-
-function readEnvLocalValue(key: string) {
-  const envLocalPath = resolve(process.cwd(), ".env.local")
-  if (!existsSync(envLocalPath)) return undefined
-
-  const contents = readFileSync(envLocalPath, "utf8")
-  for (const rawLine of contents.split(/\r?\n/)) {
-    const line = rawLine.trim()
-    if (!line || line.startsWith("#")) continue
-
-    const separatorIndex = line.indexOf("=")
-    if (separatorIndex === -1) continue
-
-    const candidateKey = line.slice(0, separatorIndex).trim()
-    if (candidateKey !== key) continue
-
-    const value = line.slice(separatorIndex + 1).trim()
-    if (
-      (value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'"))
-    ) {
-      return value.slice(1, -1)
-    }
-    return value
-  }
-
-  return undefined
 }

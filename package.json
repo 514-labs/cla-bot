@@ -9,7 +9,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "biome check .",
+    "lint": "biome check . --error-on-warnings",
     "test": "pnpm test:unit && pnpm test:integration",
     "test:all": "pnpm test && pnpm test:e2e",
     "test:unit": "vitest run",
@@ -20,7 +20,11 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
-    "dead-code": "knip"
+    "dead-code": "knip",
+    "webhook": "jiti scripts/send-webhook.ts",
+    "dev:local": "jiti scripts/dev-local.ts",
+    "mock:github": "jiti scripts/mock-github-server.ts",
+    "lint:fix": "biome check --write ."
   },
   "dependencies": {
     "@c15t/nextjs": "^2.2.0",
@@ -62,5 +66,13 @@
     "tailwindcss": "^4.3.0",
     "typescript": "6.0.3",
     "vitest": "4.1.7"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@embedded-postgres/darwin-arm64",
+      "@embedded-postgres/darwin-x64",
+      "@embedded-postgres/linux-arm64",
+      "@embedded-postgres/linux-x64"
+    ]
   }
 }

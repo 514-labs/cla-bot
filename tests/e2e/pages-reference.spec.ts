@@ -45,8 +45,12 @@ async function gotoStable(page: Page, path: string, attempts = 3) {
 test("home page renders core navigation", async ({ page }) => {
   await gotoStable(page, "/")
   await expect(page.getByRole("heading", { name: "CLA automation for GitHub orgs" })).toBeVisible()
-  await expect(page.getByRole("link", { name: "Admin", exact: true })).toBeVisible()
-  await expect(page.getByRole("link", { name: "Contributor", exact: true })).toBeVisible()
+  // Signed-out visitors get a sign-in CTA in the header; the Admin/Contributor
+  // links only appear in the signed-in account menu (covered below).
+  await expect(
+    page.getByRole("banner").getByRole("link", { name: "Sign in with GitHub" })
+  ).toBeVisible()
+  await expect(page.getByRole("link", { name: "Install GitHub App" })).toBeVisible()
 })
 
 test("sign-in page sanitizes external returnTo", async ({ page }) => {
@@ -55,12 +59,15 @@ test("sign-in page sanitizes external returnTo", async ({ page }) => {
   await expect(cta).toHaveAttribute("href", "/api/auth/github?returnTo=%2Fdashboard")
 })
 
-test("admin page shows auth-gated state when signed out", async ({ page }) => {
+test("admin page redirects to sign-in when signed out", async ({ page }) => {
   await gotoStable(page, "/admin")
-  await expect(page.getByRole("heading", { name: "Sign in required" })).toBeVisible()
-  await expect(
-    page.getByRole("main").getByRole("button", { name: "Sign in with GitHub" })
-  ).toBeVisible()
+  // The proxy sends unauthenticated visitors to the sign-in page, remembering
+  // where they were headed.
+  await expect(page).toHaveURL(/\/auth\/signin/)
+  await expect(page.getByRole("link", { name: "Continue with GitHub" })).toHaveAttribute(
+    "href",
+    "/api/auth/github?returnTo=%2Fadmin"
+  )
 })
 
 test("admin list page renders for signed-in admin", async ({ page, baseURL, context }) => {

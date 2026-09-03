@@ -19,7 +19,7 @@ export type SignerPrSyncWorkflowInput = {
   prNumber: number | null
 }
 
-export type SignerPrSyncWorkflowSummary = {
+type SignerPrSyncWorkflowSummary = {
   attemptedOpenPrs: number
   matchedSignerOpenPrs: number
   updatedChecks: number

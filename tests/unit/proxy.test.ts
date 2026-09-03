@@ -56,7 +56,7 @@ describe("proxy — protected page routes", () => {
     const res = await proxy(req)
 
     expect(res.status).toBe(307)
-    const location = res.headers.get("location")!
+    const location = requireHeader(res, "location")
     const redirectUrl = new URL(location)
     expect(redirectUrl.pathname).toBe("/auth/signin")
     expect(redirectUrl.searchParams.get("returnTo")).toBe("/admin")
@@ -70,7 +70,7 @@ describe("proxy — protected page routes", () => {
     const res = await proxy(req)
 
     expect(res.status).toBe(307)
-    const location = res.headers.get("location")!
+    const location = requireHeader(res, "location")
     expect(new URL(location).pathname).toBe("/auth/signin")
   })
 
@@ -91,7 +91,7 @@ describe("proxy — protected page routes", () => {
     const res = await proxy(req)
 
     expect(res.status).toBe(307)
-    const location = res.headers.get("location")!
+    const location = requireHeader(res, "location")
     const redirectUrl = new URL(location)
     expect(redirectUrl.searchParams.get("returnTo")).toBe("/admin?tab=settings&org=foo")
   })
@@ -102,7 +102,7 @@ describe("proxy — protected page routes", () => {
     const res = await proxy(req)
 
     expect(res.status).toBe(307)
-    const location = res.headers.get("location")!
+    const location = requireHeader(res, "location")
     expect(new URL(location).searchParams.get("returnTo")).toBe("/contributor/signatures")
   })
 })
@@ -198,7 +198,15 @@ describe("proxy — missing SESSION_SECRET", () => {
     const res = await proxy(req)
 
     expect(res.status).toBe(307)
-    const location = res.headers.get("location")!
+    const location = requireHeader(res, "location")
     expect(new URL(location).pathname).toBe("/auth/signin")
   })
 })
+
+function requireHeader(response: Response, name: string): string {
+  const value = response.headers.get(name)
+  if (value === null) {
+    throw new Error(`Expected response header "${name}" to be present`)
+  }
+  return value
+}

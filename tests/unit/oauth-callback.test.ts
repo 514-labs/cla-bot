@@ -101,7 +101,7 @@ describe("OAuth initiation (no code param)", () => {
     const res = await GET(req)
 
     expect(res.status).toBe(307)
-    const location = res.headers.get("location")!
+    const location = requireHeader(res, "location")
     const redirectUrl = new URL(location)
     expect(redirectUrl.hostname).toBe("github.com")
     expect(redirectUrl.pathname).toBe("/login/oauth/authorize")
@@ -115,7 +115,7 @@ describe("OAuth initiation (no code param)", () => {
 
     const stateCookie = res.cookies.get("cla-github-oauth-state")
     expect(stateCookie).toBeDefined()
-    expect(stateCookie!.value).toBeTruthy()
+    expect(stateCookie?.value).toBeTruthy()
   })
 
   it("returns 500 when GITHUB_CLIENT_ID is missing", async () => {
@@ -138,13 +138,13 @@ describe("OAuth callback (with code param)", () => {
     const res = await GET(req)
 
     expect(res.status).toBe(307)
-    const location = res.headers.get("location")!
+    const location = requireHeader(res, "location")
     expect(new URL(location).pathname).toBe("/dashboard")
 
     // Session cookie was set
     const sessionCookie = res.cookies.get("cla-session")
     expect(sessionCookie).toBeDefined()
-    expect(sessionCookie!.value).toBe("mock-jwt-token")
+    expect(sessionCookie?.value).toBe("mock-jwt-token")
 
     // OAuth state cookie was cleared
     const stateCookie = res.cookies.get("cla-github-oauth-state")
@@ -175,7 +175,7 @@ describe("OAuth callback (with code param)", () => {
     const res = await GET(req)
 
     expect(res.status).toBe(307)
-    const location = res.headers.get("location")!
+    const location = requireHeader(res, "location")
     expect(location).toContain("error=github_state")
   })
 
@@ -184,7 +184,7 @@ describe("OAuth callback (with code param)", () => {
     const res = await GET(req)
 
     expect(res.status).toBe(307)
-    const location = res.headers.get("location")!
+    const location = requireHeader(res, "location")
     expect(location).toContain("error=github_state")
   })
 
@@ -196,7 +196,7 @@ describe("OAuth callback (with code param)", () => {
     const res = await GET(req)
 
     expect(res.status).toBe(307)
-    const location = res.headers.get("location")!
+    const location = requireHeader(res, "location")
     expect(location).toContain("error=github_token")
   })
 
@@ -208,7 +208,7 @@ describe("OAuth callback (with code param)", () => {
     const res = await GET(req)
 
     expect(res.status).toBe(307)
-    const location = res.headers.get("location")!
+    const location = requireHeader(res, "location")
     expect(location).toContain("error=github_token")
   })
 
@@ -220,7 +220,7 @@ describe("OAuth callback (with code param)", () => {
     const res = await GET(req)
 
     expect(res.status).toBe(307)
-    const location = res.headers.get("location")!
+    const location = requireHeader(res, "location")
     expect(location).toContain("error=github_user")
   })
 
@@ -232,7 +232,7 @@ describe("OAuth callback (with code param)", () => {
     const res = await GET(req)
 
     expect(res.status).toBe(307)
-    const location = res.headers.get("location")!
+    const location = requireHeader(res, "location")
     expect(location).toContain("error=github_user")
   })
 
@@ -253,7 +253,7 @@ describe("OAuth callback (with code param)", () => {
     const res = await GET(req)
 
     expect(res.status).toBe(307)
-    const location = res.headers.get("location")!
+    const location = requireHeader(res, "location")
     expect(location).toContain("error=server_config")
   })
 })
@@ -328,7 +328,7 @@ describe("returnTo sanitization", () => {
     const res = await GET(req)
 
     expect(res.status).toBe(307)
-    const location = res.headers.get("location")!
+    const location = requireHeader(res, "location")
     expect(new URL(location).pathname).toBe("/contributor")
   })
 
@@ -341,7 +341,7 @@ describe("returnTo sanitization", () => {
     const res = await GET(req)
 
     expect(res.status).toBe(307)
-    const location = res.headers.get("location")!
+    const location = requireHeader(res, "location")
     expect(new URL(location).pathname).toBe("/dashboard")
   })
 
@@ -354,7 +354,15 @@ describe("returnTo sanitization", () => {
     const res = await GET(req)
 
     expect(res.status).toBe(307)
-    const location = res.headers.get("location")!
+    const location = requireHeader(res, "location")
     expect(new URL(location).pathname).toBe("/dashboard")
   })
 })
+
+function requireHeader(response: Response, name: string): string {
+  const value = response.headers.get(name)
+  if (value === null) {
+    throw new Error(`Expected response header "${name}" to be present`)
+  }
+  return value
+}

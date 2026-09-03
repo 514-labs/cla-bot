@@ -7,6 +7,7 @@ import { Octokit } from "@octokit/rest"
 import { createAppAuth } from "@octokit/auth-app"
 import type { GitHubClient } from "./client"
 import { findLatestManagedClaBotComment } from "./comment-ownership"
+import { getGitHubApiBaseUrl } from "./base-urls"
 import type {
   GitHubUser,
   OrgMembershipStatus,
@@ -30,6 +31,7 @@ export class OctokitGitHubClient implements GitHubClient {
     const appId = getRequiredEnv("GITHUB_APP_ID")
     const privateKey = getRequiredEnv("GITHUB_PRIVATE_KEY")
     this.octokit = new Octokit({
+      baseUrl: getGitHubApiBaseUrl(),
       authStrategy: createAppAuth,
       auth: {
         appId,

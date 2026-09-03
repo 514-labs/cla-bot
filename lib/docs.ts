@@ -1,9 +1,9 @@
 import { readFile } from "node:fs/promises"
 import path from "node:path"
 
-export type DocsSection = "contributor" | "admin" | "operator"
+type DocsSection = "contributor" | "admin" | "operator"
 
-export type DocRoute = {
+type DocRoute = {
   slug: string[]
   title: string
   description: string
