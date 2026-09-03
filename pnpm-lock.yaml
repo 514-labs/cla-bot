@@ -32,7 +32,7 @@ importers:
     dependencies:
       '@c15t/nextjs':
         specifier: ^2.2.0
-        version: 2.2.0(@types/react@19.2.14)(next@16.2.11(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.12.4)(react-dom@19.2.3(react@19.2.6))(react@19.2.6))(react-dom@19.2.3(react@19.2.6))(react@19.2.6)(typescript@6.0.3)
+        version: 2.2.0(@types/react@19.2.14)(next@16.2.11(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.13.3)(react-dom@19.2.3(react@19.2.6))(react@19.2.6))(react-dom@19.2.3(react@19.2.6))(react@19.2.6)(typescript@6.0.3)
       '@neondatabase/serverless':
         specifier: ^1.1.0
         version: 1.1.0
@@ -50,10 +50,10 @@ importers:
         version: 1.2.4(@types/react@19.2.14)(react@19.2.6)
       '@vercel/analytics':
         specifier: ^2.0.1
-        version: 2.0.1(next@16.2.11(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.12.4)(react-dom@19.2.3(react@19.2.6))(react@19.2.6))(react@19.2.6)
+        version: 2.0.1(next@16.2.11(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.13.3)(react-dom@19.2.3(react@19.2.6))(react@19.2.6))(react@19.2.6)
       '@vercel/toolbar':
         specifier: ^0.2.6
-        version: 0.2.6(@vercel/analytics@2.0.1(next@16.2.11(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.12.4)(react-dom@19.2.3(react@19.2.6))(react@19.2.6))(react@19.2.6))(debug@4.4.3(supports-color@8.1.1))(next@16.2.11(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.12.4)(react-dom@19.2.3(react@19.2.6))(react@19.2.6))(react-dom@19.2.3(react@19.2.6))(react@19.2.6)(vite@7.3.6(@types/node@24.12.4)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.5)(yaml@2.9.0))
+        version: 0.2.6(@vercel/analytics@2.0.1(next@16.2.11(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.13.3)(react-dom@19.2.3(react@19.2.6))(react@19.2.6))(react@19.2.6))(debug@4.4.3(supports-color@8.1.1))(next@16.2.11(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.13.3)(react-dom@19.2.3(react@19.2.6))(react@19.2.6))(react-dom@19.2.3(react@19.2.6))(react@19.2.6)(vite@7.3.6(@types/node@24.13.3)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.5)(yaml@2.9.0))
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -71,7 +71,7 @@ importers:
         version: 1.17.0(react@19.2.6)
       next:
         specifier: 16.2.11
-        version: 16.2.11(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.12.4)(react-dom@19.2.3(react@19.2.6))(react@19.2.6)
+        version: 16.2.11(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.13.3)(react-dom@19.2.3(react@19.2.6))(react@19.2.6)
       postgres:
         specifier: ^3.4.9
         version: 3.4.9
@@ -92,7 +92,7 @@ importers:
         version: 1.4.0
       workflow:
         specifier: 4.8.5
-        version: 4.8.5(@nestjs/common@11.1.14(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(@nestjs/core@11.1.18(@nestjs/common@11.1.14(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(reflect-metadata@0.2.2)(rxjs@7.8.2))(@opentelemetry/api@1.9.0)(@swc/cli@0.8.0(@swc/core@1.15.3)(chokidar@5.0.0)(supports-color@8.1.1))(@swc/core@1.15.3)(magicast@0.5.2)(next@16.2.11(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.12.4)(react-dom@19.2.3(react@19.2.6))(react@19.2.6))(supports-color@8.1.1)(typescript@6.0.3)
+        version: 4.8.5(@nestjs/common@11.1.14(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(@nestjs/core@11.1.18(@nestjs/common@11.1.14(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(reflect-metadata@0.2.2)(rxjs@7.8.2))(@opentelemetry/api@1.9.0)(@swc/cli@0.8.0(@swc/core@1.15.3)(chokidar@5.0.0)(supports-color@8.1.1))(@swc/core@1.15.3)(magicast@0.5.2)(next@16.2.11(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.13.3)(react-dom@19.2.3(react@19.2.6))(react@19.2.6))(supports-color@8.1.1)(typescript@6.0.3)
       zod:
         specifier: ^4.4.3
         version: 4.4.3
@@ -108,7 +108,7 @@ importers:
         version: 4.3.0
       '@types/node':
         specifier: ^24
-        version: 24.12.4
+        version: 24.13.3
       '@types/react':
         specifier: ^19
         version: 19.2.14
@@ -141,7 +141,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: 4.1.7
-        version: 4.1.7(@opentelemetry/api@1.9.0)(@types/node@24.12.4)(@vitest/coverage-v8@4.1.7)(vite@7.3.6(@types/node@24.12.4)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.5)(yaml@2.9.0))
+        version: 4.1.7(@opentelemetry/api@1.9.0)(@types/node@24.13.3)(@vitest/coverage-v8@4.1.7)(vite@7.3.6(@types/node@24.13.3)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.5)(yaml@2.9.0))
 
 packages:
 
@@ -2352,9 +2352,6 @@ packages:
 
   '@types/ms@2.1.0':
     resolution: {integrity: sha512-GsCCIZDE/p3i96vtEqx+7dBUGXrc7zeSK3wwPHIaRThS+9OhWIXRqzs4d6k1SVU8g91DrNRWxWUGhp5KXQb2VA==}
-
-  '@types/node@24.12.4':
-    resolution: {integrity: sha512-GUUEShf+PBCGW2KaXwcIt3Yk+e3pkKwWKb9GSyM9WQVE+ep2jzmHdGsHzu4wgcZy5fN9FBdVzjpBQsYlpfpgLA==}
 
   '@types/node@24.13.3':
     resolution: {integrity: sha512-Dh8vAsV36ig5wa9OX4pXvMc9D3Veibfw2wix0CUwYODLD8nkj9UsLjASr49nPg+2eKzxhBV+v7L8pXvT4e639Q==}
@@ -4632,9 +4629,6 @@ packages:
   unctx@2.5.0:
     resolution: {integrity: sha512-p+Rz9x0R7X+CYDkT+Xg8/GhpcShTlU8n+cf9OtOEf7zEQsNcCZO1dPKNRDqvUTaq+P32PMMkxWHwfrxkqfqAYg==}
 
-  undici-types@7.16.0:
-    resolution: {integrity: sha512-Zz+aZWSj8LE6zoxD+xrjh4VfkIG8Ya6LvYkZqtUQGJPZjYl53ypCaUwWqo7eI0x66KBGeRo+mlBEkMSeSZ38Nw==}
-
   undici-types@7.18.2:
     resolution: {integrity: sha512-AsuCzffGHJybSaRrmr5eHr81mwJU3kjw6M+uprWvCXiNeN9SOGwQ3Jn8jb8m3Z6izVgknn1R0FTCEAP2QrLY/w==}
 
@@ -5011,12 +5005,12 @@ snapshots:
 
   '@borewit/text-codec@0.2.2': {}
 
-  '@c15t/nextjs@2.2.0(@types/react@19.2.14)(next@16.2.11(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.12.4)(react-dom@19.2.3(react@19.2.6))(react@19.2.6))(react-dom@19.2.3(react@19.2.6))(react@19.2.6)(typescript@6.0.3)':
+  '@c15t/nextjs@2.2.0(@types/react@19.2.14)(next@16.2.11(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.13.3)(react-dom@19.2.3(react@19.2.6))(react@19.2.6))(react-dom@19.2.3(react@19.2.6))(react@19.2.6)(typescript@6.0.3)':
     dependencies:
       '@c15t/react': 2.2.0(@types/react@19.2.14)(react-dom@19.2.3(react@19.2.6))(react@19.2.6)(typescript@6.0.3)
       '@c15t/translations': 2.2.0
       c15t: 2.2.0(@types/react@19.2.14)(react@19.2.6)(typescript@6.0.3)
-      next: 16.2.11(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.12.4)(react-dom@19.2.3(react@19.2.6))(react@19.2.6)
+      next: 16.2.11(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.13.3)(react-dom@19.2.3(react@19.2.6))(react@19.2.6)
       react: 19.2.6
       react-dom: 19.2.3(react@19.2.6)
     transitivePeerDependencies:
@@ -6571,14 +6565,9 @@ snapshots:
 
   '@types/ms@2.1.0': {}
 
-  '@types/node@24.12.4':
-    dependencies:
-      undici-types: 7.16.0
-
   '@types/node@24.13.3':
     dependencies:
       undici-types: 7.18.2
-    optional: true
 
   '@types/pg@8.11.6':
     dependencies:
@@ -6595,9 +6584,9 @@ snapshots:
     dependencies:
       csstype: 3.2.3
 
-  '@vercel/analytics@2.0.1(next@16.2.11(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.12.4)(react-dom@19.2.3(react@19.2.6))(react@19.2.6))(react@19.2.6)':
+  '@vercel/analytics@2.0.1(next@16.2.11(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.13.3)(react-dom@19.2.3(react@19.2.6))(react@19.2.6))(react@19.2.6)':
     optionalDependencies:
-      next: 16.2.11(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.12.4)(react-dom@19.2.3(react@19.2.6))(react@19.2.6)
+      next: 16.2.11(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.13.3)(react-dom@19.2.3(react@19.2.6))(react@19.2.6)
       react: 19.2.6
 
   '@vercel/cli-auth@0.0.1':
@@ -6622,7 +6611,7 @@ snapshots:
     optionalDependencies:
       '@aws-sdk/credential-provider-web-identity': 3.972.49
 
-  '@vercel/microfrontends@2.3.4(@vercel/analytics@2.0.1(next@16.2.11(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.12.4)(react-dom@19.2.3(react@19.2.6))(react@19.2.6))(react@19.2.6))(debug@4.4.3(supports-color@8.1.1))(next@16.2.11(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.12.4)(react-dom@19.2.3(react@19.2.6))(react@19.2.6))(react-dom@19.2.3(react@19.2.6))(react@19.2.6)(vite@7.3.6(@types/node@24.12.4)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.5)(yaml@2.9.0))':
+  '@vercel/microfrontends@2.3.4(@vercel/analytics@2.0.1(next@16.2.11(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.13.3)(react-dom@19.2.3(react@19.2.6))(react@19.2.6))(react@19.2.6))(debug@4.4.3(supports-color@8.1.1))(next@16.2.11(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.13.3)(react-dom@19.2.3(react@19.2.6))(react@19.2.6))(react-dom@19.2.3(react@19.2.6))(react@19.2.6)(vite@7.3.6(@types/node@24.13.3)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.5)(yaml@2.9.0))':
     dependencies:
       '@next/env': 16.0.10
       '@types/md5': 2.3.6
@@ -6637,11 +6626,11 @@ snapshots:
       path-to-regexp: 6.3.0
       semver: 7.8.0
     optionalDependencies:
-      '@vercel/analytics': 2.0.1(next@16.2.11(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.12.4)(react-dom@19.2.3(react@19.2.6))(react@19.2.6))(react@19.2.6)
-      next: 16.2.11(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.12.4)(react-dom@19.2.3(react@19.2.6))(react@19.2.6)
+      '@vercel/analytics': 2.0.1(next@16.2.11(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.13.3)(react-dom@19.2.3(react@19.2.6))(react@19.2.6))(react@19.2.6)
+      next: 16.2.11(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.13.3)(react-dom@19.2.3(react@19.2.6))(react@19.2.6)
       react: 19.2.6
       react-dom: 19.2.3(react@19.2.6)
-      vite: 7.3.6(@types/node@24.12.4)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.5)(yaml@2.9.0)
+      vite: 7.3.6(@types/node@24.13.3)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.5)(yaml@2.9.0)
     transitivePeerDependencies:
       - debug
 
@@ -6660,19 +6649,19 @@ snapshots:
       mixpart: 0.0.6
       picocolors: 1.1.1
 
-  '@vercel/toolbar@0.2.6(@vercel/analytics@2.0.1(next@16.2.11(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.12.4)(react-dom@19.2.3(react@19.2.6))(react@19.2.6))(react@19.2.6))(debug@4.4.3(supports-color@8.1.1))(next@16.2.11(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.12.4)(react-dom@19.2.3(react@19.2.6))(react@19.2.6))(react-dom@19.2.3(react@19.2.6))(react@19.2.6)(vite@7.3.6(@types/node@24.12.4)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.5)(yaml@2.9.0))':
+  '@vercel/toolbar@0.2.6(@vercel/analytics@2.0.1(next@16.2.11(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.13.3)(react-dom@19.2.3(react@19.2.6))(react@19.2.6))(react@19.2.6))(debug@4.4.3(supports-color@8.1.1))(next@16.2.11(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.13.3)(react-dom@19.2.3(react@19.2.6))(react@19.2.6))(react-dom@19.2.3(react@19.2.6))(react@19.2.6)(vite@7.3.6(@types/node@24.13.3)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.5)(yaml@2.9.0))':
     dependencies:
       '@tinyhttp/app': 1.3.0
-      '@vercel/microfrontends': 2.3.4(@vercel/analytics@2.0.1(next@16.2.11(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.12.4)(react-dom@19.2.3(react@19.2.6))(react@19.2.6))(react@19.2.6))(debug@4.4.3(supports-color@8.1.1))(next@16.2.11(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.12.4)(react-dom@19.2.3(react@19.2.6))(react@19.2.6))(react-dom@19.2.3(react@19.2.6))(react@19.2.6)(vite@7.3.6(@types/node@24.12.4)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.5)(yaml@2.9.0))
+      '@vercel/microfrontends': 2.3.4(@vercel/analytics@2.0.1(next@16.2.11(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.13.3)(react-dom@19.2.3(react@19.2.6))(react@19.2.6))(react@19.2.6))(debug@4.4.3(supports-color@8.1.1))(next@16.2.11(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.13.3)(react-dom@19.2.3(react@19.2.6))(react@19.2.6))(react-dom@19.2.3(react@19.2.6))(react@19.2.6)(vite@7.3.6(@types/node@24.13.3)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.5)(yaml@2.9.0))
       chokidar: 3.6.0
       execa: 5.1.1
       find-up: 5.0.0
       get-port: 5.1.1
       strip-ansi: 6.0.1
     optionalDependencies:
-      next: 16.2.11(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.12.4)(react-dom@19.2.3(react@19.2.6))(react@19.2.6)
+      next: 16.2.11(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.13.3)(react-dom@19.2.3(react@19.2.6))(react@19.2.6)
       react: 19.2.6
-      vite: 7.3.6(@types/node@24.12.4)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.5)(yaml@2.9.0)
+      vite: 7.3.6(@types/node@24.13.3)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.5)(yaml@2.9.0)
     transitivePeerDependencies:
       - '@sveltejs/kit'
       - '@vercel/analytics'
@@ -6692,7 +6681,7 @@ snapshots:
       obug: 2.1.1
       std-env: 4.1.0
       tinyrainbow: 3.1.0
-      vitest: 4.1.7(@opentelemetry/api@1.9.0)(@types/node@24.12.4)(@vitest/coverage-v8@4.1.7)(vite@7.3.6(@types/node@24.12.4)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.5)(yaml@2.9.0))
+      vitest: 4.1.7(@opentelemetry/api@1.9.0)(@types/node@24.13.3)(@vitest/coverage-v8@4.1.7)(vite@7.3.6(@types/node@24.13.3)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.5)(yaml@2.9.0))
 
   '@vitest/expect@4.1.7':
     dependencies:
@@ -6703,13 +6692,13 @@ snapshots:
       chai: 6.2.2
       tinyrainbow: 3.1.0
 
-  '@vitest/mocker@4.1.7(vite@7.3.6(@types/node@24.12.4)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.5)(yaml@2.9.0))':
+  '@vitest/mocker@4.1.7(vite@7.3.6(@types/node@24.13.3)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.5)(yaml@2.9.0))':
     dependencies:
       '@vitest/spy': 4.1.7
       estree-walker: 3.0.3
       magic-string: 0.30.21
     optionalDependencies:
-      vite: 7.3.6(@types/node@24.12.4)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.5)(yaml@2.9.0)
+      vite: 7.3.6(@types/node@24.13.3)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.5)(yaml@2.9.0)
 
   '@vitest/pretty-format@4.1.7':
     dependencies:
@@ -6855,7 +6844,7 @@ snapshots:
       - supports-color
       - ws
 
-  '@workflow/next@4.1.9(@opentelemetry/api@1.9.0)(next@16.2.11(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.12.4)(react-dom@19.2.3(react@19.2.6))(react@19.2.6))(supports-color@8.1.1)':
+  '@workflow/next@4.1.9(@opentelemetry/api@1.9.0)(next@16.2.11(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.13.3)(react-dom@19.2.3(react@19.2.6))(react@19.2.6))(supports-color@8.1.1)':
     dependencies:
       '@swc/core': 1.15.3
       '@workflow/builders': 4.1.10(@opentelemetry/api@1.9.0)(supports-color@8.1.1)
@@ -6864,7 +6853,7 @@ snapshots:
       semver: 7.7.4
       watchpack: 2.5.1
     optionalDependencies:
-      next: 16.2.11(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.12.4)(react-dom@19.2.3(react@19.2.6))(react@19.2.6)
+      next: 16.2.11(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.13.3)(react-dom@19.2.3(react@19.2.6))(react@19.2.6)
     transitivePeerDependencies:
       - '@opentelemetry/api'
       - '@swc/helpers'
@@ -8265,7 +8254,7 @@ snapshots:
     dependencies:
       content-type: 2.1.0
 
-  next@16.2.11(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.12.4)(react-dom@19.2.3(react@19.2.6))(react@19.2.6):
+  next@16.2.11(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.13.3)(react-dom@19.2.3(react@19.2.6))(react@19.2.6):
     dependencies:
       '@next/env': 16.2.11
       '@swc/helpers': 0.5.15
@@ -8286,7 +8275,7 @@ snapshots:
       '@next/swc-win32-x64-msvc': 16.2.11
       '@opentelemetry/api': 1.9.0
       '@playwright/test': 1.60.0
-      sharp: 0.35.3(@types/node@24.12.4)
+      sharp: 0.35.3(@types/node@24.13.3)
     transitivePeerDependencies:
       - '@babel/core'
       - '@types/node'
@@ -8760,7 +8749,7 @@ snapshots:
 
   setprototypeof@1.2.0: {}
 
-  sharp@0.35.3(@types/node@24.12.4):
+  sharp@0.35.3(@types/node@24.13.3):
     dependencies:
       '@img/colour': 1.1.0
       detect-libc: 2.1.2
@@ -8791,7 +8780,7 @@ snapshots:
       '@img/sharp-win32-arm64': 0.35.3
       '@img/sharp-win32-ia32': 0.35.3
       '@img/sharp-win32-x64': 0.35.3
-      '@types/node': 24.12.4
+      '@types/node': 24.13.3
     optional: true
 
   shebang-command@2.0.0:
@@ -9045,10 +9034,7 @@ snapshots:
       magic-string: 0.30.21
       unplugin: 2.3.11
 
-  undici-types@7.16.0: {}
-
-  undici-types@7.18.2:
-    optional: true
+  undici-types@7.18.2: {}
 
   undici@7.29.0: {}
 
@@ -9098,7 +9084,7 @@ snapshots:
 
   vary@1.1.2: {}
 
-  vite@7.3.6(@types/node@24.12.4)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.5)(yaml@2.9.0):
+  vite@7.3.6(@types/node@24.13.3)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.5)(yaml@2.9.0):
     dependencies:
       esbuild: 0.28.1
       fdir: 6.5.0(picomatch@4.0.7)
@@ -9107,17 +9093,17 @@ snapshots:
       rollup: 4.62.4
       tinyglobby: 0.2.17
     optionalDependencies:
-      '@types/node': 24.12.4
+      '@types/node': 24.13.3
       fsevents: 2.3.3
       jiti: 2.7.0
       lightningcss: 1.32.0
       tsx: 4.23.5
       yaml: 2.9.0
 
-  vitest@4.1.7(@opentelemetry/api@1.9.0)(@types/node@24.12.4)(@vitest/coverage-v8@4.1.7)(vite@7.3.6(@types/node@24.12.4)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.5)(yaml@2.9.0)):
+  vitest@4.1.7(@opentelemetry/api@1.9.0)(@types/node@24.13.3)(@vitest/coverage-v8@4.1.7)(vite@7.3.6(@types/node@24.13.3)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.5)(yaml@2.9.0)):
     dependencies:
       '@vitest/expect': 4.1.7
-      '@vitest/mocker': 4.1.7(vite@7.3.6(@types/node@24.12.4)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.5)(yaml@2.9.0))
+      '@vitest/mocker': 4.1.7(vite@7.3.6(@types/node@24.13.3)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.5)(yaml@2.9.0))
       '@vitest/pretty-format': 4.1.7
       '@vitest/runner': 4.1.7
       '@vitest/snapshot': 4.1.7
@@ -9134,11 +9120,11 @@ snapshots:
       tinyexec: 1.0.2
       tinyglobby: 0.2.16
       tinyrainbow: 3.1.0
-      vite: 7.3.6(@types/node@24.12.4)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.5)(yaml@2.9.0)
+      vite: 7.3.6(@types/node@24.13.3)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.5)(yaml@2.9.0)
       why-is-node-running: 2.3.0
     optionalDependencies:
       '@opentelemetry/api': 1.9.0
-      '@types/node': 24.12.4
+      '@types/node': 24.13.3
       '@vitest/coverage-v8': 4.1.7(vitest@4.1.7)
     transitivePeerDependencies:
       - msw
@@ -9181,14 +9167,14 @@ snapshots:
 
   wordwrap@1.0.0: {}
 
-  workflow@4.8.5(@nestjs/common@11.1.14(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(@nestjs/core@11.1.18(@nestjs/common@11.1.14(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(reflect-metadata@0.2.2)(rxjs@7.8.2))(@opentelemetry/api@1.9.0)(@swc/cli@0.8.0(@swc/core@1.15.3)(chokidar@5.0.0)(supports-color@8.1.1))(@swc/core@1.15.3)(magicast@0.5.2)(next@16.2.11(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.12.4)(react-dom@19.2.3(react@19.2.6))(react@19.2.6))(supports-color@8.1.1)(typescript@6.0.3):
+  workflow@4.8.5(@nestjs/common@11.1.14(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(@nestjs/core@11.1.18(@nestjs/common@11.1.14(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(reflect-metadata@0.2.2)(rxjs@7.8.2))(@opentelemetry/api@1.9.0)(@swc/cli@0.8.0(@swc/core@1.15.3)(chokidar@5.0.0)(supports-color@8.1.1))(@swc/core@1.15.3)(magicast@0.5.2)(next@16.2.11(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.13.3)(react-dom@19.2.3(react@19.2.6))(react@19.2.6))(supports-color@8.1.1)(typescript@6.0.3):
     dependencies:
       '@workflow/astro': 4.0.20(@opentelemetry/api@1.9.0)(supports-color@8.1.1)
       '@workflow/cli': 4.3.9(@opentelemetry/api@1.9.0)(supports-color@8.1.1)
       '@workflow/core': 4.8.5(@opentelemetry/api@1.9.0)(supports-color@8.1.1)
       '@workflow/errors': 4.2.1
       '@workflow/nest': 4.0.21(@nestjs/common@11.1.14(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(@nestjs/core@11.1.18(@nestjs/common@11.1.14(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(reflect-metadata@0.2.2)(rxjs@7.8.2))(@opentelemetry/api@1.9.0)(@swc/cli@0.8.0(@swc/core@1.15.3)(chokidar@5.0.0)(supports-color@8.1.1))(@swc/core@1.15.3)(supports-color@8.1.1)
-      '@workflow/next': 4.1.9(@opentelemetry/api@1.9.0)(next@16.2.11(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.12.4)(react-dom@19.2.3(react@19.2.6))(react@19.2.6))(supports-color@8.1.1)
+      '@workflow/next': 4.1.9(@opentelemetry/api@1.9.0)(next@16.2.11(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.13.3)(react-dom@19.2.3(react@19.2.6))(react@19.2.6))(supports-color@8.1.1)
       '@workflow/nitro': 4.1.11(@opentelemetry/api@1.9.0)(supports-color@8.1.1)
       '@workflow/nuxt': 4.0.21(@opentelemetry/api@1.9.0)(magicast@0.5.2)(supports-color@8.1.1)
       '@workflow/rollup': 4.0.20(@opentelemetry/api@1.9.0)(supports-color@8.1.1)
