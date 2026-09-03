@@ -7,19 +7,31 @@
  * exits naturally reports success: a vitest run with failing tests, or a wrapper
  * that set `process.exitCode` from a child's status, both exit 0.
  *
- * The hook only exists to stop clusters that were never stopped explicitly. We
- * always stop ours, so we remove the `beforeExit` and `exit` listeners it added
- * (and only those) immediately after importing the module. The `exit` listener
- * has to go too: once `beforeExit` no longer runs first, the library invokes its
- * async shutdown from the synchronous `exit` path without a callback and throws
- * `done is not a function`, which would turn a green run into exit code 1.
- * Signal handling (SIGINT/SIGTERM) is left in place.
+ * The hook only exists to stop clusters that were never stopped explicitly. Every
+ * caller of this loader stops its cluster itself and owns its own shutdown, so we
+ * remove every listener the import added (and only those):
+ * - `beforeExit`: calls process.exit(0) and discards the real exit code.
+ * - `exit`: once `beforeExit` no longer runs first, the library invokes its async
+ *   shutdown from the synchronous `exit` path without a callback and throws
+ *   `done is not a function`, turning a green run into exit code 1.
+ * - signals (`SIGINT`, `SIGTERM`, ...): the library would stop the cluster and
+ *   call process.exit(128+n) on its own schedule, racing the caller's shutdown
+ *   (e.g. `pnpm dev:local` still waiting for `next dev` to exit).
+ * - `message`: pm2 shutdown hook, irrelevant here.
  */
 
 type EmbeddedPostgresModule = typeof import("embedded-postgres")
 export type EmbeddedPostgresCtor = EmbeddedPostgresModule["default"]
 
-const EVENTS_TO_UNHOOK = ["beforeExit", "exit"] as const
+const EVENTS_TO_UNHOOK = [
+  "beforeExit",
+  "exit",
+  "SIGHUP",
+  "SIGINT",
+  "SIGTERM",
+  "SIGBREAK",
+  "message",
+] as const
 type UnhookedEvent = (typeof EVENTS_TO_UNHOOK)[number]
 
 // `process.listeners` / `removeListener` are typed per event name; the two we

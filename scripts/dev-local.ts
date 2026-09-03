@@ -16,7 +16,10 @@ import { execSync, spawn, type ChildProcess } from "node:child_process"
 import { existsSync, readdirSync, rmSync } from "node:fs"
 import { userInfo } from "node:os"
 import { resolve } from "node:path"
-import EmbeddedPostgres from "embedded-postgres"
+import {
+  type EmbeddedPostgresCtor,
+  loadEmbeddedPostgres,
+} from "../tests/setup/embedded-postgres-loader"
 import { startMockGitHubServer, type MockGitHubServerHandle } from "./mock-github-server"
 
 const APP_PORT = Number(process.env.PORT ?? "3000")
@@ -28,7 +31,7 @@ const PG_PASSWORD = "postgres"
 const PG_DATA_DIR = resolve(process.cwd(), "tmp", "embedded-pg-dev")
 const DATABASE_URL = `postgresql://${PG_USER}:${PG_PASSWORD}@127.0.0.1:${PG_PORT}/${PG_DB}`
 
-let pg: EmbeddedPostgres | null = null
+let pg: InstanceType<EmbeddedPostgresCtor> | null = null
 let mockGitHub: MockGitHubServerHandle | null = null
 let child: ChildProcess | null = null
 let shuttingDown = false
@@ -36,6 +39,8 @@ let shuttingDown = false
 async function startPostgres(): Promise<void> {
   // Only create a postgres system user when running as root (sandboxed environments).
   const isRoot = userInfo().uid === 0
+  // Loader strips async-exit-hook's process listeners so they can't race shutdown().
+  const EmbeddedPostgres = await loadEmbeddedPostgres()
   pg = new EmbeddedPostgres({
     databaseDir: PG_DATA_DIR,
     user: PG_USER,
