@@ -321,6 +321,9 @@ function handleAuthorize(
   // `?login=<user>` skips the picker. The redirect target is always built from the
   // server-side user record, never from the query string itself.
   const requestedLogin = url.searchParams.get("login")
+  // This is a local OAuth mock: letting the caller choose which fake user to sign
+  // in as is the feature, and the redirect target is loopback-only (see parseRedirectUri).
+  // codeql[js/user-controlled-bypass]
   const preselectedUser = requestedLogin ? findUserByLogin(requestedLogin) : null
   if (requestedLogin && !preselectedUser) {
     return sendJson(res, 404, { message: `Unknown mock user "${requestedLogin}"` })
@@ -403,6 +406,9 @@ async function handleAccessToken(
   }
 
   let login: string | null = null
+  // grant_type selecting the code vs refresh-token branch is the OAuth protocol
+  // itself; tokens issued here are mock strings that only this local server accepts.
+  // codeql[js/user-controlled-bypass]
   if (params.grant_type === "refresh_token") {
     const refreshToken = params.refresh_token ?? ""
     if (refreshToken.startsWith(REFRESH_TOKEN_PREFIX)) {

@@ -232,7 +232,9 @@ export function clearMockGitHubCallLog() {
 }
 
 function sleep(ms: number) {
-  return new Promise<void>((resolve) => setTimeout(resolve, ms))
+  // Bounded at the sink as well as at configuration time.
+  const bounded = Math.min(Math.max(0, ms), MAX_LATENCY_MS)
+  return new Promise<void>((resolve) => setTimeout(resolve, bounded))
 }
 
 function takeInjectedFailure(method: string): MockGitHubFailure | null {
