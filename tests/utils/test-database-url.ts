@@ -12,7 +12,7 @@
  * 4. Unless `ALLOW_REMOTE_TEST_DATABASE=true`, the host must be local.
  */
 
-import { isLocalDatabaseUrl } from "@/lib/db/database-url"
+import { isLocalDatabaseUrl } from "../../lib/db/database-url"
 
 export { isLocalDatabaseUrl }
 
