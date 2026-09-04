@@ -2237,7 +2237,9 @@ test("Webhook: check_suite merge queue missing fields returns 400", async (baseU
 // observable shape of a PR check (GitHub call sequence, DB statement count) so
 // performance work on the webhook handler has a baseline to move.
 
-const PR_CHECK_DB_STATEMENT_BUDGET = 12
+// org lookup + bypass list + signature join + audit insert. Deliveries that
+// carry an x-github-delivery id add one dedup insert on top (tests send none).
+const PR_CHECK_DB_STATEMENT_BUDGET = 4
 
 function methodSequence(state: Awaited<ReturnType<typeof getTestServerState>>) {
   return state.github.calls.map((call) => call.method)

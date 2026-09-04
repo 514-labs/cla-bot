@@ -1,8 +1,33 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
-import { getGitHubClient } from "@/lib/github/index"
+import { clearGitHubClientCache, getGitHubClient } from "@/lib/github/index"
 
 afterEach(() => {
   vi.unstubAllEnvs()
+  clearGitHubClientCache()
+})
+
+describe("getGitHubClient installation cache", () => {
+  it("reuses one real client per installation id across calls", () => {
+    vi.stubEnv("NODE_ENV", "production")
+    vi.stubEnv("GITHUB_APP_ID", "12345")
+    vi.stubEnv("GITHUB_PRIVATE_KEY", "fake-key")
+
+    const first = getGitHubClient(1001)
+    const second = getGitHubClient(1001)
+    const other = getGitHubClient(1002)
+    expect(second).toBe(first)
+    expect(other).not.toBe(first)
+  })
+
+  it("forgets clients when the cache is cleared", () => {
+    vi.stubEnv("NODE_ENV", "production")
+    vi.stubEnv("GITHUB_APP_ID", "12345")
+    vi.stubEnv("GITHUB_PRIVATE_KEY", "fake-key")
+
+    const first = getGitHubClient(1001)
+    clearGitHubClientCache()
+    expect(getGitHubClient(1001)).not.toBe(first)
+  })
 })
 
 describe("getGitHubClient", () => {
