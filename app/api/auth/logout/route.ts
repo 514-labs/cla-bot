@@ -1,29 +1,19 @@
 import { NextRequest, NextResponse } from "next/server"
 import { COOKIE_NAME, getSessionCookieOptions, verifySessionToken } from "@/lib/auth"
-import { revokeUserGithubTokens } from "@/lib/github/user-token"
-import { createAuditEvent } from "@/lib/db/queries"
+import { signOutUser } from "@/lib/server/sign-out"
 
 /**
  * POST /api/auth/logout
- * Revokes the GitHub user access token (best-effort), clears the encrypted
- * token columns, then clears the session cookie and redirects home.
+ * HTTP equivalent of the header's `signOutAction`: revokes the GitHub user
+ * grant (best-effort), clears the encrypted token columns, writes the audit
+ * event, then clears the session cookie and redirects home.
  */
 export async function POST(request: NextRequest) {
   const token = request.cookies.get(COOKIE_NAME)?.value
   const payload = token ? await verifySessionToken(token) : null
 
   if (payload?.userId) {
-    // Fire-and-forget upstream revoke + DB clear. Don't block logout on it.
-    void revokeUserGithubTokens(payload.userId).catch((error) => {
-      console.warn("[logout] Token revocation failed", error)
-    })
-    void createAuditEvent({
-      eventType: "user.signed_out",
-      userId: payload.userId,
-      actorGithubUsername: payload.githubUsername ?? null,
-    }).catch((error) => {
-      console.warn("[logout] Failed to write audit event", error)
-    })
+    await signOutUser(payload.userId, payload.githubUsername ?? null)
   }
 
   const response = NextResponse.redirect(new URL("/", request.url))

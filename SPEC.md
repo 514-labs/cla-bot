@@ -117,7 +117,7 @@ This section is the behavior contract for UI routes.
 
 - OAuth callback state mismatch/expired state cookie: sign-in fails safely and redirects back to `/auth/signin?error=...`.
 - GitHub token exchange or profile fetch failure: sign-in fails safely and no session cookie is issued.
-- Explicit logout clears JWT cookie; expired/invalid JWT is treated as signed-out.
+- Explicit logout (header sign-out action or `POST /api/auth/logout`) revokes the GitHub App grant (best-effort), clears the stored encrypted tokens, writes a `user.signed_out` audit event, then clears the JWT cookie; expired/invalid JWT is treated as signed-out.
 
 ### 12) `/recheck` command behavior edge cases
 
