@@ -233,6 +233,57 @@ test("GET /api/github/install callback returns to admin instead of looping to Gi
   assert(!location.includes("github.com/apps/"), "does not redirect back to GitHub install")
 })
 
+test("POST /api/auth/logout clears stored GitHub tokens and writes a sign-out audit event", async (baseUrl) => {
+  await resetDb(baseUrl)
+  const userId = TEST_USERS.admin.id
+  const inOneHour = new Date(Date.now() + 60 * 60 * 1000).toISOString()
+  const inNinetyDays = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString()
+
+  // Simulate a signed-in user with a live refreshable GitHub App grant.
+  await sql`
+    UPDATE users
+    SET github_access_token_encrypted = 'stale-access-token',
+        github_access_token_expires_at = ${inOneHour},
+        github_refresh_token_encrypted = 'stale-refresh-token',
+        github_refresh_token_expires_at = ${inNinetyDays},
+        github_token_kind = 'refreshable'
+    WHERE id = ${userId}
+  `
+
+  const res = await fetch(`${baseUrl}/api/auth/logout`, { method: "POST", redirect: "manual" })
+  assertEqual(res.status, 307, "status")
+  const location = res.headers.get("location") ?? ""
+  assert(location.endsWith("/"), "redirects home")
+  const setCookie = res.headers.get("set-cookie") ?? ""
+  assert(setCookie.includes("cla-session="), "clears session cookie")
+  assert(/max-age=0/i.test(setCookie), "session cookie expires immediately")
+
+  const rows = await sql`
+    SELECT github_access_token_encrypted AS "accessToken",
+           github_refresh_token_encrypted AS "refreshToken",
+           github_access_token_expires_at AS "accessExpiresAt",
+           github_refresh_token_expires_at AS "refreshExpiresAt",
+           github_token_kind AS "tokenKind"
+    FROM users
+    WHERE id = ${userId}
+  `
+  const user = rows[0]
+  assert(user !== undefined, "user still exists after sign-out")
+  assertEqual(user.accessToken, null, "access token cleared")
+  assertEqual(user.refreshToken, null, "refresh token cleared")
+  assertEqual(user.accessExpiresAt, null, "access token expiry cleared")
+  assertEqual(user.refreshExpiresAt, null, "refresh token expiry cleared")
+  assertEqual(user.tokenKind, "legacy_user", "token kind reset so the row needs re-auth")
+
+  const audit = await sql`
+    SELECT event_type AS "eventType", actor_github_username AS "actor"
+    FROM audit_events
+    WHERE user_id = ${userId} AND event_type = 'user.signed_out'
+  `
+  assertEqual(audit.length, 1, "one user.signed_out audit event")
+  assertEqual(audit[0]?.actor, TEST_USERS.admin.githubUsername, "audit actor username")
+})
+
 // ==========================================
 // 2. ADMIN ORG LISTING TESTS
 // ==========================================
