@@ -2437,6 +2437,82 @@ test("Webhook: a GitHub error mid-check still yields a completed, failed check r
   assertEqual(membershipCalls[1].error, null, "second membership call succeeded")
 })
 
+test("Webhook: a transient updateCheckRun failure is retried on the same run", async (baseUrl) => {
+  await resetDb(baseUrl)
+  await configureTestServerGitHub(baseUrl, {
+    failures: { updateCheckRun: { status: 502, message: "Injected 502", times: 1 } },
+  })
+
+  const { res } = await sendWebhook(
+    baseUrl,
+    "pull_request",
+    makePrPayload({
+      action: "opened",
+      prAuthor: "orgadmin",
+      prAuthorId: 1001,
+      orgSlug: "fiveonefour",
+      repoName: "sdk",
+      prNumber: 507,
+    })
+  )
+  assertEqual(res.status, 200, "webhook succeeds after the retry")
+
+  const state = await getTestServerState(baseUrl)
+  const sequence = methodSequence(state)
+  assertEqual(
+    sequence.filter((m) => m === "createCheckRun").length,
+    1,
+    `no duplicate check run is created (${sequence.join(" -> ")})`
+  )
+  assertEqual(
+    sequence.filter((m) => m === "updateCheckRun").length,
+    2,
+    `update retried once (${sequence.join(" -> ")})`
+  )
+  const runs = state.github.checkRuns as Array<{ status: string; conclusion: string | null }>
+  assertEqual(runs.length, 1, "exactly one run on the PR")
+  assertEqual(runs[0].status, "completed", "the original run was completed")
+  assertEqual(runs[0].conclusion, "success", "org member passes")
+})
+
+test("Webhook: when updates keep failing, a completed run supersedes the stuck one", async (baseUrl) => {
+  await resetDb(baseUrl)
+  await configureTestServerGitHub(baseUrl, {
+    failures: { updateCheckRun: { status: 502, message: "Injected 502", times: 2 } },
+  })
+
+  const { res } = await sendWebhook(
+    baseUrl,
+    "pull_request",
+    makePrPayload({
+      action: "opened",
+      prAuthor: "orgadmin",
+      prAuthorId: 1001,
+      orgSlug: "fiveonefour",
+      repoName: "sdk",
+      prNumber: 508,
+    })
+  )
+  assertEqual(res.status, 200, "webhook still succeeds")
+
+  const state = await getTestServerState(baseUrl)
+  const sequence = methodSequence(state)
+  assertEqual(
+    sequence.filter((m) => m === "updateCheckRun").length,
+    2,
+    `two update attempts before giving up (${sequence.join(" -> ")})`
+  )
+  assertEqual(
+    sequence.filter((m) => m === "createCheckRun").length,
+    2,
+    `a superseding completed run is created (${sequence.join(" -> ")})`
+  )
+  const runs = state.github.checkRuns as Array<{ status: string; conclusion: string | null }>
+  const newest = runs[runs.length - 1]
+  assertEqual(newest.status, "completed", "newest run (authoritative for the suite) is completed")
+  assertEqual(newest.conclusion, "success", "newest run carries the real conclusion")
+})
+
 test("Mock GitHub: injected latency is applied to every call", async (baseUrl) => {
   await resetDb(baseUrl)
   await configureTestServerGitHub(baseUrl, { latencyMs: 120 })

@@ -576,35 +576,61 @@ function startCheckRun(
       return finalized
     },
     async finalize(conclusion, output) {
-      finalized = true
       const completedAt = new Date().toISOString()
+      const completedFields = {
+        owner: target.owner,
+        repo: target.repo,
+        status: "completed" as const,
+        conclusion,
+        completed_at: completedAt,
+        output,
+      }
+
+      // Distinguish "the in-progress run was never created" from "it exists but
+      // the update failed". Only the former should fall straight through to a
+      // fresh completed run.
+      let created: CheckRun | null = null
       try {
-        const created = await pending
-        return await github.updateCheckRun({
-          owner: target.owner,
-          repo: target.repo,
-          check_run_id: created.id,
-          status: "completed",
-          conclusion,
-          completed_at: completedAt,
-          output,
-        })
+        created = await pending
       } catch (error) {
         console.error(
-          "[webhook] in-progress check run unavailable; creating a completed one instead:",
+          "[webhook] in-progress check run was not created; posting a completed one instead:",
           error instanceof Error ? error.message : error
         )
-        return github.createCheckRun({
-          owner: target.owner,
-          repo: target.repo,
-          name: CHECK_NAME,
-          head_sha: target.headSha,
-          status: "completed",
-          conclusion,
-          completed_at: completedAt,
-          output,
-        })
       }
+
+      if (created) {
+        // Retry the update once before giving up on the existing run.
+        for (let attempt = 1; attempt <= 2; attempt += 1) {
+          try {
+            const updated = await github.updateCheckRun({
+              ...completedFields,
+              check_run_id: created.id,
+            })
+            finalized = true
+            return updated
+          } catch (error) {
+            console.error(
+              `[webhook] updateCheckRun attempt ${attempt} failed for check run ${created.id}:`,
+              error instanceof Error ? error.message : error
+            )
+          }
+        }
+        // Both updates failed. Post a new completed run with the same name and
+        // head SHA: GitHub treats the newest run per name as authoritative for
+        // the check suite, so this supersedes the stuck in-progress run.
+        console.error(
+          `[webhook] superseding in-progress check run ${created.id} with a new completed run`
+        )
+      }
+
+      const replacement = await github.createCheckRun({
+        ...completedFields,
+        name: CHECK_NAME,
+        head_sha: target.headSha,
+      })
+      finalized = true
+      return replacement
     },
   }
 }
