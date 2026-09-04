@@ -26,9 +26,9 @@ import {
 import { sha256Hex } from "./sha256"
 import {
   formatBypassActorLogin,
-  getBypassActorLoginCandidates,
   normalizeBypassActorSlug,
   normalizeBypassUsername,
+  selectBypassAccount,
   type BypassKind,
 } from "@/lib/bypass"
 
@@ -443,43 +443,11 @@ export async function isBypassAccountForOrg(params: {
   githubUserId?: string | number | null
   githubUsername?: string | null
 }) {
-  const normalizedGithubUserId =
-    params.githubUserId === undefined || params.githubUserId === null
-      ? null
-      : String(params.githubUserId)
-  if (normalizedGithubUserId) {
-    const byId = await getBypassAccountByOrgAndGithubId(params.orgId, normalizedGithubUserId)
-    if (byId) return byId
-  }
-
-  const normalizedGithubUsername =
-    typeof params.githubUsername === "string" ? normalizeBypassUsername(params.githubUsername) : ""
-  if (normalizedGithubUsername) {
-    const byUsername = await getBypassAccountByOrgAndGithubUsername(
-      params.orgId,
-      normalizedGithubUsername,
-      "user"
-    )
-    if (byUsername) return byUsername
-
-    const byActorSlug = await getBypassAccountByOrgAndActorSlug(
-      params.orgId,
-      normalizedGithubUsername
-    )
-    if (byActorSlug) return byActorSlug
-
-    const actorLoginCandidates = getBypassActorLoginCandidates(normalizedGithubUsername)
-    for (const actorLoginCandidate of actorLoginCandidates) {
-      const byActorLogin = await getBypassAccountByOrgAndGithubUsername(
-        params.orgId,
-        actorLoginCandidate,
-        "app_bot"
-      )
-      if (byActorLogin) return byActorLogin
-    }
-  }
-
-  return null
+  // One round trip: the per-org bypass list is tiny, so fetch it whole and
+  // apply the id > login > actor-slug > actor-login precedence in memory
+  // (see selectBypassAccount) instead of up to five sequential lookups.
+  const accounts = await getBypassAccountsByOrg(params.orgId)
+  return selectBypassAccount(accounts, params) ?? null
 }
 
 export async function setOrganizationActive(slug: string, isActive: boolean) {
@@ -738,6 +706,63 @@ export async function getSignatureStatus(orgSlug: string, userId: string) {
   return {
     signed: true,
     currentVersion: isCurrent,
+    signature: sig,
+    currentSha256: org.claTextSha256,
+  }
+}
+
+export type SignatureStatus = Awaited<ReturnType<typeof getSignatureStatus>>
+
+/**
+ * Signature status for a PR author when the org row is already loaded.
+ *
+ * One query: join the author's user row to their signatures for this org and
+ * take the newest. A user with no signature and an unknown user both come back
+ * as "not signed", so the two-step user-then-signature lookup is unnecessary.
+ * Prefers the immutable GitHub id; falls back to the login for legacy payloads.
+ */
+export async function getSignatureStatusForOrg(
+  org: { id: string; claTextSha256: string | null },
+  author: { githubId?: string | number | null; githubUsername?: string | null }
+): Promise<SignatureStatus> {
+  const githubId =
+    author.githubId === undefined || author.githubId === null ? "" : String(author.githubId)
+  const login = author.githubUsername?.trim() ?? ""
+  if (!githubId && !login) {
+    return {
+      signed: false,
+      currentVersion: false,
+      signature: null,
+      currentSha256: org.claTextSha256,
+    }
+  }
+
+  const db = await ensureDbReady()
+  const rows = await db
+    .select({ signature: claSignatures })
+    .from(claSignatures)
+    .innerJoin(users, eq(users.id, claSignatures.userId))
+    .where(
+      and(
+        eq(claSignatures.orgId, org.id),
+        githubId ? eq(users.githubId, githubId) : eq(users.githubUsername, login)
+      )
+    )
+    .orderBy(desc(claSignatures.signedAt))
+    .limit(1)
+
+  const sig = rows[0]?.signature
+  if (!sig) {
+    return {
+      signed: false,
+      currentVersion: false,
+      signature: null,
+      currentSha256: org.claTextSha256,
+    }
+  }
+  return {
+    signed: true,
+    currentVersion: sig.claSha256 === org.claTextSha256,
     signature: sig,
     currentSha256: org.claTextSha256,
   }

@@ -6,6 +6,7 @@ import {
   formatBypassActorLogin,
   getBypassActorLoginCandidates,
   isLikelyAppBotActor,
+  selectBypassAccount,
 } from "@/lib/bypass"
 
 describe("parseBypassKind", () => {
@@ -108,5 +109,90 @@ describe("isLikelyAppBotActor", () => {
 
   it("returns false for regular user without type", () => {
     expect(isLikelyAppBotActor({ login: "contributor1" })).toBe(false)
+  })
+})
+
+describe("selectBypassAccount", () => {
+  const accounts = [
+    {
+      bypassKind: "user" as const,
+      githubUserId: "1004",
+      githubUsername: "new-contributor",
+      actorSlug: null,
+    },
+    {
+      bypassKind: "user" as const,
+      githubUserId: "9999",
+      githubUsername: "Renamed-User",
+      actorSlug: null,
+    },
+    {
+      bypassKind: "app_bot" as const,
+      githubUserId: null,
+      githubUsername: "dependabot[bot]",
+      actorSlug: "dependabot",
+    },
+    {
+      bypassKind: "app_bot" as const,
+      githubUserId: null,
+      githubUsername: "renovate",
+      actorSlug: null,
+    },
+  ]
+
+  it("prefers the immutable GitHub id over the login", () => {
+    const match = selectBypassAccount(accounts, {
+      githubUserId: 1004,
+      githubUsername: "someone-else",
+    })
+    expect(match?.githubUsername).toBe("new-contributor")
+  })
+
+  it("falls back to a case-insensitive login match for user entries", () => {
+    const match = selectBypassAccount(accounts, {
+      githubUserId: 1,
+      githubUsername: "@renamed-user",
+    })
+    expect(match?.githubUserId).toBe("9999")
+  })
+
+  it("matches app/bot entries by actor slug with or without the [bot] suffix", () => {
+    expect(selectBypassAccount(accounts, { githubUsername: "dependabot[bot]" })?.actorSlug).toBe(
+      "dependabot"
+    )
+    expect(selectBypassAccount(accounts, { githubUsername: "dependabot" })?.actorSlug).toBe(
+      "dependabot"
+    )
+  })
+
+  it("matches app/bot entries by stored login candidates", () => {
+    expect(selectBypassAccount(accounts, { githubUsername: "renovate[bot]" })?.githubUsername).toBe(
+      "renovate"
+    )
+  })
+
+  it("returns null when nothing matches or the author is anonymous", () => {
+    expect(
+      selectBypassAccount(accounts, { githubUserId: 1006, githubUsername: "external" })
+    ).toBeNull()
+    expect(selectBypassAccount(accounts, {})).toBeNull()
+    expect(selectBypassAccount([], { githubUserId: 1004 })).toBeNull()
+  })
+
+  it("does not let a user entry's login match an app/bot lookup or vice versa", () => {
+    const mixed = [
+      {
+        bypassKind: "app_bot" as const,
+        githubUserId: null,
+        githubUsername: "new-contributor",
+        actorSlug: null,
+      },
+    ]
+    // login matches only via the app_bot candidate path, which is still a valid bypass
+    expect(selectBypassAccount(mixed, { githubUsername: "new-contributor" })?.bypassKind).toBe(
+      "app_bot"
+    )
+    // but a user-kind id lookup never matches an app_bot row
+    expect(selectBypassAccount(mixed, { githubUserId: 1004 })).toBeNull()
   })
 })

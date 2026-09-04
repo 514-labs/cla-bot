@@ -10,15 +10,14 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getGitHubClient, upsertMockPullRequest } from "@/lib/github"
 import type { GitHubClient } from "@/lib/github/client"
-import type { CheckRun, CheckRunConclusion } from "@/lib/github/types"
+import type { CheckRun, CheckRunConclusion, OrgMembershipStatus } from "@/lib/github/types"
 import {
   getOrganizationBySlug,
   getOrganizationByGithubAccountId,
   getOrganizationByInstallationId,
   updateOrganizationSlug,
   isBypassAccountForOrg,
-  getSignatureStatusByGithubId,
-  getSignatureStatusByUsername,
+  getSignatureStatusForOrg,
   createOrganization,
   setOrganizationActive,
   updateOrganizationInstallationId,
@@ -521,6 +520,12 @@ export async function POST(request: NextRequest) {
 
 type CheckOutput = { title: string; summary: string }
 
+/** Return a settled promise's value, or rethrow its rejection at the point of use. */
+function unwrapSettled<T>(result: PromiseSettledResult<T>): T {
+  if (result.status === "fulfilled") return result.value
+  throw result.reason
+}
+
 /**
  * Raised inside the PR-check decision logic when the request cannot be
  * evaluated (unknown org, missing installation, ...). The outer handler turns
@@ -802,11 +807,26 @@ async function runPrCheck(
     })
   }
 
-  const bypassAccount = await isBypassAccountForOrg({
-    orgId: org.id,
-    githubUserId: prAuthorId,
-    githubUsername: prAuthor,
-  })
+  // The three lookups below are independent, so run them concurrently and then
+  // apply the decision order (bypass list > owner/member > signature). Each is
+  // unwrapped only when needed, so a failure in a later lookup cannot mask an
+  // earlier decision (e.g. a GitHub 5xx on membership when the author is on the
+  // bypass list).
+  const accountOwner = isPersonalAccountOwner(org, prAuthor, prAuthorId)
+  const needsMembershipLookup = org.githubAccountType !== "user" && !accountOwner
+  const [bypassResult, membershipResult, signatureResult] = await Promise.allSettled([
+    isBypassAccountForOrg({
+      orgId: org.id,
+      githubUserId: prAuthorId,
+      githubUsername: prAuthor,
+    }),
+    needsMembershipLookup
+      ? github.checkOrgMembership(orgSlug, prAuthor)
+      : Promise.resolve<OrgMembershipStatus>("not_member"),
+    getSignatureStatusForOrg(org, { githubId: prAuthorId, githubUsername: prAuthor }),
+  ])
+
+  const bypassAccount = unwrapSettled(bypassResult)
   if (bypassAccount) {
     const bypassSummary =
       bypassAccount.bypassKind === "app_bot"
@@ -862,11 +882,7 @@ async function runPrCheck(
     })
   }
 
-  const accountOwner = isPersonalAccountOwner(org, prAuthor, prAuthorId)
-  const membership =
-    org.githubAccountType === "user" || accountOwner
-      ? "not_member"
-      : await github.checkOrgMembership(orgSlug, prAuthor)
+  const membership = unwrapSettled(membershipResult)
   if (accountOwner || membership === "active") {
     const bypassSummary = accountOwner
       ? `@${prAuthor} is the owner of @${orgSlug}. No CLA signature required.`
@@ -954,10 +970,7 @@ async function runPrCheck(
     })
   }
 
-  const sigStatus =
-    typeof prAuthorId === "number"
-      ? await getSignatureStatusByGithubId(orgSlug, String(prAuthorId))
-      : await getSignatureStatusByUsername(orgSlug, prAuthor)
+  const sigStatus = unwrapSettled(signatureResult)
   const isSigned = sigStatus.signed && sigStatus.currentVersion
   const needsResign = sigStatus.signed && !sigStatus.currentVersion
   const versionLabel = org.claTextSha256 ? org.claTextSha256.slice(0, 7) : "unknown"
