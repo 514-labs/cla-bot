@@ -253,7 +253,7 @@ signatures and delivery dedup.
 | Layer | Technology |
 | --- | --- |
 | Framework | Next.js 16 (App Router) |
-| Language | TypeScript 5.7 (strict) |
+| Language | TypeScript 7 (strict) |
 | Database | PostgreSQL + Drizzle ORM |
 | UI | Tailwind CSS, Radix UI, shadcn/ui |
 | Auth | GitHub OAuth, JWT (jose) |
