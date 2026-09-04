@@ -74,13 +74,20 @@ const GITHUB_USERS: GitHubUser[] = [
   },
 ]
 
-// Bot user for our GitHub App
-const BOT_USER: GitHubUser = {
-  login: "cla-bot[bot]",
-  id: 9000,
-  avatar_url: "https://avatars.githubusercontent.com/in/1",
-  html_url: "https://github.com/apps/cla-bot",
-  type: "Bot",
+// Bot user for our GitHub App. The login mirrors what GitHub would report for
+// the configured App (`<GITHUB_APP_SLUG>[bot]`) so comment-ownership checks
+// behave the same way against the mock as against real GitHub.
+const DEFAULT_MOCK_APP_SLUG = "cla-bot"
+
+function getBotUser(): GitHubUser {
+  const slug = process.env.GITHUB_APP_SLUG?.trim() || DEFAULT_MOCK_APP_SLUG
+  return {
+    login: `${slug}[bot]`,
+    id: 9000,
+    avatar_url: "https://avatars.githubusercontent.com/in/1",
+    html_url: `https://github.com/apps/${slug}`,
+    type: "Bot",
+  }
 }
 
 // ==============================
@@ -351,6 +358,7 @@ export class MockGitHubClient implements GitHubClient {
       completed_at: params.completed_at ?? (params.status === "completed" ? now : null),
       output: params.output ?? { title: "", summary: "" },
       html_url: `https://github.com/${params.owner}/${params.repo}/runs/${nextCheckRunId - 1}`,
+      details_url: params.details_url ?? null,
     }
     // Store with owner/repo metadata for lookups
     checkRuns.push(checkRun)
@@ -370,6 +378,7 @@ export class MockGitHubClient implements GitHubClient {
     if (params.status !== undefined) existing.status = params.status
     if (params.conclusion !== undefined) existing.conclusion = params.conclusion
     if (params.completed_at !== undefined) existing.completed_at = params.completed_at
+    if (params.details_url !== undefined) existing.details_url = params.details_url
     if (params.output !== undefined) existing.output = params.output
     if (params.status === "completed" && !existing.completed_at) {
       existing.completed_at = new Date().toISOString()
@@ -404,7 +413,7 @@ export class MockGitHubClient implements GitHubClient {
     const comment: IssueComment & { owner: string; repo: string; issue_number: number } = {
       id: nextCommentId++,
       body: params.body,
-      user: { ...BOT_USER },
+      user: getBotUser(),
       created_at: now,
       updated_at: now,
       html_url: `https://github.com/${params.owner}/${params.repo}/pull/${params.issue_number}#issuecomment-${nextCommentId - 1}`,

@@ -42,6 +42,7 @@ export type CheckRun = {
     summary: string
   }
   html_url: string
+  details_url: string | null
 }
 
 export type CreateCheckRunParams = {
@@ -53,6 +54,8 @@ export type CreateCheckRunParams = {
   conclusion?: CheckRunConclusion
   started_at?: string
   completed_at?: string
+  /** Link shown as "Details" on the check; used to point contributors at the sign page. */
+  details_url?: string
   output?: {
     title: string
     summary: string
@@ -66,6 +69,7 @@ export type UpdateCheckRunParams = {
   status?: CheckRunStatus
   conclusion?: CheckRunConclusion
   completed_at?: string
+  details_url?: string
   output?: {
     title: string
     summary: string
@@ -77,6 +81,8 @@ export type IssueComment = {
   id: number
   body: string
   user: GitHubUser
+  /** ID of the GitHub App that posted the comment, when GitHub reports one. */
+  performed_via_github_app_id?: number | null
   created_at: string
   updated_at: string
   html_url: string

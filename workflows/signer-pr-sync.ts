@@ -1,5 +1,7 @@
 import { createAuditEvent, getOrganizationBySlug } from "@/lib/db/queries"
 import { getGitHubClient } from "@/lib/github"
+import { findOwnedClaBotComment, isManagedClaBotComment } from "@/lib/github/comment-ownership"
+import type { IssueComment } from "@/lib/github/types"
 
 const CHECK_NAME = "CLA Bot / Contributor License Agreement"
 
@@ -292,12 +294,13 @@ async function syncSignerOpenPullRequests(params: {
         summary.updatedChecks += 1
       }
 
-      const existingComment = await github.findBotComment(
+      const existingComment = await findOwnedClaBotComment(
+        github,
         params.orgSlug,
         target.repoName,
         target.prNumber
       )
-      if (existingComment && isRemovableClaPromptComment(existingComment.body)) {
+      if (existingComment && isRemovableClaPromptComment(existingComment)) {
         await github.deleteComment({
           owner: params.orgSlug,
           repo: target.repoName,
@@ -329,10 +332,11 @@ function isSignerAuthorForPr(
   return prAuthorLogin.trim().toLowerCase() === user.githubUsername.trim().toLowerCase()
 }
 
-function isRemovableClaPromptComment(commentBody: string) {
+function isRemovableClaPromptComment(comment: IssueComment) {
+  if (!isManagedClaBotComment(comment)) return false
   return (
-    commentBody.includes("Contributor License Agreement Required") ||
-    commentBody.includes("Re-signing Required") ||
-    commentBody.includes("CLA Bot is not configured for this repository")
+    comment.body.includes("Contributor License Agreement Required") ||
+    comment.body.includes("Re-signing Required") ||
+    comment.body.includes("CLA Bot is not configured for this repository")
   )
 }

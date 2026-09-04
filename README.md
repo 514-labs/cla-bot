@@ -306,7 +306,7 @@ tests/
 | --- | --- |
 | `GITHUB_CLIENT_ID` | GitHub App user-authorization client ID (the App's own client_id) |
 | `GITHUB_CLIENT_SECRET` | GitHub App user-authorization client secret |
-| `GITHUB_APP_SLUG` | GitHub App slug |
+| `GITHUB_APP_SLUG` | GitHub App slug. Also identifies the bot's comment author (`<slug>[bot]`); without it the bot never updates or deletes existing PR comments and posts fresh ones instead |
 | `GITHUB_APP_ID` | GitHub App ID |
 | `GITHUB_PRIVATE_KEY` | GitHub App private key |
 | `GITHUB_WEBHOOK_SECRET` | Webhook signature verification secret |

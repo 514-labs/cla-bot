@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 import {
   getMockGitHubClient,
   resetMockGitHub,
@@ -241,7 +241,25 @@ describe("MockGitHubClient", () => {
       ).rejects.toThrow("Comment 999 not found")
     })
 
+    it("createComment posts as the configured App's bot identity", async () => {
+      vi.stubEnv("GITHUB_APP_SLUG", "cla-bot-by-fiveonefour")
+      try {
+        client = getMockGitHubClient()
+        const created = await client.createComment({
+          owner: "fiveonefour",
+          repo: "sdk",
+          issue_number: 1,
+          body: "hello",
+        })
+        expect(created.user.type).toBe("Bot")
+        expect(created.user.login).toBe("cla-bot-by-fiveonefour[bot]")
+      } finally {
+        vi.unstubAllEnvs()
+      }
+    })
+
     it("findBotComment returns latest managed comment", async () => {
+      vi.stubEnv("GITHUB_APP_SLUG", "cla-bot")
       client = getMockGitHubClient()
       await client.createComment({
         owner: "fiveonefour",
@@ -259,9 +277,31 @@ describe("MockGitHubClient", () => {
       const found = await client.findBotComment("fiveonefour", "sdk", 1)
       expect(found).not.toBeNull()
       expect(found?.body).toContain("Second CLA comment")
+      expect(found?.user.login).toBe("cla-bot[bot]")
+      vi.unstubAllEnvs()
+    })
+
+    it("findBotComment fails closed without GITHUB_APP_SLUG", async () => {
+      vi.stubEnv("GITHUB_APP_SLUG", "")
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined)
+      try {
+        client = getMockGitHubClient()
+        await client.createComment({
+          owner: "fiveonefour",
+          repo: "sdk",
+          issue_number: 1,
+          body: `${CLA_BOT_COMMENT_SIGNATURE}\nCLA comment`,
+        })
+
+        expect(await client.findBotComment("fiveonefour", "sdk", 1)).toBeNull()
+      } finally {
+        warn.mockRestore()
+        vi.unstubAllEnvs()
+      }
     })
 
     it("findBotComment returns null when no managed comments", async () => {
+      vi.stubEnv("GITHUB_APP_SLUG", "cla-bot")
       client = getMockGitHubClient()
       await client.createComment({
         owner: "fiveonefour",
@@ -272,6 +312,7 @@ describe("MockGitHubClient", () => {
 
       const found = await client.findBotComment("fiveonefour", "sdk", 1)
       expect(found).toBeNull()
+      vi.unstubAllEnvs()
     })
   })
 
