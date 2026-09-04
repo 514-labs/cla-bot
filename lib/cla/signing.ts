@@ -201,13 +201,20 @@ export function resolveRequestEvidenceFromHeaders(headers: Pick<Headers, "get">)
   }
 }
 
+/**
+ * Base URL for links built while serving a request. Prefers the deployment's
+ * canonical origin (explicit override, then Vercel system variables) so links
+ * that end up in GitHub point at the custom domain rather than whatever host
+ * the admin happened to browse. Falls back to the forwarded request host for
+ * non-Vercel environments such as local development.
+ */
 export function getBaseUrlFromHeaders(headers: Pick<Headers, "get">): string {
-  const configured = process.env.NEXT_PUBLIC_APP_URL?.trim()
-  if (configured) return configured
+  const canonical = getConfiguredAppBaseUrl() ?? getVercelAppBaseUrl()
+  if (canonical) return canonical
 
   const host = headers.get("x-forwarded-host") ?? headers.get("host")
   const protocol = headers.get("x-forwarded-proto") ?? "https"
-  if (!host) return getAppBaseUrl()
+  if (!host) return DEFAULT_APP_BASE_URL
 
   return `${protocol}://${host}`
 }
@@ -221,9 +228,42 @@ function normalizePrNumber(value: number | string | null | undefined): number | 
   return null
 }
 
-/** Public origin of this deployment, used to build contributor-facing links. */
-export function getAppBaseUrl() {
-  return process.env.NEXT_PUBLIC_APP_URL || "https://cla.fiveonefour.com"
+const DEFAULT_APP_BASE_URL = "https://cla.fiveonefour.com"
+
+/**
+ * Public origin of this deployment, used to build contributor-facing links
+ * when there is no request to derive it from (workflows, background jobs).
+ *
+ * Resolution order:
+ * 1. `NEXT_PUBLIC_APP_URL`: an explicit override. Optional.
+ * 2. Vercel system variables, injected automatically per deployment: the
+ *    project's production domain in production, the branch (or deployment)
+ *    URL in previews. Nothing to configure per preview.
+ * 3. The hardcoded production origin, for non-Vercel hosts.
+ */
+export function getAppBaseUrl(): string {
+  return getConfiguredAppBaseUrl() ?? getVercelAppBaseUrl() ?? DEFAULT_APP_BASE_URL
+}
+
+function getConfiguredAppBaseUrl(): string | null {
+  const configured = process.env.NEXT_PUBLIC_APP_URL?.trim()
+  return configured ? stripTrailingSlash(configured) : null
+}
+
+function getVercelAppBaseUrl(): string | null {
+  const vercelEnv = process.env.VERCEL_ENV?.trim()
+  if (!vercelEnv) return null
+
+  const host =
+    vercelEnv === "production"
+      ? process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL
+      : process.env.VERCEL_BRANCH_URL || process.env.VERCEL_URL
+  const trimmed = host?.trim().replace(/^https?:\/\//, "")
+  return trimmed ? stripTrailingSlash(`https://${trimmed}`) : null
+}
+
+function stripTrailingSlash(url: string): string {
+  return url.replace(/\/+$/, "")
 }
 
 function resolveEmailEvidence(user: {
