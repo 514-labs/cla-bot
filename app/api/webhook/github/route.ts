@@ -21,10 +21,16 @@ import {
   createOrganization,
   setOrganizationActive,
   updateOrganizationInstallationId,
+  orphanOrganization,
   upsertUser,
   reserveWebhookDelivery,
   createAuditEvent,
 } from "@/lib/db/queries"
+import {
+  accountIdMatches,
+  buildOrphanedOrganizationSlug,
+  resolveOrganizationIdentity,
+} from "@/lib/github/org-identity"
 import {
   CLA_BOT_COMMENT_SIGNATURE,
   generateUnsignedComment,
@@ -71,7 +77,7 @@ type PullRequestPayload = {
   repository?: {
     name?: string
     full_name?: string
-    owner?: { login?: string }
+    owner?: { login?: string; id?: number }
   }
 }
 
@@ -89,7 +95,7 @@ type IssueCommentPayload = {
   }
   repository?: {
     name?: string
-    owner?: { login?: string }
+    owner?: { login?: string; id?: number }
   }
 }
 
@@ -208,6 +214,7 @@ export async function POST(request: NextRequest) {
     }
 
     const orgSlug = prPayload.repository?.owner?.login
+    const ownerAccountId = prPayload.repository?.owner?.id
     const repoName = prPayload.repository?.name
     const prNumber = prPayload.number
     const prAuthor = prPayload.pull_request?.user?.login
@@ -277,6 +284,7 @@ export async function POST(request: NextRequest) {
 
     return handlePrCheck({
       orgSlug,
+      ownerAccountId,
       repoName,
       prNumber,
       prAuthor,
@@ -425,6 +433,7 @@ export async function POST(request: NextRequest) {
     }
 
     const orgSlug = commentPayload.repository?.owner?.login
+    const ownerAccountId = commentPayload.repository?.owner?.id
     const repoName = commentPayload.repository?.name
     const prNumber = commentPayload.issue?.number
     const prAuthor = commentPayload.issue?.user?.login
@@ -505,6 +514,7 @@ export async function POST(request: NextRequest) {
 
     return handlePrCheck({
       orgSlug,
+      ownerAccountId,
       repoName,
       prNumber,
       prAuthor,
@@ -657,6 +667,8 @@ function startCheckRun(
 
 async function handlePrCheck(params: {
   orgSlug: string
+  /** GitHub account id of the repository owner, when the payload carries it. */
+  ownerAccountId?: number
   repoName: string
   prNumber: number
   prAuthor: string
@@ -728,6 +740,7 @@ async function handlePrCheck(params: {
 async function runPrCheck(
   params: {
     orgSlug: string
+    ownerAccountId?: number
     repoName: string
     prNumber: number
     prAuthor: string
@@ -742,7 +755,16 @@ async function runPrCheck(
     ensureClient: (installationId?: number) => { github: GitHubClient; checkRun: CheckRunFinalizer }
   }
 ) {
-  const { orgSlug, repoName, prNumber, prAuthor, prAuthorId, baseUrl, installationId } = params
+  const {
+    orgSlug,
+    ownerAccountId,
+    repoName,
+    prNumber,
+    prAuthor,
+    prAuthorId,
+    baseUrl,
+    installationId,
+  } = params
 
   const org = await getOrganizationBySlug(orgSlug)
   if (!org) {
@@ -752,9 +774,29 @@ async function runPrCheck(
     })
   }
 
+  // The slug is only a name. When the payload tells us which GitHub account
+  // owns the repository, the row must belong to that same account, otherwise
+  // a stale row for a previous owner of the login would be rebound and used
+  // to gate someone else's pull requests.
+  if (ownerAccountId && !accountIdMatches(org.githubAccountId, ownerAccountId)) {
+    console.warn("[webhook] pull_request owner does not match stored organization identity", {
+      orgSlug: sanitizeForLog(orgSlug),
+      storedAccountId: sanitizeForLog(org.githubAccountId),
+      payloadAccountId: sanitizeForLog(ownerAccountId),
+    })
+    throw new PrCheckAbort(404, `Organization "${orgSlug}" is registered to a different account`, {
+      title: "CLA: Organization not registered",
+      summary: `@${orgSlug} is not registered with CLA Bot. An admin must install the app for this account.`,
+    })
+  }
+
   const resolvedInstallationId = installationId ?? org.installationId ?? undefined
   if (installationId && org.installationId !== installationId) {
-    await updateOrganizationInstallationId(orgSlug, installationId)
+    await updateOrganizationInstallationId(
+      orgSlug,
+      installationId,
+      ownerAccountId && org.githubAccountId ? { githubAccountId: ownerAccountId } : undefined
+    )
   }
 
   if (!resolvedInstallationId && process.env.NODE_ENV === "production") {
@@ -1216,6 +1258,7 @@ async function handleOrganization(payload: OrganizationPayload) {
   const existing = await resolveOrganizationForReconciliation({
     accountId,
     previousSlug,
+    currentSlug: newSlug,
   })
   if (!existing) {
     return NextResponse.json({
@@ -1267,33 +1310,113 @@ function normalizeGitHubAccountType(type?: "Organization" | "User"): GitHubAccou
   return type === "User" ? "user" : "organization"
 }
 
+const organizationIdentityLookups = {
+  byAccountId: getOrganizationByGithubAccountId,
+  byInstallationId: getOrganizationByInstallationId,
+  bySlug: getOrganizationBySlug,
+}
+
+/**
+ * Find the organization row a webhook payload refers to, by immutable account
+ * id first and mutable keys (installation id, previous slug, current slug)
+ * after. A row reached through a mutable key that records a *different*
+ * account id is a stale record for a previous owner of that login: it is
+ * quarantined (moved to an orphan slug, deactivated, unbound) and `undefined`
+ * is returned so the caller registers the payload's account as a new row.
+ */
 async function resolveOrganizationForReconciliation(params: {
   accountId?: number | null
   installationId?: number | null
   previousSlug?: string | null
   currentSlug?: string | null
 }) {
-  if (params.accountId) {
-    const byAccountId = await getOrganizationByGithubAccountId(String(params.accountId))
-    if (byAccountId) return byAccountId
+  const resolution = await resolveOrganizationIdentity(params, organizationIdentityLookups)
+
+  if (resolution.status === "none") return undefined
+
+  if (resolution.status === "conflict") {
+    await quarantineStaleOrganization({
+      org: resolution.org,
+      matchedBy: resolution.matchedBy,
+      payloadAccountId: resolution.payloadAccountId,
+      installationId: params.installationId ?? null,
+      // Only free the login when the stale row is squatting the slug the
+      // payload's account holds now; a row found through a previous slug or an
+      // installation id keeps its (unrelated) slug.
+      releaseSlug:
+        params.currentSlug !== undefined &&
+        params.currentSlug !== null &&
+        resolution.org.githubOrgSlug === params.currentSlug,
+    })
+    return undefined
   }
 
-  if (params.installationId) {
-    const byInstallationId = await getOrganizationByInstallationId(params.installationId)
-    if (byInstallationId) return byInstallationId
+  // The matched row is about to be renamed to `currentSlug`. If another row
+  // still holds that slug, move it out of the way so the rename can converge:
+  // `githubOrgSlug` is unique, so leaving it in place makes the rename throw.
+  // The matched row is the one identified for this account, so any *other* row
+  // on the login is stale, whether it records a different account id or none
+  // at all (a legacy row created before account ids were stored).
+  if (
+    params.currentSlug &&
+    params.accountId &&
+    resolution.org.githubOrgSlug !== params.currentSlug
+  ) {
+    const squatter = await getOrganizationBySlug(params.currentSlug)
+    if (squatter && squatter.id !== resolution.org.id) {
+      await quarantineStaleOrganization({
+        org: squatter,
+        matchedBy: "current_slug",
+        payloadAccountId: String(params.accountId),
+        installationId: params.installationId ?? null,
+        releaseSlug: true,
+      })
+    }
   }
 
-  if (params.previousSlug) {
-    const byPreviousSlug = await getOrganizationBySlug(params.previousSlug)
-    if (byPreviousSlug) return byPreviousSlug
+  return resolution.org
+}
+
+async function quarantineStaleOrganization(params: {
+  org: { id: string; githubOrgSlug: string; githubAccountId: string | null }
+  matchedBy: "installation_id" | "previous_slug" | "current_slug"
+  payloadAccountId: string
+  installationId: number | null
+  releaseSlug: boolean
+}) {
+  const { org } = params
+  let orphanSlug: string | null = null
+  if (params.releaseSlug) {
+    orphanSlug = buildOrphanedOrganizationSlug(org.githubOrgSlug, org.githubAccountId)
+    if (await getOrganizationBySlug(orphanSlug)) {
+      orphanSlug = `${orphanSlug}-${Date.now()}`
+    }
+    await orphanOrganization(org.id, orphanSlug)
   }
 
-  if (params.currentSlug) {
-    const byCurrentSlug = await getOrganizationBySlug(params.currentSlug)
-    if (byCurrentSlug) return byCurrentSlug
-  }
+  console.warn("[webhook] organization identity conflict: refusing to rebind stale row", {
+    orgId: sanitizeForLog(org.id),
+    slug: sanitizeForLog(org.githubOrgSlug),
+    storedAccountId: sanitizeForLog(org.githubAccountId),
+    payloadAccountId: sanitizeForLog(params.payloadAccountId),
+    installationId: params.installationId,
+    matchedBy: params.matchedBy,
+    orphanSlug: sanitizeForLogOrNull(orphanSlug),
+  })
 
-  return undefined
+  recordAuditEvent({
+    eventType: "organization.identity_conflict",
+    orgId: org.id,
+    actorGithubId: params.payloadAccountId,
+    payload: {
+      slug: org.githubOrgSlug,
+      storedAccountId: org.githubAccountId,
+      payloadAccountId: params.payloadAccountId,
+      installationId: params.installationId,
+      matchedBy: params.matchedBy,
+      orphanSlug,
+    },
+  })
 }
 
 function isPersonalAccountOwner(

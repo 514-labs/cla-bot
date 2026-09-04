@@ -49,7 +49,7 @@ describe("admin authorization", () => {
       .mockResolvedValue(
         new Response(
           JSON.stringify([
-            { state: "active", role: "admin", organization: { login: "fiveonefour" } },
+            { state: "active", role: "admin", organization: { login: "fiveonefour", id: 2001 } },
           ]),
           { status: 200, headers: { "Content-Type": "application/json" } }
         )
@@ -79,6 +79,73 @@ describe("admin authorization", () => {
     expect(authorized.map((org) => org.githubOrgSlug).sort()).toEqual(["fiveonefour", "orgadmin"])
     expect(getValidUserAccessToken).toHaveBeenCalledWith("user_1")
     expect(global.fetch).toHaveBeenCalledTimes(1)
+  })
+
+  it("does not authorize an org install when the live org id differs from the stored account id", async () => {
+    vi.stubEnv("NODE_ENV", "production")
+    // The user is an admin of *an* org called fiveonefour, but it is a new org
+    // that re-registered the login after the original (id 2001) renamed itself.
+    global.fetch = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(
+          JSON.stringify([
+            { state: "active", role: "admin", organization: { login: "fiveonefour", id: 777777 } },
+          ]),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        )
+      ) as typeof global.fetch
+
+    const authorized = await filterInstalledOrganizationsForAdmin(
+      { id: "user_1", githubId: "1001", githubUsername: "orgadmin" },
+      [
+        {
+          adminUserId: "user_2",
+          githubOrgSlug: "fiveonefour",
+          githubAccountType: "organization",
+          githubAccountId: "2001",
+          installationId: 12002,
+        },
+        {
+          adminUserId: "user_2",
+          githubOrgSlug: "legacy-org",
+          githubAccountType: "organization",
+          githubAccountId: null,
+          installationId: 12004,
+        },
+      ]
+    )
+
+    expect(authorized.map((org) => org.githubOrgSlug)).toEqual([])
+  })
+
+  it("still authorizes a legacy org install with no stored account id", async () => {
+    vi.stubEnv("NODE_ENV", "production")
+    global.fetch = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(
+          JSON.stringify([
+            { state: "active", role: "admin", organization: { login: "legacy-org", id: 3001 } },
+          ]),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        )
+      ) as typeof global.fetch
+
+    const authorized = await filterInstalledOrganizationsForAdmin(
+      { id: "user_1", githubId: "1001", githubUsername: "orgadmin" },
+      [
+        {
+          adminUserId: "user_2",
+          githubOrgSlug: "legacy-org",
+          githubAccountType: "organization",
+          githubAccountId: null,
+          installationId: 12004,
+        },
+      ]
+    )
+
+    expect(authorized.map((org) => org.githubOrgSlug)).toEqual(["legacy-org"])
   })
 
   it("does not authorize a personal-account installation for non-owners", async () => {
