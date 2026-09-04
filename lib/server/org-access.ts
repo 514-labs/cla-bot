@@ -1,6 +1,6 @@
 import { getSessionUser } from "@/lib/auth"
-import { getOrganizationBySlug } from "@/lib/db/queries"
-import { isGitHubInstallationAccountAdmin } from "@/lib/github/admin-authorization"
+import { backfillOrganizationGithubAccountId, getOrganizationBySlug } from "@/lib/db/queries"
+import { verifyGitHubInstallationAccountAdmin } from "@/lib/github/admin-authorization"
 
 type OrgAccessSuccess = {
   ok: true
@@ -26,6 +26,18 @@ export async function authorizeOrgAccess(orgSlug: string): Promise<OrgAccessResu
     }
   }
 
+  // A row without an installation is a stale record (uninstalled, suspended or
+  // quarantined after an identity conflict). The admin surface only manages
+  // live installations -- the same rule `filterInstalledOrganizationsForAdmin`
+  // applies to the list -- so a stale row is not reachable by its slug at all.
+  if (org.installationId === null) {
+    return {
+      ok: false,
+      status: 404,
+      message: "Organization is not installed",
+    }
+  }
+
   const user = await getSessionUser()
   if (!user) {
     return {
@@ -35,9 +47,11 @@ export async function authorizeOrgAccess(orgSlug: string): Promise<OrgAccessResu
     }
   }
 
+  let verifiedAccountId: string | null = null
   try {
-    const isAdmin = await isGitHubInstallationAccountAdmin(user, org)
-    if (!isAdmin) {
+    const verification = await verifyGitHubInstallationAccountAdmin(user, org)
+    verifiedAccountId = verification.verifiedAccountId
+    if (!verification.isAdmin) {
       // In non-production, when no GitHub OAuth token is available for org-admin
       // checks, fall back to the DB admin mapping — consistent with
       // filterInstalledOrganizationsForAdmin. This is strictly scoped: only the
@@ -58,6 +72,18 @@ export async function authorizeOrgAccess(orgSlug: string): Promise<OrgAccessResu
       ok: false,
       status: 502,
       message: "Failed to verify GitHub installation admin access",
+    }
+  }
+
+  // Legacy rows predate account ids. Once GitHub has confirmed which account
+  // is behind the slug for an authorized admin, pin it so future checks (and
+  // webhook reconciliation) compare identities rather than names.
+  if (org.githubAccountId === null && verifiedAccountId) {
+    try {
+      const updated = await backfillOrganizationGithubAccountId(org.id, verifiedAccountId)
+      if (updated) return { ok: true, org: updated, user }
+    } catch (error) {
+      console.error("Failed to backfill organization GitHub account id:", error)
     }
   }
 

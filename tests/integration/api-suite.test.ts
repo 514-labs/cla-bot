@@ -116,6 +116,40 @@ async function setOrgActiveForTest(orgSlug: string, isActive: boolean) {
   return org
 }
 
+type OrgRow = {
+  id: string
+  githubOrgSlug: string
+  githubAccountId: string | null
+  installationId: number | null
+  isActive: boolean
+}
+
+async function getOrgRowBySlug(orgSlug: string): Promise<OrgRow | undefined> {
+  const rows = await sql`
+    SELECT id,
+           github_org_slug AS "githubOrgSlug",
+           github_account_id AS "githubAccountId",
+           installation_id AS "installationId",
+           is_active AS "isActive"
+    FROM organizations
+    WHERE github_org_slug = ${orgSlug}
+  `
+  return rows[0] as OrgRow | undefined
+}
+
+async function getOrgRowById(orgId: string): Promise<OrgRow | undefined> {
+  const rows = await sql`
+    SELECT id,
+           github_org_slug AS "githubOrgSlug",
+           github_account_id AS "githubAccountId",
+           installation_id AS "installationId",
+           is_active AS "isActive"
+    FROM organizations
+    WHERE id = ${orgId}
+  `
+  return rows[0] as OrgRow | undefined
+}
+
 async function addBypassAccountForOrg(params: {
   orgSlug: string
   bypassKind?: "user" | "app_bot"
@@ -1774,7 +1808,7 @@ test("Webhook: installation created registers new org", async (baseUrl) => {
   await resetDb(baseUrl)
   const { res, data } = await sendWebhook(baseUrl, "installation", {
     action: "created",
-    installation: { account: { login: "new-org" } },
+    installation: { id: 22001, account: { login: "new-org", id: 7001, type: "Organization" } },
     sender: { id: 1001, login: "orgadmin" },
   })
   assertEqual(res.status, 200, "status")
@@ -1853,9 +1887,13 @@ test("Webhook: installation deleted deactivates org", async (baseUrl) => {
   })
   assert(data.message.includes("uninstalled"), "uninstall message")
 
+  const row = await getOrgRowBySlug("fiveonefour")
+  assertEqual(row?.isActive, false, "org deactivated after uninstall")
+  assertEqual(row?.installationId, null, "installation binding cleared after uninstall")
+
+  // An uninstalled row is no longer reachable through the admin surface.
   const orgRes = await fetch(`${baseUrl}/api/orgs/fiveonefour`)
-  const orgData = await orgRes.json()
-  assertEqual(orgData.org.isActive, false, "org deactivated after uninstall")
+  assertEqual(orgRes.status, 404, "uninstalled org is not exposed by the admin API")
 })
 
 test("Webhook: installation suspend and unsuspend toggles active state", async (baseUrl) => {
@@ -1867,9 +1905,8 @@ test("Webhook: installation suspend and unsuspend toggles active state", async (
   })
   assertEqual(suspendRes.status, 200, "suspend accepted")
 
-  const orgAfterSuspendRes = await fetch(`${baseUrl}/api/orgs/fiveonefour`)
-  const orgAfterSuspend = await orgAfterSuspendRes.json()
-  assertEqual(orgAfterSuspend.org.isActive, false, "org is inactive after suspend")
+  const orgAfterSuspend = await getOrgRowBySlug("fiveonefour")
+  assertEqual(orgAfterSuspend?.isActive, false, "org is inactive after suspend")
 
   const { res: unsuspendRes } = await sendWebhook(baseUrl, "installation", {
     action: "unsuspend",
@@ -1878,9 +1915,8 @@ test("Webhook: installation suspend and unsuspend toggles active state", async (
   })
   assertEqual(unsuspendRes.status, 200, "unsuspend accepted")
 
-  const orgAfterUnsuspendRes = await fetch(`${baseUrl}/api/orgs/fiveonefour`)
-  const orgAfterUnsuspend = await orgAfterUnsuspendRes.json()
-  assertEqual(orgAfterUnsuspend.org.isActive, true, "org is active after unsuspend")
+  const orgAfterUnsuspend = await getOrgRowBySlug("fiveonefour")
+  assertEqual(orgAfterUnsuspend?.isActive, true, "org is active after unsuspend")
 })
 
 test("Webhook: organization renamed reconciles slug in place", async (baseUrl) => {
@@ -2049,6 +2085,158 @@ test("Webhook: installation_repositories reconciles legacy org without account i
     org.githubOrgSlug.startsWith("fiveonefour")
   )
   assertEqual(matching.length, 1, "no duplicate org row created")
+})
+
+test("Webhook: installation created for a different account on a reused slug does not rebind the stale row", async (baseUrl) => {
+  await resetDb(baseUrl)
+
+  // Account A (id 5001) installs the app on the `acme` login.
+  const first = await sendWebhook(baseUrl, "installation", {
+    action: "created",
+    installation: {
+      id: 30001,
+      account: { login: "acme", id: 5001, type: "Organization" },
+    },
+    sender: { id: 1, login: "orgadmin" },
+  })
+  assertEqual(first.res.status, 200, "first installation accepted")
+  const victimRowId = first.data.org.id as string
+  assertEqual(first.data.org.githubAccountId, "5001", "row bound to account A")
+
+  // A later uninstalls and renames itself; account B (id 6666) registers the
+  // freed `acme` login and installs the app. GitHub sends no webhook for the
+  // rename (personal accounts) or the app was already uninstalled (orgs).
+  await sendWebhook(baseUrl, "installation", {
+    action: "deleted",
+    installation: { id: 30001, account: { login: "acme", id: 5001, type: "Organization" } },
+  })
+
+  const second = await sendWebhook(baseUrl, "installation", {
+    action: "created",
+    installation: {
+      id: 30002,
+      account: { login: "acme", id: 6666, type: "Organization" },
+    },
+    sender: { id: 1, login: "orgadmin" },
+  })
+  assertEqual(second.res.status, 200, "second installation accepted")
+  assert(second.data.message.includes("installed"), "second installation registered a new row")
+  assert(second.data.org.id !== victimRowId, "B did not absorb A's row")
+  assertEqual(second.data.org.githubAccountId, "6666", "new row bound to account B")
+  assertEqual(second.data.org.installationId, 30002, "new row bound to B's installation")
+
+  // A's row is intact but quarantined: still A's account id, moved off the
+  // slug, inactive and unbound from any installation.
+  const victimRow = await getOrgRowById(victimRowId)
+  assert(victimRow !== undefined, "A's row still exists")
+  assertEqual(victimRow?.githubAccountId, "5001", "A's row keeps A's account id")
+  assertEqual(victimRow?.githubOrgSlug, "acme__orphaned-5001", "A's row moved to an orphan slug")
+  assertEqual(victimRow?.isActive, false, "A's row is inactive")
+  assertEqual(victimRow?.installationId, null, "A's row is not bound to B's installation")
+
+  // The slug now resolves to B's row only.
+  const current = await getOrgRowBySlug("acme")
+  assertEqual(current?.id, second.data.org.id, "slug resolves to B's row")
+
+  const orgsRes = await fetch(`${baseUrl}/api/orgs`)
+  const orgsData = await orgsRes.json()
+  const acmeRows = orgsData.orgs.filter((org: { githubOrgSlug: string }) =>
+    org.githubOrgSlug.startsWith("acme")
+  )
+  assertEqual(acmeRows.length, 1, "only the live installation is listed")
+  assertEqual(acmeRows[0].id, second.data.org.id, "listed row is B's")
+})
+
+test("Webhook: installation_repositories for a different account on a reused slug does not rebind the stale row", async (baseUrl) => {
+  await resetDb(baseUrl)
+
+  const first = await sendWebhook(baseUrl, "installation", {
+    action: "created",
+    installation: {
+      id: 30001,
+      account: { login: "acme", id: 5001, type: "Organization" },
+    },
+    sender: { id: 1, login: "orgadmin" },
+  })
+  const victimRowId = first.data.org.id as string
+
+  const { res } = await sendWebhook(baseUrl, "installation_repositories", {
+    action: "added",
+    installation: {
+      id: 30002,
+      account: { login: "acme", id: 6666, type: "Organization" },
+    },
+  })
+  assertEqual(res.status, 200, "installation_repositories accepted")
+
+  const victimRow = await getOrgRowById(victimRowId)
+  assertEqual(victimRow?.githubAccountId, "5001", "A's row keeps A's account id")
+  assertEqual(victimRow?.installationId, null, "A's row was not rebound to B's installation")
+  assertEqual(victimRow?.isActive, false, "A's row is inactive")
+  assertEqual(victimRow?.githubOrgSlug, "acme__orphaned-5001", "A's row moved to an orphan slug")
+  assertEqual(await getOrgRowBySlug("acme"), undefined, "no row was created for B by this event")
+})
+
+test("Webhook: original account reclaiming its slug recovers its quarantined row", async (baseUrl) => {
+  await resetDb(baseUrl)
+
+  const first = await sendWebhook(baseUrl, "installation", {
+    action: "created",
+    installation: { id: 30001, account: { login: "acme", id: 5001, type: "Organization" } },
+    sender: { id: 1, login: "orgadmin" },
+  })
+  const victimRowId = first.data.org.id as string
+
+  const second = await sendWebhook(baseUrl, "installation", {
+    action: "created",
+    installation: { id: 30002, account: { login: "acme", id: 6666, type: "Organization" } },
+    sender: { id: 1, login: "orgadmin" },
+  })
+  const squatterRowId = second.data.org.id as string
+
+  // B gives the login up; A takes `acme` back and reinstalls.
+  const third = await sendWebhook(baseUrl, "installation", {
+    action: "created",
+    installation: { id: 30003, account: { login: "acme", id: 5001, type: "Organization" } },
+    sender: { id: 1, login: "orgadmin" },
+  })
+  assertEqual(third.res.status, 200, "reinstall accepted")
+  assertEqual(third.data.org.id, victimRowId, "A's original row is reused")
+  assertEqual(third.data.org.githubOrgSlug, "acme", "A's row is back on the slug")
+  assertEqual(third.data.org.installationId, 30003, "A's row bound to the new installation")
+  assertEqual(third.data.org.isActive, true, "A's row active again")
+
+  const squatterRow = await getOrgRowById(squatterRowId)
+  assertEqual(squatterRow?.githubAccountId, "6666", "B's row keeps B's account id")
+  assertEqual(squatterRow?.githubOrgSlug, "acme__orphaned-6666", "B's row moved off the slug")
+  assertEqual(squatterRow?.installationId, null, "B's row unbound")
+})
+
+test("Webhook: pull_request from a different owner account on a reused slug is not served by the stale row", async (baseUrl) => {
+  await resetDb(baseUrl)
+
+  // Seeded `fiveonefour` is account 2001 / installation 10001. A PR whose
+  // repository owner is a different account (the login was re-registered)
+  // must not rebind or use that row.
+  const { res, data } = await sendWebhook(baseUrl, "pull_request", {
+    action: "opened",
+    number: 77,
+    installation: { id: 40001 },
+    pull_request: {
+      user: { login: "contributor1", id: 1002 },
+      head: { sha: `test-sha-${Date.now()}` },
+    },
+    repository: {
+      name: "repo",
+      owner: { login: "fiveonefour", id: 6666 },
+    },
+  })
+  assertEqual(res.status, 404, "PR check aborted as unregistered")
+  assert(String(data.error).includes("different account"), "error explains the identity mismatch")
+
+  const row = await getOrgRowBySlug("fiveonefour")
+  assertEqual(row?.installationId, 10001, "stale row was not rebound to the PR's installation")
+  assertEqual(row?.githubAccountId, "2001", "stale row keeps its account id")
 })
 
 test("Webhook: ping event is acknowledged", async (baseUrl) => {

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 const mockGetMembershipForAuthenticatedUser = vi.fn()
 const mockListMembershipsForAuthenticatedUser = vi.fn()
+const mockOrgsGet = vi.fn()
 const mockPaginate = vi.fn()
 
 vi.mock("@octokit/rest", () => {
@@ -11,6 +12,7 @@ vi.mock("@octokit/rest", () => {
         orgs: {
           getMembershipForAuthenticatedUser: mockGetMembershipForAuthenticatedUser,
           listMembershipsForAuthenticatedUser: mockListMembershipsForAuthenticatedUser,
+          get: mockOrgsGet,
         },
       }
       paginate = mockPaginate
@@ -30,6 +32,7 @@ import {
   isGitHubOrgAdmin,
   isGitHubInstallationAccountAdmin,
   filterInstalledOrganizationsForAdmin,
+  verifyGitHubInstallationAccountAdmin,
 } from "@/lib/github/admin-authorization"
 
 beforeEach(() => {
@@ -175,6 +178,98 @@ describe("isGitHubInstallationAccountAdmin", () => {
   })
 })
 
+describe("verifyGitHubInstallationAccountAdmin - organization identity", () => {
+  const user = { id: "user_1", githubId: "1001", githubUsername: "orgadmin" }
+  const orgRow = {
+    adminUserId: "user_2",
+    githubOrgSlug: "fiveonefour",
+    githubAccountType: "organization",
+    githubAccountId: "2001",
+    installationId: 12002,
+  }
+
+  it("authorizes an org admin when the live org id matches the stored account id", async () => {
+    vi.stubEnv("NODE_ENV", "production")
+    mockTokenForUser1 = "oauth-token"
+    mockGetMembershipForAuthenticatedUser.mockResolvedValue({
+      data: { state: "active", role: "admin" },
+    })
+    mockOrgsGet.mockResolvedValue({ data: { id: 2001, login: "fiveonefour" } })
+
+    const result = await verifyGitHubInstallationAccountAdmin(user, orgRow)
+
+    expect(result).toEqual({ isAdmin: true, verifiedAccountId: "2001" })
+    expect(mockOrgsGet).toHaveBeenCalledWith({ org: "fiveonefour" })
+    expect(await isGitHubInstallationAccountAdmin(user, orgRow)).toBe(true)
+  })
+
+  it("fails closed when the org behind the slug is a different GitHub account", async () => {
+    vi.stubEnv("NODE_ENV", "production")
+    mockTokenForUser1 = "oauth-token"
+    // The user really is an admin of the org currently named `fiveonefour`...
+    mockGetMembershipForAuthenticatedUser.mockResolvedValue({
+      data: { state: "active", role: "admin" },
+    })
+    // ...but that org is a new registration of a freed login, not the one on record.
+    mockOrgsGet.mockResolvedValue({ data: { id: 999999, login: "fiveonefour" } })
+
+    const result = await verifyGitHubInstallationAccountAdmin(user, orgRow)
+
+    expect(result).toEqual({ isAdmin: false, verifiedAccountId: null })
+    expect(await isGitHubInstallationAccountAdmin(user, orgRow)).toBe(false)
+  })
+
+  it("accepts a legacy row with no stored account id and reports the live id for backfill", async () => {
+    vi.stubEnv("NODE_ENV", "production")
+    mockTokenForUser1 = "oauth-token"
+    mockGetMembershipForAuthenticatedUser.mockResolvedValue({
+      data: { state: "active", role: "admin" },
+    })
+    mockOrgsGet.mockResolvedValue({ data: { id: 2001, login: "fiveonefour" } })
+
+    const result = await verifyGitHubInstallationAccountAdmin(user, {
+      ...orgRow,
+      githubAccountId: null,
+    })
+
+    expect(result).toEqual({ isAdmin: true, verifiedAccountId: "2001" })
+  })
+
+  it("does not fetch the org when the membership check already fails", async () => {
+    mockTokenForUser1 = "oauth-token"
+    mockGetMembershipForAuthenticatedUser.mockResolvedValue({
+      data: { state: "active", role: "member" },
+    })
+
+    const result = await verifyGitHubInstallationAccountAdmin(user, orgRow)
+
+    expect(result).toEqual({ isAdmin: false, verifiedAccountId: null })
+    expect(mockOrgsGet).not.toHaveBeenCalled()
+  })
+
+  it("propagates GitHub errors from the org lookup so callers fail closed with 502", async () => {
+    mockTokenForUser1 = "oauth-token"
+    mockGetMembershipForAuthenticatedUser.mockResolvedValue({
+      data: { state: "active", role: "admin" },
+    })
+    mockOrgsGet.mockRejectedValue(Object.assign(new Error("Server Error"), { status: 500 }))
+
+    await expect(verifyGitHubInstallationAccountAdmin(user, orgRow)).rejects.toThrow("Server Error")
+  })
+
+  it("reports the signed-in user's id for a personal-account owner", async () => {
+    const result = await verifyGitHubInstallationAccountAdmin(user, {
+      adminUserId: "user_2",
+      githubOrgSlug: "orgadmin",
+      githubAccountType: "user",
+      githubAccountId: null,
+      installationId: 12001,
+    })
+
+    expect(result).toEqual({ isAdmin: true, verifiedAccountId: "1001" })
+  })
+})
+
 describe("filterInstalledOrganizationsForAdmin - additional coverage", () => {
   it("returns empty array when all orgs have null installationId", async () => {
     const result = await filterInstalledOrganizationsForAdmin(
@@ -253,7 +348,7 @@ describe("filterInstalledOrganizationsForAdmin - additional coverage", () => {
     vi.stubEnv("NODE_ENV", "production")
     mockTokenForUser1 = "oauth-token"
     mockPaginate.mockResolvedValue([
-      { state: "active", role: "admin", organization: { login: "514-labs" } },
+      { state: "active", role: "admin", organization: { login: "514-labs", id: 140028474 } },
     ])
 
     const result = await filterInstalledOrganizationsForAdmin(

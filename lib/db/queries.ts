@@ -12,7 +12,7 @@
  *  - audit_events = append-only audit trail
  */
 
-import { and, desc, eq, sql } from "drizzle-orm"
+import { and, desc, eq, isNull, or, sql } from "drizzle-orm"
 import { ensureDbReady, resetDb } from "./index"
 import {
   auditEvents,
@@ -274,6 +274,37 @@ export async function getOrganizationByInstallationId(installationId: number) {
   return rows[0] ?? undefined
 }
 
+/**
+ * Raised when a write would rebind an organization row to a different GitHub
+ * account than the one it already records. `githubAccountId` is the immutable
+ * identity of a row; only a null (legacy) value may be filled in.
+ */
+export class OrganizationIdentityConflictError extends Error {
+  constructor(
+    readonly orgId: string,
+    readonly storedAccountId: string,
+    readonly attemptedAccountId: string
+  ) {
+    super(
+      `Refusing to rebind organization ${orgId} from GitHub account ${storedAccountId} to ${attemptedAccountId}`
+    )
+    this.name = "OrganizationIdentityConflictError"
+  }
+}
+
+function normalizeAccountIdOption(value: string | number | null | undefined): string | null {
+  return value === undefined || value === null ? null : String(value)
+}
+
+/**
+ * Predicate that lets an UPDATE carrying `githubAccountId` touch a row only
+ * when the row has no account id yet or already has the same one. A write that
+ * matches zero rows because of this predicate is an identity conflict.
+ */
+function accountIdCompatible(accountId: string) {
+  return or(isNull(organizations.githubAccountId), eq(organizations.githubAccountId, accountId))
+}
+
 export async function updateOrganizationSlug(
   orgId: string,
   newSlug: string,
@@ -285,16 +316,61 @@ export async function updateOrganizationSlug(
     githubAccountId?: string | null
   } = { githubOrgSlug: newSlug }
   if (options && "githubAccountId" in options) {
-    updateData.githubAccountId =
-      options.githubAccountId === undefined || options.githubAccountId === null
-        ? null
-        : String(options.githubAccountId)
+    updateData.githubAccountId = normalizeAccountIdOption(options.githubAccountId)
   }
+
+  const identityGuard = updateData.githubAccountId
+    ? accountIdCompatible(updateData.githubAccountId)
+    : undefined
 
   const rows = await db
     .update(organizations)
     .set(updateData)
+    .where(and(eq(organizations.id, orgId), identityGuard))
+    .returning()
+  if (rows[0]) return rows[0]
+
+  if (identityGuard && updateData.githubAccountId) {
+    const existing = await getOrganizationById(orgId)
+    if (existing?.githubAccountId && existing.githubAccountId !== updateData.githubAccountId) {
+      throw new OrganizationIdentityConflictError(
+        existing.id,
+        existing.githubAccountId,
+        updateData.githubAccountId
+      )
+    }
+  }
+  return undefined
+}
+
+/**
+ * Detach a row from a GitHub login it no longer owns: move it to `orphanSlug`,
+ * deactivate it and drop its installation binding. The row (and its
+ * signatures) stays recoverable through `getOrganizationByGithubAccountId`.
+ */
+export async function orphanOrganization(orgId: string, orphanSlug: string) {
+  const db = await ensureDbReady()
+  const rows = await db
+    .update(organizations)
+    .set({ githubOrgSlug: orphanSlug, isActive: false, installationId: null })
     .where(eq(organizations.id, orgId))
+    .returning()
+  return rows[0] ?? undefined
+}
+
+/**
+ * Record the GitHub account id on a legacy row that has none. Never overwrites
+ * an existing value.
+ */
+export async function backfillOrganizationGithubAccountId(
+  orgId: string,
+  accountId: string | number
+) {
+  const db = await ensureDbReady()
+  const rows = await db
+    .update(organizations)
+    .set({ githubAccountId: String(accountId) })
+    .where(and(eq(organizations.id, orgId), isNull(organizations.githubAccountId)))
     .returning()
   return rows[0] ?? undefined
 }
@@ -515,18 +591,31 @@ export async function updateOrganizationInstallationId(
     updateData.githubAccountType = options.githubAccountType
   }
   if (options && "githubAccountId" in options) {
-    updateData.githubAccountId =
-      options.githubAccountId === undefined || options.githubAccountId === null
-        ? null
-        : String(options.githubAccountId)
+    updateData.githubAccountId = normalizeAccountIdOption(options.githubAccountId)
   }
+
+  const identityGuard = updateData.githubAccountId
+    ? accountIdCompatible(updateData.githubAccountId)
+    : undefined
 
   const rows = await db
     .update(organizations)
     .set(updateData)
-    .where(eq(organizations.githubOrgSlug, slug))
+    .where(and(eq(organizations.githubOrgSlug, slug), identityGuard))
     .returning()
-  return rows[0] ?? undefined
+  if (rows[0]) return rows[0]
+
+  if (identityGuard && updateData.githubAccountId) {
+    const existing = await getOrganizationBySlug(slug)
+    if (existing?.githubAccountId && existing.githubAccountId !== updateData.githubAccountId) {
+      throw new OrganizationIdentityConflictError(
+        existing.id,
+        existing.githubAccountId,
+        updateData.githubAccountId
+      )
+    }
+  }
+  return undefined
 }
 
 /**

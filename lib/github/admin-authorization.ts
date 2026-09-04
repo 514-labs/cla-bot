@@ -1,6 +1,7 @@
 import { Octokit } from "@octokit/rest"
 import { getValidUserAccessToken } from "@/lib/github/user-token"
 import { getGitHubApiBaseUrl } from "@/lib/github/base-urls"
+import { accountIdMatches, normalizeAccountId } from "@/lib/github/org-identity"
 
 type UserWithToken = {
   id: string
@@ -44,15 +45,7 @@ function isPersonalAccountOwner(user: UserWithToken, org: InstalledOrganization)
   return user.githubUsername.toLowerCase() === org.githubOrgSlug.toLowerCase()
 }
 
-/**
- * Returns true when the user is an active org admin/owner on GitHub.
- */
-export async function isGitHubOrgAdmin(user: UserWithToken, orgSlug: string): Promise<boolean> {
-  const accessToken = await getGitHubAccessToken(user)
-  if (!accessToken) return false
-
-  const octokit = createOctokitClientWithUserIdentity(accessToken)
-
+async function hasActiveOrgAdminMembership(octokit: Octokit, orgSlug: string): Promise<boolean> {
   try {
     const { data: membership } = await octokit.rest.orgs.getMembershipForAuthenticatedUser({
       org: orgSlug,
@@ -68,38 +61,119 @@ export async function isGitHubOrgAdmin(user: UserWithToken, orgSlug: string): Pr
 }
 
 /**
- * Fetches all GitHub org slugs where the authenticated user has an active admin role.
+ * Resolve the GitHub account id currently behind an org login. Logins are
+ * mutable and reusable, so this is what a stored row must be compared against.
+ */
+async function getLiveOrgAccountId(octokit: Octokit, orgSlug: string): Promise<string | null> {
+  const { data } = await octokit.rest.orgs.get({ org: orgSlug })
+  return normalizeAccountId(data?.id)
+}
+
+/**
+ * Returns true when the user is an active org admin/owner on GitHub.
+ */
+export async function isGitHubOrgAdmin(user: UserWithToken, orgSlug: string): Promise<boolean> {
+  const accessToken = await getGitHubAccessToken(user)
+  if (!accessToken) return false
+
+  const octokit = createOctokitClientWithUserIdentity(accessToken)
+  return hasActiveOrgAdminMembership(octokit, orgSlug)
+}
+
+/**
+ * Fetches the GitHub orgs where the authenticated user has an active admin
+ * role, keyed by lower-cased login and carrying the org's account id.
  * Handles pagination via Link headers.
  */
-async function getUserAdminOrgSlugs(accessToken: string): Promise<Set<string>> {
+async function getUserAdminOrgs(accessToken: string): Promise<Map<string, string | null>> {
   const octokit = createOctokitClientWithUserIdentity(accessToken)
   const memberships = await octokit.paginate(
     octokit.rest.orgs.listMembershipsForAuthenticatedUser,
     { state: "active", per_page: 100 }
   )
 
-  const slugs = new Set<string>()
+  const orgs = new Map<string, string | null>()
   for (const m of memberships) {
     if (m.role === "admin" && m.organization?.login) {
-      slugs.add(m.organization.login.toLowerCase())
+      orgs.set(m.organization.login.toLowerCase(), normalizeAccountId(m.organization.id))
     }
   }
-  return slugs
+  return orgs
+}
+
+export type InstallationAdminVerification = {
+  isAdmin: boolean
+  /**
+   * The GitHub account id the check confirmed for the installation target, or
+   * null when the check did not establish one. When the stored row has no
+   * account id yet, callers may persist this value (legacy backfill).
+   */
+  verifiedAccountId: string | null
+}
+
+function logIdentityMismatch(
+  user: UserWithToken,
+  org: InstalledOrganization,
+  liveAccountId: string | null
+) {
+  console.warn("[admin-auth] GitHub account identity mismatch for installed org", {
+    userId: user.id,
+    orgSlug: org.githubOrgSlug,
+    storedAccountId: org.githubAccountId ?? null,
+    liveAccountId,
+  })
+}
+
+/**
+ * Verify that the user can administer this installed GitHub account and that
+ * the account behind the stored slug is still the account the row was created
+ * for.
+ * - Organization install: requires active org admin membership on GitHub AND
+ *   the live org id to equal the stored `githubAccountId` (a null stored id is
+ *   a legacy row and is accepted so it can be backfilled).
+ * - Personal account install: requires the authenticated user to be the
+ *   account owner.
+ * Fails closed on an identity mismatch: a freshly registered org that reuses
+ * a renamed org's login must never unlock the old org's records.
+ */
+export async function verifyGitHubInstallationAccountAdmin(
+  user: UserWithToken,
+  org: InstalledOrganization
+): Promise<InstallationAdminVerification> {
+  if (normalizeAccountType(org) === "user") {
+    const isOwner = isPersonalAccountOwner(user, org)
+    return {
+      isAdmin: isOwner,
+      verifiedAccountId: isOwner ? normalizeAccountId(user.githubId) : null,
+    }
+  }
+
+  const accessToken = await getGitHubAccessToken(user)
+  if (!accessToken) return { isAdmin: false, verifiedAccountId: null }
+
+  const octokit = createOctokitClientWithUserIdentity(accessToken)
+  const isAdmin = await hasActiveOrgAdminMembership(octokit, org.githubOrgSlug)
+  if (!isAdmin) return { isAdmin: false, verifiedAccountId: null }
+
+  const liveAccountId = await getLiveOrgAccountId(octokit, org.githubOrgSlug)
+  if (!accountIdMatches(org.githubAccountId, liveAccountId)) {
+    logIdentityMismatch(user, org, liveAccountId)
+    return { isAdmin: false, verifiedAccountId: null }
+  }
+
+  return { isAdmin: true, verifiedAccountId: liveAccountId }
 }
 
 /**
  * Returns true when the user can administer this installed GitHub account.
- * - Organization install: requires active org admin membership.
- * - Personal account install: requires the authenticated user to be the account owner.
+ * See `verifyGitHubInstallationAccountAdmin` for the rules.
  */
 export async function isGitHubInstallationAccountAdmin(
   user: UserWithToken,
   org: InstalledOrganization
 ): Promise<boolean> {
-  if (normalizeAccountType(org) === "user") {
-    return isPersonalAccountOwner(user, org)
-  }
-  return isGitHubOrgAdmin(user, org.githubOrgSlug)
+  const verification = await verifyGitHubInstallationAccountAdmin(user, org)
+  return verification.isAdmin
 }
 
 /**
@@ -190,13 +264,21 @@ export async function filterInstalledOrganizationsForAdmin<T extends InstalledOr
 
   try {
     // accessToken is non-null here — guarded by the early-return above.
-    const adminOrgSlugs = await getUserAdminOrgSlugs(accessToken)
-    orgCheckResults = orgAccountInstalls.map((org) => ({
-      org,
-      isAdmin: adminOrgSlugs.has(org.githubOrgSlug.toLowerCase()),
-      error: null,
-      checkType: "github_org_membership",
-    }))
+    const adminOrgs = await getUserAdminOrgs(accessToken)
+    orgCheckResults = orgAccountInstalls.map((org) => {
+      const slug = org.githubOrgSlug.toLowerCase()
+      if (!adminOrgs.has(slug)) {
+        return { org, isAdmin: false, error: null, checkType: "github_org_membership" }
+      }
+      // Admin of an org with that login -- but is it the same org this row was
+      // created for? A login freed by a rename can be re-registered by anyone.
+      const liveAccountId = adminOrgs.get(slug) ?? null
+      if (!accountIdMatches(org.githubAccountId, liveAccountId)) {
+        logIdentityMismatch(user, org, liveAccountId)
+        return { org, isAdmin: false, error: null, checkType: "github_org_identity_mismatch" }
+      }
+      return { org, isAdmin: true, error: null, checkType: "github_org_membership" }
+    })
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     orgCheckResults = orgAccountInstalls.map((org) => ({
