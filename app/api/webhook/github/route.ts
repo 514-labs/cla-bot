@@ -7,7 +7,7 @@
  *   - Persists installation activation state and installation IDs.
  */
 
-import { type NextRequest, NextResponse } from "next/server"
+import { after, type NextRequest, NextResponse } from "next/server"
 import { getGitHubClient, upsertMockPullRequest } from "@/lib/github"
 import type { GitHubClient } from "@/lib/github/client"
 import type { CheckRun, CheckRunConclusion, OrgMembershipStatus } from "@/lib/github/types"
@@ -518,6 +518,21 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({ message: `Ignored event: ${event}` })
 }
 
+/**
+ * Write the audit row after the response has been sent. The audit trail is
+ * not part of the decision, so it should not hold the webhook response (or the
+ * function instance) for another database round trip.
+ */
+function recordAuditEvent(event: Parameters<typeof createAuditEvent>[0]) {
+  after(async () => {
+    try {
+      await createAuditEvent(event)
+    } catch (error) {
+      console.error("[webhook] audit event write failed:", error)
+    }
+  })
+}
+
 type CheckOutput = { title: string; summary: string }
 
 /** Return a settled promise's value, or rethrow its rejection at the point of use. */
@@ -779,7 +794,7 @@ async function runPrCheck(
       deletedCommentId = existingComment.id
     }
 
-    await createAuditEvent({
+    recordAuditEvent({
       eventType: "webhook.pr_check",
       orgId: org.id,
       actorGithubId: prAuthorId ? String(prAuthorId) : null,
@@ -848,7 +863,7 @@ async function runPrCheck(
       deletedCommentId = existingComment.id
     }
 
-    await createAuditEvent({
+    recordAuditEvent({
       eventType: "webhook.pr_check",
       orgId: org.id,
       actorGithubId: prAuthorId ? String(prAuthorId) : null,
@@ -891,7 +906,7 @@ async function runPrCheck(
       title: accountOwner ? "CLA: Repository owner" : "CLA: Org member",
       summary: bypassSummary,
     })
-    await createAuditEvent({
+    recordAuditEvent({
       eventType: "webhook.pr_check",
       orgId: org.id,
       actorGithubId: prAuthorId ? String(prAuthorId) : null,
@@ -943,7 +958,7 @@ async function runPrCheck(
           body: commentBody,
         })
 
-    await createAuditEvent({
+    recordAuditEvent({
       eventType: "webhook.pr_check",
       orgId: org.id,
       actorGithubId: prAuthorId ? String(prAuthorId) : null,
@@ -980,7 +995,7 @@ async function runPrCheck(
       title: "CLA: Signed",
       summary: `@${prAuthor} has signed the current CLA (version \`${versionLabel}\`).`,
     })
-    await createAuditEvent({
+    recordAuditEvent({
       eventType: "webhook.pr_check",
       orgId: org.id,
       actorGithubId: prAuthorId ? String(prAuthorId) : null,
@@ -1045,7 +1060,7 @@ async function runPrCheck(
     comment = { id: created.id, commentMarkdown: created.body }
   }
 
-  await createAuditEvent({
+  recordAuditEvent({
     eventType: "webhook.pr_check",
     orgId: org.id,
     actorGithubId: prAuthorId ? String(prAuthorId) : null,
