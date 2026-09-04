@@ -11,6 +11,7 @@ import {
   signClaForUser,
   SignClaError,
   resolveRequestEvidenceFromHeaders,
+  getAppBaseUrl,
   getBaseUrlFromHeaders,
 } from "@/lib/cla/signing"
 import {
@@ -391,15 +392,52 @@ describe("resolveRequestEvidenceFromHeaders", () => {
   })
 })
 
+const VERCEL_ENV_VARS = [
+  "NEXT_PUBLIC_APP_URL",
+  "VERCEL_ENV",
+  "VERCEL_URL",
+  "VERCEL_BRANCH_URL",
+  "VERCEL_PROJECT_PRODUCTION_URL",
+] as const
+
+function clearBaseUrlEnv() {
+  for (const name of VERCEL_ENV_VARS) vi.stubEnv(name, undefined)
+}
+
 describe("getBaseUrlFromHeaders", () => {
+  beforeEach(clearBaseUrlEnv)
+
   it("returns NEXT_PUBLIC_APP_URL when configured", () => {
     vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://cla.example.com")
     const headers = new Headers({})
     expect(getBaseUrlFromHeaders(headers)).toBe("https://cla.example.com")
   })
 
+  it("prefers the explicit override over Vercel variables and headers", () => {
+    vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://cla.example.com/")
+    vi.stubEnv("VERCEL_ENV", "production")
+    vi.stubEnv("VERCEL_PROJECT_PRODUCTION_URL", "cla.fiveonefour.com")
+    const headers = new Headers({ "x-forwarded-host": "preview.vercel.app" })
+    expect(getBaseUrlFromHeaders(headers)).toBe("https://cla.example.com")
+  })
+
+  it("uses the Vercel production domain over the request host in production", () => {
+    vi.stubEnv("VERCEL_ENV", "production")
+    vi.stubEnv("VERCEL_PROJECT_PRODUCTION_URL", "cla.fiveonefour.com")
+    vi.stubEnv("VERCEL_URL", "v0-cla-bot-abc123-514.vercel.app")
+    const headers = new Headers({ "x-forwarded-host": "v0-cla-bot-abc123-514.vercel.app" })
+    expect(getBaseUrlFromHeaders(headers)).toBe("https://cla.fiveonefour.com")
+  })
+
+  it("uses the Vercel branch URL in previews", () => {
+    vi.stubEnv("VERCEL_ENV", "preview")
+    vi.stubEnv("VERCEL_BRANCH_URL", "v0-cla-bot-git-feature-514.vercel.app")
+    vi.stubEnv("VERCEL_URL", "v0-cla-bot-abc123-514.vercel.app")
+    const headers = new Headers({ host: "v0-cla-bot-abc123-514.vercel.app" })
+    expect(getBaseUrlFromHeaders(headers)).toBe("https://v0-cla-bot-git-feature-514.vercel.app")
+  })
+
   it("constructs URL from forwarded headers", () => {
-    delete process.env.NEXT_PUBLIC_APP_URL
     const headers = new Headers({
       "x-forwarded-host": "cla.example.com",
       "x-forwarded-proto": "https",
@@ -408,7 +446,6 @@ describe("getBaseUrlFromHeaders", () => {
   })
 
   it("falls back to host header with default protocol", () => {
-    delete process.env.NEXT_PUBLIC_APP_URL
     const headers = new Headers({
       host: "cla.example.com",
     })
@@ -416,8 +453,49 @@ describe("getBaseUrlFromHeaders", () => {
   })
 
   it("returns default URL when no headers", () => {
-    delete process.env.NEXT_PUBLIC_APP_URL
     const headers = new Headers({})
     expect(getBaseUrlFromHeaders(headers)).toBe("https://cla.fiveonefour.com")
+  })
+})
+
+describe("getAppBaseUrl", () => {
+  beforeEach(clearBaseUrlEnv)
+
+  it("returns the explicit override without a trailing slash", () => {
+    vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://cla.example.com/")
+    expect(getAppBaseUrl()).toBe("https://cla.example.com")
+  })
+
+  it("uses the Vercel production domain in production", () => {
+    vi.stubEnv("VERCEL_ENV", "production")
+    vi.stubEnv("VERCEL_PROJECT_PRODUCTION_URL", "cla.fiveonefour.com")
+    vi.stubEnv("VERCEL_URL", "v0-cla-bot-abc123-514.vercel.app")
+    expect(getAppBaseUrl()).toBe("https://cla.fiveonefour.com")
+  })
+
+  it("falls back to the deployment URL in production when no project domain is exposed", () => {
+    vi.stubEnv("VERCEL_ENV", "production")
+    vi.stubEnv("VERCEL_URL", "v0-cla-bot-abc123-514.vercel.app")
+    expect(getAppBaseUrl()).toBe("https://v0-cla-bot-abc123-514.vercel.app")
+  })
+
+  it("uses the branch URL in previews, then the deployment URL", () => {
+    vi.stubEnv("VERCEL_ENV", "preview")
+    vi.stubEnv("VERCEL_URL", "v0-cla-bot-abc123-514.vercel.app")
+    expect(getAppBaseUrl()).toBe("https://v0-cla-bot-abc123-514.vercel.app")
+
+    vi.stubEnv("VERCEL_BRANCH_URL", "v0-cla-bot-git-feature-514.vercel.app")
+    expect(getAppBaseUrl()).toBe("https://v0-cla-bot-git-feature-514.vercel.app")
+  })
+
+  it("ignores Vercel variables when VERCEL_ENV is unset", () => {
+    vi.stubEnv("VERCEL_URL", "v0-cla-bot-abc123-514.vercel.app")
+    expect(getAppBaseUrl()).toBe("https://cla.fiveonefour.com")
+  })
+
+  it("strips a scheme accidentally included in a Vercel host", () => {
+    vi.stubEnv("VERCEL_ENV", "preview")
+    vi.stubEnv("VERCEL_URL", "https://v0-cla-bot-abc123-514.vercel.app/")
+    expect(getAppBaseUrl()).toBe("https://v0-cla-bot-abc123-514.vercel.app")
   })
 })

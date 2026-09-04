@@ -315,7 +315,7 @@ tests/
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| `NEXT_PUBLIC_APP_URL` | Auto-detected | Override app base URL |
+| `NEXT_PUBLIC_APP_URL` | Auto-detected | Optional override for the app base URL. On Vercel the production domain (`VERCEL_PROJECT_PRODUCTION_URL`) and preview branch URL (`VERCEL_BRANCH_URL`) are used automatically; elsewhere the request host is used. |
 | `SEED_DATABASE` | `false` | Auto-seed test data on startup |
 | `DRIZZLE_MIGRATIONS_SCHEMA` | `drizzle` | Migrations schema name |
 | `DRIZZLE_MIGRATIONS_TABLE` | `__drizzle_migrations` | Migrations table name |
