@@ -3,6 +3,7 @@ import { neon } from "@neondatabase/serverless"
 import { drizzle as drizzleNeonHttp } from "drizzle-orm/neon-http"
 import postgres from "postgres"
 import { drizzle as drizzlePostgresJs } from "drizzle-orm/postgres-js"
+import { missingRelations } from "./migration-probe"
 import { dbQueryStatsLogger } from "./query-stats"
 import * as schema from "./schema"
 
@@ -101,32 +102,33 @@ async function assertMigrationsApplied() {
   const migrationsSchema = process.env.DRIZZLE_MIGRATIONS_SCHEMA
   try {
     if (process.env.NODE_ENV === "production") {
-      const migrationsRows = migrationsSchema
-        ? await sql`
-            SELECT 1
-            FROM information_schema.tables
-            WHERE table_schema = ${migrationsSchema}
-              AND table_name = ${migrationsTable}
-            LIMIT 1
-          `
-        : await sql`
+      // One round trip for the whole schema check: to_regclass() resolves each
+      // required table (NULL when absent) and a subselect confirms the
+      // migrations table exists. This runs once per cold start, so it used to
+      // add six sequential round trips before the first real query.
+      const migrationsLabel = migrationsSchema
+        ? `${migrationsSchema}.${migrationsTable}`
+        : migrationsTable
+      const rows = await sql`
+        SELECT
+          to_regclass('users') AS users,
+          to_regclass('cla_signatures') AS cla_signatures,
+          to_regclass('org_cla_bypass_accounts') AS org_cla_bypass_accounts,
+          to_regclass('webhook_deliveries') AS webhook_deliveries,
+          to_regclass('audit_events') AS audit_events,
+          (
             SELECT 1
             FROM information_schema.tables
             WHERE table_name = ${migrationsTable}
+              AND (${migrationsSchema ?? null}::text IS NULL OR table_schema = ${migrationsSchema ?? null})
             ORDER BY CASE WHEN table_schema = 'drizzle' THEN 0 ELSE 1 END
             LIMIT 1
-          `
-      if (migrationsRows.length === 0) {
-        if (migrationsSchema) {
-          throw new Error(`relation "${migrationsSchema}.${migrationsTable}" does not exist`)
-        }
-        throw new Error(`relation "${migrationsTable}" does not exist`)
+          ) AS migrations_table
+      `
+      const missing = missingRelations(rows[0], migrationsLabel)
+      if (missing.length > 0) {
+        throw new Error(`relation(s) missing: ${missing.join(", ")}`)
       }
-      await sql`SELECT 1 FROM users LIMIT 1`
-      await sql`SELECT 1 FROM cla_signatures LIMIT 1`
-      await sql`SELECT 1 FROM org_cla_bypass_accounts LIMIT 1`
-      await sql`SELECT 1 FROM webhook_deliveries LIMIT 1`
-      await sql`SELECT 1 FROM audit_events LIMIT 1`
       return
     }
     await sql`SELECT 1 FROM users LIMIT 1`
