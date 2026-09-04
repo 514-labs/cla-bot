@@ -38,5 +38,12 @@ export function sanitizeReturnTo(raw: string | null | undefined, fallback: strin
   }
   if (url.origin !== SENTINEL_ORIGIN) return fallback
 
-  return `${url.pathname}${url.search}${url.hash}`
+  // Dot-segment collapsing can turn an input that passed the checks above into a
+  // protocol-relative path: `/a/..//evil.com` re-serializes to `//evil.com`,
+  // which the caller's `new URL(path, request.url)` would send off-origin.
+  // Resolve the output the same way the caller will and require it to stay put.
+  const path = `${url.pathname}${url.search}${url.hash}`
+  if (new URL(path, SENTINEL_ORIGIN).origin !== SENTINEL_ORIGIN) return fallback
+
+  return path
 }

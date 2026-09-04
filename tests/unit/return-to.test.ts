@@ -105,6 +105,40 @@ describe("sanitizeReturnTo", () => {
     })
   })
 
+  describe("dot-segment collapsing into a protocol-relative path", () => {
+    // These start with a single `/` and contain no forbidden characters, but
+    // collapsing `.` / `..` leaves a pathname that starts with `//`, which a
+    // caller's `new URL(path, request.url)` treats as protocol-relative.
+    const attacks: Array<[label: string, value: string]> = [
+      ["/a/..//evil.com", "/a/..//evil.com"],
+      ["/.//evil.com", "/.//evil.com"],
+      ["/a/../..//evil.com/x?y=1", "/a/../..//evil.com/x?y=1"],
+      ["/a/b/../..//evil.com#frag", "/a/b/../..//evil.com#frag"],
+    ]
+
+    it.each(attacks)("falls back for %s", (_label, value) => {
+      expect(sanitizeReturnTo(value, FALLBACK)).toBe(FALLBACK)
+    })
+
+    it("never yields a value that resolves off the app origin", () => {
+      for (const [, value] of attacks) {
+        const sanitized = sanitizeReturnTo(value, FALLBACK)
+        expect(resolveAgainstApp(sanitized)).toBe("https://cla.example.com")
+      }
+    })
+
+    it("documents that the naive re-serialization really does escape the origin", () => {
+      // Guards against this suite becoming vacuous if URL parsing ever changes.
+      const collapsed = new URL("/a/..//evil.com", "http://relative.invalid")
+      expect(collapsed.pathname).toBe("//evil.com")
+      expect(resolveAgainstApp(collapsed.pathname)).toBe("https://evil.com")
+    })
+
+    it("still accepts an interior double slash", () => {
+      expect(sanitizeReturnTo("/a//b", FALLBACK)).toBe("/a//b")
+    })
+  })
+
   describe("normalization", () => {
     it("returns the re-serialized path rather than the raw input", () => {
       // Dot segments are collapsed, so the output is canonical.
