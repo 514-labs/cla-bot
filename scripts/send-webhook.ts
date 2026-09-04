@@ -26,6 +26,7 @@ const { values } = parseArgs({
     action: { type: "string", default: "opened" },
     author: { type: "string", default: "external-contributor" },
     "author-id": { type: "string" },
+    "pr-author": { type: "string" },
     org: { type: "string", default: "fiveonefour" },
     repo: { type: "string", default: "sdk" },
     pr: { type: "string", default: "1" },
@@ -46,6 +47,7 @@ if (values.help) {
   --action <name>       opened | synchronize | reopened (default opened)
   --author <login>      PR author login (default external-contributor)
   --author-id <id>      PR author numeric id (defaults to the mock client's id for known logins)
+  --pr-author <login>   For issue_comment: the PR author when different from the commenter (--author)
   --org <slug>          Repository owner (default fiveonefour)
   --repo <name>         Repository name (default sdk)
   --pr <number>         PR number (default 1)
@@ -81,11 +83,16 @@ function buildPayload(): Record<string, unknown> {
   }
 
   if (values.event === "issue_comment") {
+    // `--author` is the commenter issuing /recheck; the PR author defaults to
+    // the same login unless --pr-author says otherwise. The route needs both.
+    const prAuthor = (values["pr-author"] as string | undefined) ?? author
+    const prAuthorIdForIssue = MOCK_USER_IDS[prAuthor] ?? authorId
     return {
       action: "created",
-      comment: { body: "/recheck", user: { login: author, id: authorId } },
+      comment: { body: "/recheck", user: { login: author, ...(authorId ? { id: authorId } : {}) } },
       issue: {
         number: prNumber,
+        user: { login: prAuthor, ...(prAuthorIdForIssue ? { id: prAuthorIdForIssue } : {}) },
         pull_request: { url: `https://api.github.com/repos/${org}/${repo}/pulls/${prNumber}` },
       },
       repository: { name: repo, owner: { login: org } },
