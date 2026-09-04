@@ -48,7 +48,7 @@ function getExpectedAppId(): number | null {
 }
 
 /** True when `comment` was authored by this App's bot identity. */
-export function isAuthoredByClaBot(comment: IssueComment, botLogin = getExpectedBotLogin()) {
+function isAuthoredByClaBot(comment: IssueComment, botLogin = getExpectedBotLogin()) {
   if (!botLogin) return false
   if (comment.user?.type !== "Bot") return false
   if ((comment.user.login ?? "").toLowerCase() !== botLogin.toLowerCase()) return false
