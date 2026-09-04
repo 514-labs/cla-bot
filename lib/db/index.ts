@@ -3,6 +3,7 @@ import { neon } from "@neondatabase/serverless"
 import { drizzle as drizzleNeonHttp } from "drizzle-orm/neon-http"
 import postgres from "postgres"
 import { drizzle as drizzlePostgresJs } from "drizzle-orm/postgres-js"
+import { dbQueryStatsLogger } from "./query-stats"
 import * as schema from "./schema"
 
 // ── Types ──────────────────────────────────────────────────────────
@@ -48,12 +49,15 @@ function createRawSql(url: string): RawSqlFn {
 
 function createDb() {
   const url = getDatabaseUrl()
+  // Outside production every statement is counted (see query-stats.ts) so the
+  // test-support endpoint and integration tests can assert on round trips.
+  const logger = process.env.NODE_ENV === "production" ? undefined : dbQueryStatsLogger
   if (isNeonUrl(url)) {
     const sql = neon(url)
-    return drizzleNeonHttp({ client: sql, schema })
+    return drizzleNeonHttp({ client: sql, schema, logger })
   }
   _pgClient = postgres(url)
-  return drizzlePostgresJs({ client: _pgClient, schema })
+  return drizzlePostgresJs({ client: _pgClient, schema, logger })
 }
 
 // ── Singleton ──────────────────────────────────────────────────────
@@ -136,7 +140,7 @@ async function assertMigrationsApplied() {
 
 // ── Export ──────────────────────────────────────────────────────────
 
-export const db = getDb()
+const db = getDb()
 
 /**
  * Ensure the DB is fully initialized (migrations applied + optional seed).

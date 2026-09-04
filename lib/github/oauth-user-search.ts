@@ -1,3 +1,5 @@
+import { getGitHubApiBaseUrl } from "@/lib/github/base-urls"
+
 type SearchGitHubUsersResult = {
   githubUserId: string
   githubUsername: string
@@ -14,7 +16,7 @@ export async function searchGitHubUsersWithOAuth(params: {
   if (!normalizedQuery) return []
 
   const perPage = Math.max(1, Math.min(params.limit ?? 8, 20))
-  const url = new URL("https://api.github.com/search/users")
+  const url = new URL(`${getGitHubApiBaseUrl()}/search/users`)
   url.searchParams.set("q", `${normalizedQuery} in:login`)
   url.searchParams.set("per_page", String(perPage))
 

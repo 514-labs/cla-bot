@@ -455,7 +455,7 @@ export default function ComparePage() {
                             </p>
                           )}
                         </div>
-                        {SOLUTIONS.map((sol, solIdx) => (
+                        {SOLUTIONS.map((sol) => (
                           <div
                             key={sol.name}
                             className={`flex items-center justify-center py-4 ${
@@ -478,7 +478,7 @@ export default function ComparePage() {
                           )}
                         </div>
                         <div className="grid grid-cols-2 gap-2">
-                          {SOLUTIONS.map((sol, solIdx) => (
+                          {SOLUTIONS.map((sol) => (
                             <div
                               key={sol.name}
                               className={`flex items-center gap-2 rounded-md px-2 py-1.5 ${

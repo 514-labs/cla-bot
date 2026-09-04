@@ -18,7 +18,7 @@ export type OrgMembershipStatus = "active" | "pending" | "not_member"
 export type RepositoryPermissionLevel = "admin" | "maintain" | "write" | "triage" | "read" | "none"
 
 // --- Check Runs (GitHub Checks API) ---
-export type CheckRunConclusion =
+type CheckRunConclusion =
   | "success"
   | "failure"
   | "neutral"
@@ -27,7 +27,7 @@ export type CheckRunConclusion =
   | "timed_out"
   | "action_required"
 
-export type CheckRunStatus = "queued" | "in_progress" | "completed"
+type CheckRunStatus = "queued" | "in_progress" | "completed"
 
 export type CheckRun = {
   id: number

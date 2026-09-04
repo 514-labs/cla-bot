@@ -11,30 +11,15 @@ import { OctokitGitHubClient } from "./octokit-client"
 import { getMockGitHubClient } from "./mock-github-client"
 
 export type { GitHubClient }
-export type {
-  GitHubUser,
-  OrgMembershipStatus,
-  RepositoryPermissionLevel,
-  CheckRun,
-  CheckRunConclusion,
-  CheckRunStatus,
-  IssueComment,
-  CreateCheckRunParams,
-  UpdateCheckRunParams,
-  CreateCommentParams,
-  UpdateCommentParams,
-  DeleteCommentParams,
-  ListCommentsParams,
-  PullRequestRef,
-  OpenOrganizationPullRequestRef,
-} from "./types"
-
 // Test-only exports — only import these from test/dev code paths
 export {
   resetMockGitHub,
   getAllCheckRuns,
   getAllComments,
   upsertMockPullRequest,
+  getMockGitHubCallLog,
+  configureMockGitHub,
+  getMockGitHubConfig,
 } from "./mock-github-client"
 
 /**

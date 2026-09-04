@@ -40,14 +40,14 @@ export async function getUserById(id: string) {
   return rows[0] ?? undefined
 }
 
-export async function getUserByGithubId(githubId: string | number) {
+async function getUserByGithubId(githubId: string | number) {
   const db = await ensureDbReady()
   const normalizedGithubId = String(githubId)
   const rows = await db.select().from(users).where(eq(users.githubId, normalizedGithubId))
   return rows[0] ?? undefined
 }
 
-export async function getUserByUsername(username: string) {
+async function getUserByUsername(username: string) {
   const db = await ensureDbReady()
   const rows = await db
     .select()
@@ -233,11 +233,6 @@ export async function clearUserGithubTokens(userId: string) {
 export async function getOrganizations() {
   const db = await ensureDbReady()
   return db.select().from(organizations)
-}
-
-export async function getOrganizationsByAdmin(adminUserId: string) {
-  const db = await ensureDbReady()
-  return db.select().from(organizations).where(eq(organizations.adminUserId, adminUserId))
 }
 
 export async function getOrganizationBySlug(slug: string) {
@@ -590,7 +585,7 @@ export async function updateOrganizationCla(slug: string, claText: string) {
  * Ensure an archive exists for this org+sha256. If not, create one
  * using the provided CLA text. Returns the archive row.
  */
-export async function getOrCreateArchive(orgId: string, hash: string, claText: string) {
+async function getOrCreateArchive(orgId: string, hash: string, claText: string) {
   const db = await ensureDbReady()
 
   const existing = await db
@@ -632,12 +627,6 @@ export async function getArchivesByOrg(orgId: string) {
     .from(claArchives)
     .where(eq(claArchives.orgId, orgId))
     .orderBy(desc(claArchives.createdAt))
-}
-
-export async function getArchiveById(id: string) {
-  const db = await ensureDbReady()
-  const rows = await db.select().from(claArchives).where(eq(claArchives.id, id)).limit(1)
-  return rows[0] ?? undefined
 }
 
 export async function getArchiveByOrgAndSha(orgId: string, sha256: string) {
@@ -696,7 +685,7 @@ export async function getSignatureById(id: string) {
   return rows[0] ?? undefined
 }
 
-export async function getSignature(orgId: string, userId: string) {
+async function getSignature(orgId: string, userId: string) {
   const db = await ensureDbReady()
   const rows = await db
     .select()
@@ -707,11 +696,7 @@ export async function getSignature(orgId: string, userId: string) {
   return rows[0] ?? undefined
 }
 
-export async function getSignatureForExactVersion(
-  orgId: string,
-  userId: string,
-  claSha256: string
-) {
+async function getSignatureForExactVersion(orgId: string, userId: string, claSha256: string) {
   const db = await ensureDbReady()
   const rows = await db
     .select()
@@ -855,11 +840,6 @@ export async function createSignature(data: {
     throw new Error("Failed to create or load signature record")
   }
   return existing
-}
-
-export async function hasUserSignedCurrentCla(orgSlug: string, userId: string) {
-  const status = await getSignatureStatus(orgSlug, userId)
-  return status.signed && status.currentVersion
 }
 
 // ---------- Webhook deliveries ----------

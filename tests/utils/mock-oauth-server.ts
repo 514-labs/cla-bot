@@ -28,7 +28,7 @@ const MOCK_GITHUB_EMAILS = [
 ]
 
 export function createMockFetch(scenario: MockOAuthScenario = "success") {
-  return vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
+  return vi.fn(async (url: string | URL | Request, _init?: RequestInit) => {
     const urlStr = typeof url === "string" ? url : url instanceof URL ? url.toString() : url.url
 
     // GitHub OAuth token exchange
@@ -83,11 +83,4 @@ function mockJsonResponse(body: unknown, status = 200): Response {
   })
 }
 
-export {
-  MOCK_ACCESS_TOKEN,
-  MOCK_EXPIRES_IN,
-  MOCK_GITHUB_EMAILS,
-  MOCK_GITHUB_USER,
-  MOCK_REFRESH_TOKEN,
-  MOCK_REFRESH_TOKEN_EXPIRES_IN,
-}
+export { MOCK_GITHUB_USER }

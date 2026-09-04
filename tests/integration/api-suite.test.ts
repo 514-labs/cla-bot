@@ -1,10 +1,14 @@
 import { createHash } from "node:crypto"
-import { existsSync, readFileSync } from "node:fs"
-import { resolve } from "node:path"
 import { neon } from "@neondatabase/serverless"
 import postgres from "postgres"
 import { afterAll, beforeAll, expect, test as vitestTest } from "vitest"
-import { resetTestDatabase } from "@/tests/utils/db-reset"
+import {
+  configureTestServerGitHub,
+  getTestServerState,
+  resetTestDatabase,
+  resetTestServerState,
+} from "@/tests/utils/db-reset"
+import { requireTestDatabaseUrl } from "@/tests/utils/test-database-url"
 import { TEST_USERS, type TestRole } from "@/tests/utils/fixtures"
 import { clearSessionCookieCache, getSessionCookie } from "@/tests/utils/session"
 import { startIntegrationServer } from "@/tests/utils/integration-server"
@@ -28,10 +32,7 @@ const nativeFetch = globalThis.fetch.bind(globalThis)
 let currentRole: TestRole = "admin"
 let baseUrl = ""
 let stopIntegrationServer: (() => Promise<void>) | null = null
-const TEST_DATABASE_URL = process.env.DATABASE_URL ?? readDatabaseUrlFromEnvLocal()
-if (!TEST_DATABASE_URL) {
-  throw new Error("DATABASE_URL is required to run integration tests")
-}
+const TEST_DATABASE_URL = requireTestDatabaseUrl()
 function isNeonUrl(url: string): boolean {
   return /neon\.tech|neondb\.net/.test(url)
 }
@@ -63,8 +64,10 @@ async function authedFetch(input: RequestInfo | URL, init?: RequestInit) {
   return nativeFetch(input, { ...init, headers })
 }
 
-async function resetDb(_baseUrl: string) {
-  await resetTestDatabase()
+async function resetDb(baseUrl: string) {
+  // Resets both the database (from this process) and the dev server's
+  // in-memory mock GitHub state + query counters (over HTTP).
+  await resetTestDatabase({ serverBaseUrl: baseUrl })
   clearSessionCookieCache()
   currentRole = "admin"
 }
@@ -177,34 +180,6 @@ async function removeBypassAccountForOrg(params: {
 
 function sha256Hex(input: string) {
   return createHash("sha256").update(input, "utf8").digest("hex")
-}
-
-function readDatabaseUrlFromEnvLocal() {
-  const envLocalPath = resolve(process.cwd(), ".env.local")
-  if (!existsSync(envLocalPath)) return undefined
-
-  const contents = readFileSync(envLocalPath, "utf8")
-  for (const rawLine of contents.split(/\r?\n/)) {
-    const line = rawLine.trim()
-    if (!line || line.startsWith("#")) continue
-
-    const separatorIndex = line.indexOf("=")
-    if (separatorIndex === -1) continue
-
-    const key = line.slice(0, separatorIndex).trim()
-    if (key !== "DATABASE_URL") continue
-
-    const value = line.slice(separatorIndex + 1).trim()
-    if (
-      (value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'"))
-    ) {
-      return value.slice(1, -1)
-    }
-    return value
-  }
-
-  return undefined
 }
 
 // ==========================================
@@ -971,7 +946,18 @@ async function sendWebhook(baseUrl: string, event: string, payload: Record<strin
     },
     body: JSON.stringify(payload),
   })
-  return { res, data: await res.json() }
+  // A handler that throws returns a 500 with an empty (non-JSON) body. Surface
+  // that as data instead of failing the test on JSON.parse, so assertions can
+  // report the actual status code.
+  const text = await res.text()
+  // biome-ignore lint/suspicious/noExplicitAny: response shapes vary per event; tests assert on them loosely
+  let data: any
+  try {
+    data = text ? JSON.parse(text) : {}
+  } catch {
+    data = { raw: text }
+  }
+  return { res, data }
 }
 
 function makePrPayload(opts: {
@@ -2238,6 +2224,184 @@ test("Webhook: check_suite merge queue missing fields returns 400", async (baseU
 // ==========================================
 // RUNNER
 // ==========================================
+
+// ==========================================
+// 15. TEST HARNESS: SERVER STATE, CALL LOG, ROUND-TRIP BUDGET
+// ==========================================
+//
+// These exercise the dev-only /api/test-support endpoint and pin down the
+// observable shape of a PR check (GitHub call sequence, DB statement count) so
+// performance work on the webhook handler has a baseline to move.
+
+const PR_CHECK_DB_STATEMENT_BUDGET = 12
+
+function methodSequence(state: Awaited<ReturnType<typeof getTestServerState>>) {
+  return state.github.calls.map((call) => call.method)
+}
+
+test("Test support: reset clears server-side mock GitHub state and query counters", async (baseUrl) => {
+  await resetDb(baseUrl)
+  await sendWebhook(
+    baseUrl,
+    "pull_request",
+    makePrPayload({
+      action: "opened",
+      prAuthor: "external-contributor",
+      prAuthorId: 1006,
+      orgSlug: "fiveonefour",
+      repoName: "sdk",
+      prNumber: 501,
+    })
+  )
+
+  const before = await getTestServerState(baseUrl)
+  assert(before.github.calls.length > 0, "call log populated by webhook")
+  assert(before.github.checkRuns.length > 0, "check run recorded server-side")
+  assert(before.github.comments.length > 0, "comment recorded server-side")
+  assert(before.db.count > 0, "db statements counted")
+
+  await resetTestServerState(baseUrl)
+
+  const after = await getTestServerState(baseUrl)
+  assertEqual(after.github.calls.length, 0, "call log cleared")
+  assertEqual(after.github.checkRuns.length, 0, "check runs cleared")
+  assertEqual(after.github.comments.length, 0, "comments cleared")
+  assertEqual(after.db.count, 0, "db counter cleared")
+  assertEqual(after.github.config.latencyMs, 0, "latency reset to default")
+})
+
+test("Webhook: unsigned external contributor -> GitHub call sequence baseline", async (baseUrl) => {
+  await resetDb(baseUrl)
+  const { res, data } = await sendWebhook(
+    baseUrl,
+    "pull_request",
+    makePrPayload({
+      action: "opened",
+      prAuthor: "external-contributor",
+      prAuthorId: 1006,
+      orgSlug: "fiveonefour",
+      repoName: "sdk",
+      prNumber: 502,
+    })
+  )
+  assertEqual(res.status, 200, "webhook accepted")
+  assertEqual(data.check.status, "failure", "unsigned contributor fails the check")
+
+  const state = await getTestServerState(baseUrl)
+  const sequence = methodSequence(state)
+  const rendered = sequence.join(" -> ")
+
+  const checkRunCreates = sequence.filter((method) => method === "createCheckRun").length
+  assertEqual(checkRunCreates, 1, `exactly one createCheckRun (${rendered})`)
+
+  const membershipIndex = sequence.indexOf("checkOrgMembership")
+  const createCheckIndex = sequence.indexOf("createCheckRun")
+  const findCommentIndex = sequence.indexOf("findBotComment")
+  const createCommentIndex = sequence.indexOf("createComment")
+  assert(membershipIndex >= 0, `membership checked (${rendered})`)
+  assert(membershipIndex < createCheckIndex, `membership before check run (${rendered})`)
+  assert(createCheckIndex < findCommentIndex, `check run before comment lookup (${rendered})`)
+  assert(
+    findCommentIndex < createCommentIndex,
+    `comment lookup before comment create (${rendered})`
+  )
+
+  for (const call of state.github.calls) {
+    assertEqual(call.error, null, `no GitHub call failed (${call.method})`)
+  }
+
+  console.log(
+    `[perf] PR check (unsigned external): github calls=${sequence.length} [${rendered}] db statements=${state.db.count}`
+  )
+})
+
+test("Webhook: DB statements for a PR check stay within budget", async (baseUrl) => {
+  await resetDb(baseUrl)
+  await sendWebhook(
+    baseUrl,
+    "pull_request",
+    makePrPayload({
+      action: "opened",
+      prAuthor: "external-contributor",
+      prAuthorId: 1006,
+      orgSlug: "fiveonefour",
+      repoName: "sdk",
+      prNumber: 503,
+    })
+  )
+
+  const state = await getTestServerState(baseUrl)
+  const summary = state.db.queries
+    .map((query) => query.sql.replace(/\s+/g, " ").slice(0, 60))
+    .join("\n    ")
+  assert(
+    state.db.count <= PR_CHECK_DB_STATEMENT_BUDGET,
+    `PR check issued ${state.db.count} DB statements (budget ${PR_CHECK_DB_STATEMENT_BUDGET}):\n    ${summary}`
+  )
+})
+
+test("Mock GitHub: injected failure is applied once and recorded in the call log", async (baseUrl) => {
+  await resetDb(baseUrl)
+  await configureTestServerGitHub(baseUrl, {
+    failures: { checkOrgMembership: { status: 403, message: "Injected 403", times: 1 } },
+  })
+
+  const payload = {
+    action: "opened",
+    prAuthor: "external-contributor",
+    prAuthorId: 1006,
+    orgSlug: "fiveonefour",
+    repoName: "sdk",
+    prNumber: 504,
+  }
+
+  await sendWebhook(baseUrl, "pull_request", makePrPayload(payload))
+  const first = await getTestServerState(baseUrl)
+  const failedCall = first.github.calls.find((call) => call.method === "checkOrgMembership")
+  assert(failedCall !== undefined, "membership call recorded")
+  assertEqual(failedCall?.error, "Injected 403", "injected failure recorded on the call")
+  assertEqual(
+    Object.keys(first.github.config.failures).length,
+    0,
+    "one-shot failure cleared after use"
+  )
+
+  await sendWebhook(baseUrl, "pull_request", makePrPayload(payload))
+  const second = await getTestServerState(baseUrl)
+  const membershipCalls = second.github.calls.filter((call) => call.method === "checkOrgMembership")
+  assertEqual(membershipCalls.length, 2, "two membership calls across both deliveries")
+  assertEqual(membershipCalls[1].error, null, "second membership call succeeded")
+})
+
+test("Mock GitHub: injected latency is applied to every call", async (baseUrl) => {
+  await resetDb(baseUrl)
+  await configureTestServerGitHub(baseUrl, { latencyMs: 120 })
+
+  const started = Date.now()
+  await sendWebhook(
+    baseUrl,
+    "pull_request",
+    makePrPayload({
+      action: "opened",
+      prAuthor: "external-contributor",
+      prAuthorId: 1006,
+      orgSlug: "fiveonefour",
+      repoName: "sdk",
+      prNumber: 505,
+    })
+  )
+  const elapsed = Date.now() - started
+
+  const state = await getTestServerState(baseUrl)
+  assert(state.github.calls.length >= 2, "several GitHub calls made")
+  for (const call of state.github.calls) {
+    assert(call.durationMs >= 110, `${call.method} took ${call.durationMs}ms (latency applied)`)
+  }
+  assert(
+    elapsed >= 110 * state.github.calls.length,
+    `serial GitHub calls add up (${elapsed}ms for ${state.github.calls.length} calls)`
+  )
+})
 
 async function runAllTests(baseUrl: string): Promise<TestResult[]> {
   const results: TestResult[] = []

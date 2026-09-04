@@ -1,6 +1,7 @@
 import "server-only"
 import { clearUserGithubTokens, getUserById, rotateUserGithubTokens } from "@/lib/db/queries"
 import { decryptSecret, encryptSecret } from "@/lib/security/encryption"
+import { getGitHubApiBaseUrl, getGitHubWebBaseUrl } from "@/lib/github/base-urls"
 
 const REFRESH_BUFFER_MS = 60_000 // refresh when within 60s of expiry
 
@@ -84,7 +85,7 @@ async function refreshAndPersist(
 
   let response: Response
   try {
-    response = await fetch("https://github.com/login/oauth/access_token", {
+    response = await fetch(`${getGitHubWebBaseUrl()}/login/oauth/access_token`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -185,7 +186,7 @@ export async function revokeUserGithubTokens(userId: string): Promise<void> {
       // both the current access token and the long-lived refresh token. /token
       // would leave the 6-month refresh token usable until natural expiry.
       const response = await fetch(
-        `https://api.github.com/applications/${encodeURIComponent(clientId)}/grant`,
+        `${getGitHubApiBaseUrl()}/applications/${encodeURIComponent(clientId)}/grant`,
         {
           method: "DELETE",
           headers: {

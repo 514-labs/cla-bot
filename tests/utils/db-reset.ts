@@ -1,14 +1,10 @@
 import { createHash } from "node:crypto"
-import { existsSync, readFileSync } from "node:fs"
-import { resolve } from "node:path"
 import { neon } from "@neondatabase/serverless"
 import postgres from "postgres"
-import { resetMockGitHub } from "@/lib/github/mock-github-client"
+import { DEFAULT_CLA_MARKDOWN } from "@/lib/db/seed"
+import { requireTestDatabaseUrl } from "./test-database-url"
 
-const DATABASE_URL = process.env.DATABASE_URL ?? readDatabaseUrlFromEnvLocal()
-if (!DATABASE_URL) {
-  throw new Error("DATABASE_URL is required for integration/e2e tests")
-}
+const DATABASE_URL = requireTestDatabaseUrl()
 
 // Both neon() and postgres() support tagged-template SQL; pick the right driver.
 type RawSqlFn = (
@@ -25,63 +21,87 @@ const sql: RawSqlFn = isNeonUrl(DATABASE_URL)
   : (postgres(DATABASE_URL) as unknown as RawSqlFn)
 let schemaCompatibilityReady: Promise<void> | null = null
 
-const DEFAULT_CLA_MARKDOWN = `# Contributor License Agreement
-
-Thank you for your interest in contributing to our project. In order to clarify the intellectual property license granted with contributions from any person or entity, we must have a Contributor License Agreement ("CLA") on file that has been signed by each contributor, indicating agreement to the license terms below.
-
-## Terms
-
-1. **Definitions.** "You" (or "Your") shall mean the copyright owner or legal entity authorized by the copyright owner that is making this Agreement. "Contribution" shall mean any original work of authorship, including any modifications or additions to an existing work, that is intentionally submitted by You for inclusion in the project.
-
-2. **Grant of Copyright License.** Subject to the terms and conditions of this Agreement, You hereby grant a perpetual, worldwide, non-exclusive, no-charge, royalty-free, irrevocable copyright license to reproduce, prepare derivative works of, publicly display, publicly perform, sublicense, and distribute Your Contributions and such derivative works.
-
-3. **Grant of Patent License.** Subject to the terms and conditions of this Agreement, You hereby grant a perpetual, worldwide, non-exclusive, no-charge, royalty-free, irrevocable patent license to make, have made, use, offer to sell, sell, import, and otherwise transfer the Work.
-
-4. **You represent that you are legally entitled to grant the above license.** If your employer(s) has rights to intellectual property that you create, you represent that you have received permission to make Contributions on behalf of that employer.
-
-5. **You represent that each of Your Contributions is Your original creation.**
-
-6. **You are not expected to provide support for Your Contributions**, except to the extent You desire to provide support. You may provide support for free, for a fee, or not at all.
-
-By signing below, you accept and agree to the terms of this Contributor License Agreement for all present and future contributions.
-`
-
 function sha256Hex(input: string) {
   return createHash("sha256").update(input, "utf8").digest("hex")
 }
 
-function readDatabaseUrlFromEnvLocal() {
-  const envLocalPath = resolve(process.cwd(), ".env.local")
-  if (!existsSync(envLocalPath)) {
-    return undefined
+/**
+ * Reset the app server's in-memory state (mock GitHub client, DB query
+ * counters) through the dev-only test-support endpoint.
+ *
+ * This has to go over HTTP: the test runner and the Next.js server are separate
+ * processes, so calling `resetMockGitHub()` here would only clear a copy of the
+ * mock that the server never sees.
+ */
+export async function resetTestServerState(baseUrl: string) {
+  const response = await fetch(`${baseUrl}/api/test-support`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "reset" }),
+  })
+  if (!response.ok) {
+    throw new Error(`test-support reset failed: ${response.status} ${await response.text()}`)
   }
-
-  const contents = readFileSync(envLocalPath, "utf8")
-  for (const rawLine of contents.split(/\r?\n/)) {
-    const line = rawLine.trim()
-    if (!line || line.startsWith("#")) continue
-
-    const separatorIndex = line.indexOf("=")
-    if (separatorIndex === -1) continue
-
-    const key = line.slice(0, separatorIndex).trim()
-    if (key !== "DATABASE_URL") continue
-
-    const value = line.slice(separatorIndex + 1).trim()
-    if (
-      (value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'"))
-    ) {
-      return value.slice(1, -1)
-    }
-    return value
-  }
-
-  return undefined
 }
 
-export async function resetTestDatabase() {
-  resetMockGitHub()
+export type TestServerState = {
+  github: {
+    calls: Array<{
+      seq: number
+      method: string
+      args: unknown[]
+      at: number
+      durationMs: number
+      error: string | null
+    }>
+    checkRuns: unknown[]
+    comments: unknown[]
+    config: { latencyMs: number; failures: Record<string, unknown> }
+  }
+  db: {
+    count: number
+    queries: Array<{ seq: number; at: number; sql: string; paramCount: number }>
+  }
+}
+
+/** Snapshot the app server's mock GitHub call log and DB query counters. */
+export async function getTestServerState(baseUrl: string): Promise<TestServerState> {
+  const response = await fetch(`${baseUrl}/api/test-support`)
+  if (!response.ok) {
+    throw new Error(`test-support read failed: ${response.status} ${await response.text()}`)
+  }
+  return (await response.json()) as TestServerState
+}
+
+/**
+ * Configure the server-side mock GitHub client: artificial per-call latency
+ * and/or injected failures for specific methods.
+ */
+export async function configureTestServerGitHub(
+  baseUrl: string,
+  config: {
+    latencyMs?: number
+    failures?: Record<string, { status?: number; message?: string; times?: number } | null>
+  }
+) {
+  const response = await fetch(`${baseUrl}/api/test-support`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "configure-github", ...config }),
+  })
+  if (!response.ok) {
+    throw new Error(`test-support configure failed: ${response.status} ${await response.text()}`)
+  }
+}
+
+/**
+ * Truncate and re-seed the test database with the canonical fixtures.
+ * Pass `serverBaseUrl` to also reset the server's in-memory state.
+ */
+export async function resetTestDatabase(options: { serverBaseUrl?: string } = {}) {
+  if (options.serverBaseUrl) {
+    await resetTestServerState(options.serverBaseUrl)
+  }
   await ensureSchemaCompatibilityOnce()
 
   const claHash = sha256Hex(DEFAULT_CLA_MARKDOWN)

@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { upsertUser, setUserGithubTokens } from "@/lib/db/queries"
 import { createSessionToken, getSessionCookieOptions } from "@/lib/auth"
 import { encryptSecret } from "@/lib/security/encryption"
+import { getGitHubApiBaseUrl, getGitHubWebBaseUrl } from "@/lib/github/base-urls"
 
 const OAUTH_STATE_COOKIE = "cla-github-oauth-state"
 const OAUTH_STATE_TTL_SECONDS = 60 * 10
@@ -83,7 +84,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "GitHub OAuth credentials not configured" }, { status: 500 })
   }
 
-  const tokenRes = await fetch("https://github.com/login/oauth/access_token", {
+  const tokenRes = await fetch(`${getGitHubWebBaseUrl()}/login/oauth/access_token`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -129,7 +130,7 @@ export async function GET(request: NextRequest) {
   }
 
   // Step 3: Fetch user profile from GitHub API
-  const userRes = await fetch("https://api.github.com/user", {
+  const userRes = await fetch(`${getGitHubApiBaseUrl()}/user`, {
     headers: {
       Authorization: `Bearer ${accessToken}`,
       Accept: "application/vnd.github+json",
@@ -213,7 +214,7 @@ function startSignInRedirect(request: NextRequest, searchParams: URLSearchParams
   const redirectUri = `${new URL(request.url).origin}/api/auth/github`
   const returnTo = sanitizeReturnTo(searchParams.get("returnTo"), "/dashboard")
   const nonce = crypto.randomUUID()
-  const githubAuthUrl = new URL("https://github.com/login/oauth/authorize")
+  const githubAuthUrl = new URL(`${getGitHubWebBaseUrl()}/login/oauth/authorize`)
   githubAuthUrl.searchParams.set("client_id", clientId)
   githubAuthUrl.searchParams.set("redirect_uri", redirectUri)
   githubAuthUrl.searchParams.set("scope", "read:user,read:org,user:email")
@@ -300,7 +301,7 @@ async function resolveGitHubEmail(
   }
 
   try {
-    const emailsRes = await fetch("https://api.github.com/user/emails", {
+    const emailsRes = await fetch(`${getGitHubApiBaseUrl()}/user/emails`, {
       headers: {
         Authorization: `Bearer ${accessToken}`,
         Accept: "application/vnd.github+json",

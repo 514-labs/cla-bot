@@ -108,6 +108,195 @@ const INITIAL_REPO_PERMISSIONS: RepoPermission[] = [
 ]
 
 // ==============================
+// Observability + fault injection (dev/test only)
+// ==============================
+
+export type MockGitHubCall = {
+  seq: number
+  method: string
+  args: unknown[]
+  /** Epoch ms when the call started. */
+  at: number
+  durationMs: number
+  /** Error message when the call rejected (injected or real), else null. */
+  error: string | null
+}
+
+export type MockGitHubFailure = {
+  /** HTTP-like status attached to the thrown error (mirrors Octokit RequestError). */
+  status?: number
+  message?: string
+  /** How many calls to fail before clearing; omit for "every call until reset". */
+  times?: number
+}
+
+export type MockGitHubConfig = {
+  /** Artificial delay applied to every mock call, to make serial chains visible. */
+  latencyMs: number
+  failures: Record<string, MockGitHubFailure>
+}
+
+const MAX_CALL_LOG = 1000
+/**
+ * Injected latency snaps up to one of these steps. The timer duration therefore
+ * always comes from this table, never directly from a request, and is bounded.
+ */
+const LATENCY_STEPS_MS = [0, 25, 50, 100, 200, 300, 500, 750, 1000, 2000, 5000, 10_000] as const
+const MAX_LATENCY_MS = LATENCY_STEPS_MS[LATENCY_STEPS_MS.length - 1]
+
+function clampLatency(value: number): number {
+  if (!Number.isFinite(value) || value <= 0) return 0
+  return LATENCY_STEPS_MS.find((step) => step >= value) ?? MAX_LATENCY_MS
+}
+
+function defaultLatencyMs(): number {
+  const raw = process.env.MOCK_GITHUB_LATENCY_MS
+  return clampLatency(raw ? Number.parseInt(raw, 10) : 0)
+}
+
+type MockState = {
+  latencyMs: number
+  /** Keyed by GitHubClient method name; a Map avoids prototype-key writes. */
+  failures: Map<string, MockGitHubFailure>
+}
+
+let callLog: MockGitHubCall[] = []
+let callSeq = 0
+let mockConfig: MockState = { latencyMs: defaultLatencyMs(), failures: new Map() }
+
+/** Names of the GitHubClient methods the mock implements (the only valid failure targets). */
+function knownMethodNames(): Set<string> {
+  return new Set(
+    Object.getOwnPropertyNames(MockGitHubClient.prototype).filter(
+      (name) =>
+        name !== "constructor" &&
+        typeof (MockGitHubClient.prototype as unknown as Record<string, unknown>)[name] ===
+          "function"
+    )
+  )
+}
+
+export class MockGitHubRequestError extends Error {
+  status: number
+  constructor(message: string, status: number) {
+    super(message)
+    this.name = "MockGitHubRequestError"
+    this.status = status
+  }
+}
+
+/**
+ * Set artificial latency and/or failures. `null` for a method clears its failure.
+ * Latency is clamped to MAX_LATENCY_MS; unknown method names are rejected.
+ */
+export function configureMockGitHub(config: {
+  latencyMs?: number
+  failures?: Record<string, MockGitHubFailure | null>
+}) {
+  if (typeof config.latencyMs === "number") {
+    mockConfig.latencyMs = clampLatency(config.latencyMs)
+  }
+  if (config.failures) {
+    const known = knownMethodNames()
+    for (const [method, failure] of Object.entries(config.failures)) {
+      if (!known.has(method)) {
+        throw new Error(
+          `Unknown mock GitHub method "${method}". Valid: ${[...known].sort().join(", ")}`
+        )
+      }
+      if (failure === null) {
+        mockConfig.failures.delete(method)
+      } else {
+        mockConfig.failures.set(method, {
+          ...(typeof failure.status === "number" ? { status: failure.status } : {}),
+          ...(typeof failure.message === "string" ? { message: failure.message } : {}),
+          ...(typeof failure.times === "number" ? { times: failure.times } : {}),
+        })
+      }
+    }
+  }
+}
+
+export function getMockGitHubConfig(): MockGitHubConfig {
+  return {
+    latencyMs: mockConfig.latencyMs,
+    failures: Object.fromEntries(
+      [...mockConfig.failures].map(([method, failure]) => [method, { ...failure }])
+    ),
+  }
+}
+
+/** Every call made through the mock client since the last reset, in order. */
+export function getMockGitHubCallLog(): MockGitHubCall[] {
+  return callLog.map((call) => ({ ...call, args: [...call.args] }))
+}
+
+export function clearMockGitHubCallLog() {
+  callLog = []
+}
+
+function sleep(ms: number) {
+  return new Promise<void>((resolve) => setTimeout(resolve, ms))
+}
+
+function takeInjectedFailure(method: string): MockGitHubFailure | null {
+  const failure = mockConfig.failures.get(method)
+  if (!failure) return null
+  if (typeof failure.times === "number") {
+    if (failure.times <= 1) {
+      mockConfig.failures.delete(method)
+    } else {
+      failure.times -= 1
+    }
+  }
+  return failure
+}
+
+/**
+ * Wrap a client so every method call is recorded, delayed by the configured
+ * latency, and subject to injected failures. Non-function properties pass through.
+ */
+function instrument(client: MockGitHubClient): MockGitHubClient {
+  return new Proxy(client, {
+    get(target, property, receiver) {
+      const value = Reflect.get(target, property, receiver)
+      if (typeof value !== "function" || typeof property !== "string") return value
+
+      return async (...args: unknown[]) => {
+        const startedAt = Date.now()
+        const entry: MockGitHubCall = {
+          seq: ++callSeq,
+          method: property,
+          args,
+          at: startedAt,
+          durationMs: 0,
+          error: null,
+        }
+        callLog.push(entry)
+        if (callLog.length > MAX_CALL_LOG) callLog.splice(0, callLog.length - MAX_CALL_LOG)
+
+        try {
+          if (mockConfig.latencyMs > 0) await sleep(mockConfig.latencyMs)
+          const failure = takeInjectedFailure(property)
+          if (failure) {
+            throw new MockGitHubRequestError(
+              failure.message ?? `Injected mock GitHub failure for ${property}`,
+              failure.status ?? 500
+            )
+          }
+          return await (value as (...callArgs: unknown[]) => Promise<unknown>).apply(target, args)
+        } catch (error) {
+          entry.error = error instanceof Error ? error.message : String(error)
+          throw error
+        } finally {
+          entry.durationMs = Date.now() - startedAt
+        }
+      }
+    },
+  })
+}
+
+// ==============================
 // In-memory stores for GitHub API state
 // ==============================
 
@@ -354,7 +543,13 @@ let pullRequests: {
 // State management for testing
 // ==============================
 
-/** Reset all mock GitHub state. Call this in test setup. */
+/**
+ * Reset all mock GitHub state, including the call log and any injected
+ * latency/failures. Call this in test setup.
+ *
+ * Note: this resets the mock in the *current process*. When the app runs in a
+ * separate dev server, use the `/api/test-support` endpoint instead.
+ */
 export function resetMockGitHub() {
   githubUsers = [...GITHUB_USERS]
   orgMemberships = [...INITIAL_ORG_MEMBERSHIPS]
@@ -365,6 +560,9 @@ export function resetMockGitHub() {
   pullRequests = []
   nextCheckRunId = 1
   nextCommentId = 1
+  callLog = []
+  callSeq = 0
+  mockConfig = { latencyMs: defaultLatencyMs(), failures: new Map() }
 }
 
 /** Get all check runs (for debugging / test inspection). */
@@ -407,9 +605,9 @@ export function upsertMockPullRequest(data: {
   pullRequests.push(normalized)
 }
 
-/** Get the singleton instance. */
+/** Get the singleton (instrumented) instance. */
 let instance: MockGitHubClient | null = null
 export function getMockGitHubClient(): MockGitHubClient {
-  if (!instance) instance = new MockGitHubClient()
+  if (!instance) instance = instrument(new MockGitHubClient())
   return instance
 }
