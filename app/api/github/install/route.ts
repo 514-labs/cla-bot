@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getSessionUser } from "@/lib/auth"
+import { sanitizeReturnTo } from "@/lib/security/return-to"
 
 const INSTALL_PENDING_COOKIE = "cla-install-pending"
 const INSTALL_PENDING_TTL_SECONDS = 180
@@ -45,12 +46,6 @@ export async function GET(request: NextRequest) {
     maxAge: INSTALL_PENDING_TTL_SECONDS,
   })
   return response
-}
-
-function sanitizeReturnTo(raw: string | null, fallback: string): string {
-  if (!raw) return fallback
-  if (!raw.startsWith("/") || raw.startsWith("//")) return fallback
-  return raw
 }
 
 function buildCallbackUrl(

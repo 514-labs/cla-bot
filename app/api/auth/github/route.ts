@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { upsertUser, setUserGithubTokens } from "@/lib/db/queries"
 import { createSessionToken, getSessionCookieOptions } from "@/lib/auth"
 import { encryptSecret } from "@/lib/security/encryption"
+import { sanitizeReturnTo } from "@/lib/security/return-to"
 import { getGitHubApiBaseUrl, getGitHubWebBaseUrl } from "@/lib/github/base-urls"
 
 const OAUTH_STATE_COOKIE = "cla-github-oauth-state"
@@ -247,12 +248,6 @@ function timingSafeEqualStrings(a: string, b: string): boolean {
   const bufferB = Buffer.from(b, "utf8")
   if (bufferA.length !== bufferB.length) return false
   return timingSafeEqual(bufferA, bufferB)
-}
-
-function sanitizeReturnTo(raw: string | null, fallback: string): string {
-  if (!raw) return fallback
-  if (!raw.startsWith("/") || raw.startsWith("//")) return fallback
-  return raw
 }
 
 function encodeOAuthStateCookie(value: OAuthStateCookie): string {
