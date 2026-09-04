@@ -279,7 +279,7 @@ export async function getOrganizationByInstallationId(installationId: number) {
  * account than the one it already records. `githubAccountId` is the immutable
  * identity of a row; only a null (legacy) value may be filled in.
  */
-export class OrganizationIdentityConflictError extends Error {
+class OrganizationIdentityConflictError extends Error {
   constructor(
     readonly orgId: string,
     readonly storedAccountId: string,

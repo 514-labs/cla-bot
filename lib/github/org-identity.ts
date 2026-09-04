@@ -19,11 +19,7 @@ export type OrganizationIdentityRow = {
   installationId: number | null
 }
 
-export type OrganizationMatchSource =
-  | "account_id"
-  | "installation_id"
-  | "previous_slug"
-  | "current_slug"
+type OrganizationMatchSource = "account_id" | "installation_id" | "previous_slug" | "current_slug"
 
 export type OrganizationIdentityResolution<T extends OrganizationIdentityRow> =
   | {
@@ -146,7 +142,7 @@ export async function resolveOrganizationIdentity<T extends OrganizationIdentity
   return { status: "none" }
 }
 
-export const ORPHANED_SLUG_MARKER = "__orphaned-"
+const ORPHANED_SLUG_MARKER = "__orphaned-"
 
 /**
  * Deterministic slug for a row that has been detached from a login it no
