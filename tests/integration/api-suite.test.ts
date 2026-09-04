@@ -967,10 +967,14 @@ function makePrPayload(opts: {
   orgSlug: string
   repoName: string
   prNumber: number
+  installationId?: number
 }) {
   return {
     action: opts.action,
     number: opts.prNumber,
+    ...(typeof opts.installationId === "number"
+      ? { installation: { id: opts.installationId } }
+      : {}),
     pull_request: {
       user: {
         login: opts.prAuthor,
@@ -2270,7 +2274,7 @@ test("Test support: reset clears server-side mock GitHub state and query counter
   assertEqual(after.github.config.latencyMs, 0, "latency reset to default")
 })
 
-test("Webhook: unsigned external contributor -> GitHub call sequence baseline", async (baseUrl) => {
+test("Webhook: unsigned external contributor -> in-progress check first, then finalized", async (baseUrl) => {
   await resetDb(baseUrl)
   const { res, data } = await sendWebhook(
     baseUrl,
@@ -2291,20 +2295,41 @@ test("Webhook: unsigned external contributor -> GitHub call sequence baseline", 
   const sequence = methodSequence(state)
   const rendered = sequence.join(" -> ")
 
-  const checkRunCreates = sequence.filter((method) => method === "createCheckRun").length
-  assertEqual(checkRunCreates, 1, `exactly one createCheckRun (${rendered})`)
+  assertEqual(
+    sequence.filter((method) => method === "createCheckRun").length,
+    1,
+    `exactly one createCheckRun (${rendered})`
+  )
+  assertEqual(
+    sequence.filter((method) => method === "updateCheckRun").length,
+    1,
+    `exactly one updateCheckRun (${rendered})`
+  )
 
+  const createCall = state.github.calls.find((call) => call.method === "createCheckRun")
+  const createArgs = createCall?.args[0] as { status?: string } | undefined
+  assertEqual(createArgs?.status, "in_progress", "check run is created as in_progress")
+
+  const createIndex = sequence.indexOf("createCheckRun")
   const membershipIndex = sequence.indexOf("checkOrgMembership")
-  const createCheckIndex = sequence.indexOf("createCheckRun")
+  const updateIndex = sequence.indexOf("updateCheckRun")
   const findCommentIndex = sequence.indexOf("findBotComment")
   const createCommentIndex = sequence.indexOf("createComment")
-  assert(membershipIndex >= 0, `membership checked (${rendered})`)
-  assert(membershipIndex < createCheckIndex, `membership before check run (${rendered})`)
-  assert(createCheckIndex < findCommentIndex, `check run before comment lookup (${rendered})`)
+  assert(
+    createIndex < membershipIndex,
+    `in-progress check posted before membership lookup (${rendered})`
+  )
+  assert(membershipIndex < updateIndex, `membership before finalize (${rendered})`)
+  assert(updateIndex < findCommentIndex, `finalize before comment lookup (${rendered})`)
   assert(
     findCommentIndex < createCommentIndex,
     `comment lookup before comment create (${rendered})`
   )
+
+  const runs = state.github.checkRuns as Array<{ status: string; conclusion: string | null }>
+  assertEqual(runs.length, 1, "a single check run exists on the PR")
+  assertEqual(runs[0].status, "completed", "check run finalized")
+  assertEqual(runs[0].conclusion, "failure", "check run conclusion")
 
   for (const call of state.github.calls) {
     assertEqual(call.error, null, `no GitHub call failed (${call.method})`)
@@ -2312,6 +2337,32 @@ test("Webhook: unsigned external contributor -> GitHub call sequence baseline", 
 
   console.log(
     `[perf] PR check (unsigned external): github calls=${sequence.length} [${rendered}] db statements=${state.db.count}`
+  )
+})
+
+test("Webhook: with installation id in payload, the in-progress check precedes any DB work", async (baseUrl) => {
+  await resetDb(baseUrl)
+  await sendWebhook(
+    baseUrl,
+    "pull_request",
+    makePrPayload({
+      action: "opened",
+      prAuthor: "external-contributor",
+      prAuthorId: 1006,
+      orgSlug: "fiveonefour",
+      repoName: "sdk",
+      prNumber: 506,
+      installationId: 10001,
+    })
+  )
+
+  const state = await getTestServerState(baseUrl)
+  const createCall = state.github.calls.find((call) => call.method === "createCheckRun")
+  assert(createCall !== undefined, "in-progress check run created")
+  assert(state.db.queries.length > 0, "db statements recorded")
+  assert(
+    createCall !== undefined && createCall.at <= state.db.queries[0].at,
+    `check run created (${createCall?.at}) no later than first db statement (${state.db.queries[0].at})`
   )
 })
 
@@ -2340,7 +2391,7 @@ test("Webhook: DB statements for a PR check stay within budget", async (baseUrl)
   )
 })
 
-test("Mock GitHub: injected failure is applied once and recorded in the call log", async (baseUrl) => {
+test("Webhook: a GitHub error mid-check still yields a completed, failed check run", async (baseUrl) => {
   await resetDb(baseUrl)
   await configureTestServerGitHub(baseUrl, {
     failures: { checkOrgMembership: { status: 403, message: "Injected 403", times: 1 } },
@@ -2355,20 +2406,33 @@ test("Mock GitHub: injected failure is applied once and recorded in the call log
     prNumber: 504,
   }
 
-  await sendWebhook(baseUrl, "pull_request", makePrPayload(payload))
-  const first = await getTestServerState(baseUrl)
-  const failedCall = first.github.calls.find((call) => call.method === "checkOrgMembership")
-  assert(failedCall !== undefined, "membership call recorded")
+  const first = await sendWebhook(baseUrl, "pull_request", makePrPayload(payload))
+  assertEqual(first.res.status, 500, "handler reports the failure")
+  assert(typeof first.data.error === "string", "error body is JSON with a message")
+
+  const state = await getTestServerState(baseUrl)
+  const failedCall = state.github.calls.find((call) => call.method === "checkOrgMembership")
   assertEqual(failedCall?.error, "Injected 403", "injected failure recorded on the call")
   assertEqual(
-    Object.keys(first.github.config.failures).length,
+    Object.keys(state.github.config.failures).length,
     0,
     "one-shot failure cleared after use"
   )
 
-  await sendWebhook(baseUrl, "pull_request", makePrPayload(payload))
-  const second = await getTestServerState(baseUrl)
-  const membershipCalls = second.github.calls.filter((call) => call.method === "checkOrgMembership")
+  const runs = state.github.checkRuns as Array<{
+    status: string
+    conclusion: string | null
+    output: { title: string }
+  }>
+  assertEqual(runs.length, 1, "the in-progress check run was finalized, not abandoned")
+  assertEqual(runs[0].status, "completed", "check run completed")
+  assertEqual(runs[0].conclusion, "failure", "check run failed visibly")
+  assertEqual(runs[0].output.title, "CLA: Check could not complete", "explains the failure")
+
+  const second = await sendWebhook(baseUrl, "pull_request", makePrPayload(payload))
+  assertEqual(second.res.status, 200, "next delivery succeeds once GitHub recovers")
+  const after = await getTestServerState(baseUrl)
+  const membershipCalls = after.github.calls.filter((call) => call.method === "checkOrgMembership")
   assertEqual(membershipCalls.length, 2, "two membership calls across both deliveries")
   assertEqual(membershipCalls[1].error, null, "second membership call succeeded")
 })
