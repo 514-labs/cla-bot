@@ -49,6 +49,8 @@ export async function startIntegrationServer(): Promise<IntegrationServer> {
       DATABASE_URL: databaseUrl,
       SESSION_SECRET: sessionSecret,
       USE_REAL_GITHUB_APP: "false",
+      // Comment ownership requires the App slug; the mock bot posts as `<slug>[bot]`.
+      GITHUB_APP_SLUG: process.env.GITHUB_APP_SLUG ?? "cla-bot",
       SEED_DATABASE: "false",
       ENABLE_TEST_SUPPORT: "true",
       MOCK_GITHUB_LATENCY_MS: process.env.MOCK_GITHUB_LATENCY_MS ?? "0",

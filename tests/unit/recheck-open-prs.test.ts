@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 vi.mock("@/lib/db/queries", () => ({
   getOrganizationBySlug: vi.fn(),
@@ -19,9 +19,44 @@ import {
   getSignatureStatusByUsername,
 } from "@/lib/db/queries"
 import { getGitHubClient } from "@/lib/github"
+import type { GitHubUser } from "@/lib/github/types"
 import { CLA_BOT_COMMENT_SIGNATURE } from "@/lib/pr-comment-template"
 
+const APP_SLUG = "cla-bot"
+
+const BOT_USER: GitHubUser = {
+  login: `${APP_SLUG}[bot]`,
+  id: 9000,
+  avatar_url: "https://avatars.githubusercontent.com/in/1",
+  html_url: `https://github.com/apps/${APP_SLUG}`,
+  type: "Bot",
+}
+
+const HUMAN_USER: GitHubUser = {
+  login: "mallory",
+  id: 4242,
+  avatar_url: "https://avatars.githubusercontent.com/u/4242",
+  html_url: "https://github.com/mallory",
+  type: "User",
+}
+
+function comment(id: number, body: string, user: GitHubUser = BOT_USER) {
+  return {
+    id,
+    body,
+    user,
+    created_at: "2026-01-01T00:00:00.000Z",
+    updated_at: "2026-01-01T00:00:00.000Z",
+    html_url: `https://github.com/fiveonefour/sdk/pull/1#issuecomment-${id}`,
+  }
+}
+
+beforeEach(() => {
+  vi.stubEnv("GITHUB_APP_SLUG", APP_SLUG)
+})
+
 afterEach(() => {
+  vi.unstubAllEnvs()
   vi.clearAllMocks()
 })
 
@@ -125,10 +160,9 @@ describe("recheckOpenPullRequestsAfterClaUpdate", () => {
     mockClient.listOpenPullRequestsForOrganization.mockResolvedValue([
       { repoName: "sdk", number: 1, headSha: "sha1", authorLogin: "contributor1", authorId: 1002 },
     ])
-    mockClient.findBotComment.mockResolvedValue({
-      id: 100,
-      body: `${CLA_BOT_COMMENT_SIGNATURE}\n### Contributor License Agreement Required`,
-    })
+    mockClient.findBotComment.mockResolvedValue(
+      comment(100, `${CLA_BOT_COMMENT_SIGNATURE}\n### Contributor License Agreement Required`)
+    )
     vi.mocked(getGitHubClient).mockReturnValue(
       mockClient as unknown as ReturnType<typeof getGitHubClient>
     )
@@ -378,7 +412,9 @@ describe("recheckOpenPullRequestsAfterClaUpdate", () => {
       signed: false,
       currentVersion: false,
     } as unknown as Awaited<ReturnType<typeof getSignatureStatusByGithubId>>)
-    mockClient.findBotComment.mockResolvedValue({ id: 50, body: "old comment" })
+    mockClient.findBotComment.mockResolvedValue(
+      comment(50, `${CLA_BOT_COMMENT_SIGNATURE}\nold comment`)
+    )
     vi.mocked(getGitHubClient).mockReturnValue(
       mockClient as unknown as ReturnType<typeof getGitHubClient>
     )
@@ -391,6 +427,78 @@ describe("recheckOpenPullRequestsAfterClaUpdate", () => {
     expect(result.commentsUpdated).toBe(1)
     expect(result.commentsCreated).toBe(0)
     expect(mockClient.updateComment).toHaveBeenCalled()
+    const failingCheck = mockClient.createCheckRun.mock.calls[0][0] as { details_url?: string }
+    expect(failingCheck.details_url).toBe(
+      "https://cla.example.com/sign/fiveonefour?repo=sdk&pr=1&utm_source=github&utm_medium=check_run&utm_campaign=cla_bot"
+    )
+  })
+
+  it("never edits a User-authored comment that carries the marker; posts its own instead", async () => {
+    vi.mocked(getOrganizationBySlug).mockResolvedValue(
+      mockOrg as unknown as Awaited<ReturnType<typeof getOrganizationBySlug>>
+    )
+    const mockClient = createMockGitHubClient()
+    mockClient.listOpenPullRequestsForOrganization.mockResolvedValue([
+      { repoName: "sdk", number: 1, headSha: "sha1", authorLogin: "contributor1", authorId: 1002 },
+    ])
+    vi.mocked(isBypassAccountForOrg).mockResolvedValue(
+      null as unknown as Awaited<ReturnType<typeof isBypassAccountForOrg>>
+    )
+    mockClient.checkOrgMembership.mockResolvedValue("not_member")
+    vi.mocked(getSignatureStatusByGithubId).mockResolvedValue({
+      signed: false,
+      currentVersion: false,
+    } as unknown as Awaited<ReturnType<typeof getSignatureStatusByGithubId>>)
+    mockClient.findBotComment.mockResolvedValue(
+      comment(
+        60,
+        `${CLA_BOT_COMMENT_SIGNATURE}\n### Contributor License Agreement Required\n[Sign](https://evil.example)`,
+        HUMAN_USER
+      )
+    )
+    vi.mocked(getGitHubClient).mockReturnValue(
+      mockClient as unknown as ReturnType<typeof getGitHubClient>
+    )
+
+    const result = await recheckOpenPullRequestsAfterClaUpdate({
+      orgSlug: "fiveonefour",
+      appBaseUrl: "https://cla.example.com",
+    })
+
+    expect(mockClient.updateComment).not.toHaveBeenCalled()
+    expect(mockClient.createComment).toHaveBeenCalledTimes(1)
+    expect(result.commentsCreated).toBe(1)
+    expect(result.commentsUpdated).toBe(0)
+  })
+
+  it("never deletes a User-authored comment that carries the marker", async () => {
+    const inactiveOrg = { ...mockOrg, isActive: false }
+    vi.mocked(getOrganizationBySlug).mockResolvedValue(
+      inactiveOrg as unknown as Awaited<ReturnType<typeof getOrganizationBySlug>>
+    )
+    const mockClient = createMockGitHubClient()
+    mockClient.listOpenPullRequestsForOrganization.mockResolvedValue([
+      { repoName: "sdk", number: 1, headSha: "sha1", authorLogin: "contributor1", authorId: 1002 },
+    ])
+    mockClient.findBotComment.mockResolvedValue(
+      comment(
+        61,
+        `${CLA_BOT_COMMENT_SIGNATURE}\n### Contributor License Agreement Required`,
+        HUMAN_USER
+      )
+    )
+    vi.mocked(getGitHubClient).mockReturnValue(
+      mockClient as unknown as ReturnType<typeof getGitHubClient>
+    )
+
+    const result = await recheckOpenPullRequestsAfterClaUpdate({
+      orgSlug: "fiveonefour",
+      appBaseUrl: "https://cla.example.com",
+    })
+
+    expect(mockClient.deleteComment).not.toHaveBeenCalled()
+    expect(result.commentsDeleted).toBe(0)
+    expect(result.passedInactiveChecks).toBe(1)
   })
 
   it("counts recheck errors when a PR throws", async () => {
@@ -497,10 +605,9 @@ describe("recheckOpenPullRequestsAfterClaUpdate", () => {
       bypassKind: "user",
       githubUsername: "bot-user",
     } as unknown as Awaited<ReturnType<typeof isBypassAccountForOrg>>)
-    mockClient.findBotComment.mockResolvedValue({
-      id: 100,
-      body: `${CLA_BOT_COMMENT_SIGNATURE}\n### Contributor License Agreement Required`,
-    })
+    mockClient.findBotComment.mockResolvedValue(
+      comment(100, `${CLA_BOT_COMMENT_SIGNATURE}\n### Contributor License Agreement Required`)
+    )
     vi.mocked(getGitHubClient).mockReturnValue(
       mockClient as unknown as ReturnType<typeof getGitHubClient>
     )

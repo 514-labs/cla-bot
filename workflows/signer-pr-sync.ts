@@ -1,5 +1,8 @@
 import { createAuditEvent, getOrganizationBySlug } from "@/lib/db/queries"
 import { getGitHubClient } from "@/lib/github"
+import { findOwnedClaBotComment, isManagedClaBotComment } from "@/lib/github/comment-ownership"
+import type { IssueComment } from "@/lib/github/types"
+import { getAppBaseUrl } from "@/lib/cla/signing"
 
 const CHECK_NAME = "CLA Bot / Contributor License Agreement"
 
@@ -284,6 +287,10 @@ async function syncSignerOpenPullRequests(params: {
           check_run_id: latestClaCheck.id,
           status: "completed",
           conclusion: "success",
+          // The failing run linked Details to the sign page. GitHub keeps the
+          // previous details_url unless it is overwritten, so point a passing
+          // check at the contributor dashboard instead of the sign flow.
+          details_url: `${getAppBaseUrl()}/contributor`,
           output: {
             title: "CLA: Signed",
             summary: `@${params.signer.githubUsername} has signed CLA version \`${versionLabel}\`.`,
@@ -292,12 +299,13 @@ async function syncSignerOpenPullRequests(params: {
         summary.updatedChecks += 1
       }
 
-      const existingComment = await github.findBotComment(
+      const existingComment = await findOwnedClaBotComment(
+        github,
         params.orgSlug,
         target.repoName,
         target.prNumber
       )
-      if (existingComment && isRemovableClaPromptComment(existingComment.body)) {
+      if (existingComment && isRemovableClaPromptComment(existingComment)) {
         await github.deleteComment({
           owner: params.orgSlug,
           repo: target.repoName,
@@ -329,10 +337,11 @@ function isSignerAuthorForPr(
   return prAuthorLogin.trim().toLowerCase() === user.githubUsername.trim().toLowerCase()
 }
 
-function isRemovableClaPromptComment(commentBody: string) {
+function isRemovableClaPromptComment(comment: IssueComment) {
+  if (!isManagedClaBotComment(comment)) return false
   return (
-    commentBody.includes("Contributor License Agreement Required") ||
-    commentBody.includes("Re-signing Required") ||
-    commentBody.includes("CLA Bot is not configured for this repository")
+    comment.body.includes("Contributor License Agreement Required") ||
+    comment.body.includes("Re-signing Required") ||
+    comment.body.includes("CLA Bot is not configured for this repository")
   )
 }

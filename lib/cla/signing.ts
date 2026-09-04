@@ -221,7 +221,8 @@ function normalizePrNumber(value: number | string | null | undefined): number | 
   return null
 }
 
-function getAppBaseUrl() {
+/** Public origin of this deployment, used to build contributor-facing links. */
+export function getAppBaseUrl() {
   return process.env.NEXT_PUBLIC_APP_URL || "https://cla.fiveonefour.com"
 }
 

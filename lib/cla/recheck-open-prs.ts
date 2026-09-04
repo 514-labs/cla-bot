@@ -5,7 +5,9 @@ import {
   getSignatureStatusByUsername,
 } from "@/lib/db/queries"
 import { getGitHubClient } from "@/lib/github"
-import { generateUnsignedComment, isClaBotManagedComment } from "@/lib/pr-comment-template"
+import { findOwnedClaBotComment, isManagedClaBotComment } from "@/lib/github/comment-ownership"
+import type { IssueComment } from "@/lib/github/types"
+import { buildClaSignUrl, generateUnsignedComment } from "@/lib/pr-comment-template"
 
 const CHECK_NAME = "CLA Bot / Contributor License Agreement"
 
@@ -93,8 +95,13 @@ export async function recheckOpenPullRequestsAfterClaUpdate(params: {
           },
         })
 
-        const existingComment = await github.findBotComment(params.orgSlug, pr.repoName, pr.number)
-        if (existingComment && isRemovableClaPromptComment(existingComment.body)) {
+        const existingComment = await findOwnedClaBotComment(
+          github,
+          params.orgSlug,
+          pr.repoName,
+          pr.number
+        )
+        if (existingComment && isRemovableClaPromptComment(existingComment)) {
           await github.deleteComment({
             owner: params.orgSlug,
             repo: pr.repoName,
@@ -133,8 +140,13 @@ export async function recheckOpenPullRequestsAfterClaUpdate(params: {
         summary.passedBypassChecks += 1
         summary.skippedBypass += 1
 
-        const existingComment = await github.findBotComment(params.orgSlug, pr.repoName, pr.number)
-        if (existingComment && isRemovableClaPromptComment(existingComment.body)) {
+        const existingComment = await findOwnedClaBotComment(
+          github,
+          params.orgSlug,
+          pr.repoName,
+          pr.number
+        )
+        if (existingComment && isRemovableClaPromptComment(existingComment)) {
           await github.deleteComment({
             owner: params.orgSlug,
             repo: pr.repoName,
@@ -181,6 +193,13 @@ export async function recheckOpenPullRequestsAfterClaUpdate(params: {
         head_sha: pr.headSha,
         status: "completed",
         conclusion: "failure",
+        details_url: buildClaSignUrl({
+          appBaseUrl: params.appBaseUrl,
+          orgSlug: org.githubOrgSlug,
+          repoName: pr.repoName,
+          prNumber: pr.number,
+          medium: "check_run",
+        }),
         output: {
           title: needsResign ? "CLA: Re-signing required" : "CLA: Signature required",
           summary: needsResign
@@ -201,7 +220,12 @@ export async function recheckOpenPullRequestsAfterClaUpdate(params: {
         isResign: needsResign,
       })
 
-      const existingComment = await github.findBotComment(params.orgSlug, pr.repoName, pr.number)
+      const existingComment = await findOwnedClaBotComment(
+        github,
+        params.orgSlug,
+        pr.repoName,
+        pr.number
+      )
       if (existingComment) {
         await github.updateComment({
           owner: params.orgSlug,
@@ -247,11 +271,11 @@ function isPersonalAccountOwner(
   return String(githubUserId) === String(org.githubAccountId)
 }
 
-function isRemovableClaPromptComment(commentBody: string) {
-  if (!isClaBotManagedComment(commentBody)) return false
+function isRemovableClaPromptComment(comment: IssueComment) {
+  if (!isManagedClaBotComment(comment)) return false
   return (
-    commentBody.includes("Contributor License Agreement Required") ||
-    commentBody.includes("Re-signing Required") ||
-    commentBody.includes("CLA Bot is not configured for this repository")
+    comment.body.includes("Contributor License Agreement Required") ||
+    comment.body.includes("Re-signing Required") ||
+    comment.body.includes("CLA Bot is not configured for this repository")
   )
 }

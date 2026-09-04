@@ -10,7 +10,13 @@
 import { after, type NextRequest, NextResponse } from "next/server"
 import { getGitHubClient, upsertMockPullRequest } from "@/lib/github"
 import type { GitHubClient } from "@/lib/github/client"
-import type { CheckRun, CheckRunConclusion, OrgMembershipStatus } from "@/lib/github/types"
+import type {
+  CheckRun,
+  CheckRunConclusion,
+  IssueComment,
+  OrgMembershipStatus,
+} from "@/lib/github/types"
+import { findOwnedClaBotComment, isManagedClaBotComment } from "@/lib/github/comment-ownership"
 import {
   getOrganizationBySlug,
   getOrganizationByGithubAccountId,
@@ -32,9 +38,9 @@ import {
   resolveOrganizationIdentity,
 } from "@/lib/github/org-identity"
 import {
+  buildClaSignUrl,
   CLA_BOT_COMMENT_SIGNATURE,
   generateUnsignedComment,
-  isClaBotManagedComment,
 } from "@/lib/pr-comment-template"
 import { verifyWebhookSignatureFromEnv } from "@/lib/github/webhook-signature"
 import { sanitizeForLog, sanitizeForLogOrNull } from "@/lib/security/log"
@@ -569,7 +575,11 @@ class PrCheckAbort extends Error {
 }
 
 type CheckRunFinalizer = {
-  finalize(conclusion: CheckRunConclusion, output: CheckOutput): Promise<CheckRun>
+  finalize(
+    conclusion: CheckRunConclusion,
+    output: CheckOutput,
+    options?: { detailsUrl?: string }
+  ): Promise<CheckRun>
   readonly finalized: boolean
 }
 
@@ -605,7 +615,7 @@ function startCheckRun(
     get finalized() {
       return finalized
     },
-    async finalize(conclusion, output) {
+    async finalize(conclusion, output, options) {
       const completedAt = new Date().toISOString()
       const completedFields = {
         owner: target.owner,
@@ -613,6 +623,7 @@ function startCheckRun(
         status: "completed" as const,
         conclusion,
         completed_at: completedAt,
+        details_url: options?.detailsUrl,
         output,
       }
 
@@ -825,9 +836,9 @@ async function runPrCheck(
       summary: `CLA enforcement is currently deactivated for @${orgSlug}. This pull request is not blocked by CLA requirements.`,
     })
 
-    const existingComment = await github.findBotComment(orgSlug, repoName, prNumber)
+    const existingComment = await findOwnedClaBotComment(github, orgSlug, repoName, prNumber)
     let deletedCommentId: number | null = null
-    if (existingComment && isRemovableClaPromptComment(existingComment.body)) {
+    if (existingComment && isRemovableClaPromptComment(existingComment)) {
       await github.deleteComment({
         owner: orgSlug,
         repo: repoName,
@@ -894,9 +905,9 @@ async function runPrCheck(
       summary: bypassSummary,
     })
 
-    const existingComment = await github.findBotComment(orgSlug, repoName, prNumber)
+    const existingComment = await findOwnedClaBotComment(github, orgSlug, repoName, prNumber)
     let deletedCommentId: number | null = null
-    if (existingComment && isRemovableClaPromptComment(existingComment.body)) {
+    if (existingComment && isRemovableClaPromptComment(existingComment)) {
       await github.deleteComment({
         owner: orgSlug,
         repo: repoName,
@@ -985,7 +996,7 @@ async function runPrCheck(
       orgSlug: org.githubOrgSlug,
       appBaseUrl: baseUrl,
     })
-    const existingComment = await github.findBotComment(orgSlug, repoName, prNumber)
+    const existingComment = await findOwnedClaBotComment(github, orgSlug, repoName, prNumber)
     const comment = existingComment
       ? await github.updateComment({
           owner: orgSlug,
@@ -1063,12 +1074,25 @@ async function runPrCheck(
     })
   }
 
-  const check = await checkRun.finalize("failure", {
-    title: needsResign ? "CLA: Re-signing required" : "CLA: Signature required",
-    summary: needsResign
-      ? `@${prAuthor} signed an older CLA. Please re-sign (version \`${versionLabel}\`).`
-      : `@${prAuthor} has not signed the CLA for ${orgSlug}. Please sign to continue.`,
+  // The check run's "Details" link is bot-controlled and independent of PR
+  // comments, so contributors always have a trustworthy path to the sign page.
+  const signUrl = buildClaSignUrl({
+    appBaseUrl: baseUrl,
+    orgSlug: org.githubOrgSlug,
+    repoName,
+    prNumber,
+    medium: "check_run",
   })
+  const check = await checkRun.finalize(
+    "failure",
+    {
+      title: needsResign ? "CLA: Re-signing required" : "CLA: Signature required",
+      summary: needsResign
+        ? `@${prAuthor} signed an older CLA. Please re-sign (version \`${versionLabel}\`).`
+        : `@${prAuthor} has not signed the CLA for ${orgSlug}. Please sign to continue.`,
+    },
+    { detailsUrl: signUrl }
+  )
 
   const commentBody = generateUnsignedComment({
     prAuthor,
@@ -1081,7 +1105,7 @@ async function runPrCheck(
     isResign: needsResign,
   })
 
-  const existingComment = await github.findBotComment(orgSlug, repoName, prNumber)
+  const existingComment = await findOwnedClaBotComment(github, orgSlug, repoName, prNumber)
   let comment: { id: number; commentMarkdown: string }
 
   if (existingComment) {
@@ -1299,7 +1323,7 @@ export async function GET(request: NextRequest) {
   const org = await getOrganizationBySlug(orgSlug)
   const github = getGitHubClient(org?.installationId ?? undefined)
 
-  const botComment = await github.findBotComment(orgSlug, repoName, Number(prNumber))
+  const botComment = await findOwnedClaBotComment(github, orgSlug, repoName, Number(prNumber))
 
   return NextResponse.json({
     comment: botComment ? { id: botComment.id, commentMarkdown: botComment.body } : null,
@@ -1482,11 +1506,11 @@ A maintainer must publish the CLA first: ${adminUrl}
 <sub>Once the CLA is configured, this check will enforce contributor signing automatically.</sub>`
 }
 
-function isRemovableClaPromptComment(commentBody: string) {
-  if (!isClaBotManagedComment(commentBody)) return false
+function isRemovableClaPromptComment(comment: IssueComment) {
+  if (!isManagedClaBotComment(comment)) return false
   return (
-    commentBody.includes("Contributor License Agreement Required") ||
-    commentBody.includes("Re-signing Required") ||
-    commentBody.includes("CLA Bot is not configured for this repository")
+    comment.body.includes("Contributor License Agreement Required") ||
+    comment.body.includes("Re-signing Required") ||
+    comment.body.includes("CLA Bot is not configured for this repository")
   )
 }

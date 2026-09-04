@@ -17,6 +17,27 @@ function withClaBotSignature(body: string) {
   return `${CLA_BOT_COMMENT_SIGNATURE}\n${body}`
 }
 
+/**
+ * The bot-controlled URL where a contributor signs an org's CLA, scoped to a PR.
+ * Used both in the PR comment and as the check run's `details_url`, so the sign
+ * link is reachable even when no comment is present.
+ */
+export function buildClaSignUrl({
+  appBaseUrl,
+  orgSlug,
+  repoName,
+  prNumber,
+  medium,
+}: {
+  appBaseUrl: string
+  orgSlug: string
+  repoName: string
+  prNumber: number
+  medium: "pr_comment" | "check_run"
+}): string {
+  return `${appBaseUrl}/sign/${orgSlug}?repo=${encodeURIComponent(repoName)}&pr=${prNumber}&utm_source=github&utm_medium=${medium}&utm_campaign=cla_bot`
+}
+
 function buildBrandingFooter(appBaseUrl: string, context: "unsigned" | "signed" | "inactive") {
   const fiveonefourUrl = buildFiveonefourUrl({
     medium: "github_pr_comment",
@@ -47,7 +68,7 @@ export function generateUnsignedComment({
   appBaseUrl: string
   isResign: boolean
 }): string {
-  const signUrl = `${appBaseUrl}/sign/${orgSlug}?repo=${encodeURIComponent(repoName)}&pr=${prNumber}&utm_source=github&utm_medium=pr_comment&utm_campaign=cla_bot`
+  const signUrl = buildClaSignUrl({ appBaseUrl, orgSlug, repoName, prNumber, medium: "pr_comment" })
 
   const header = isResign
     ? `### CLA Re-signing Required`

@@ -118,6 +118,7 @@ export class OctokitGitHubClient implements GitHubClient {
       conclusion: params.conclusion,
       started_at: params.started_at,
       completed_at: params.completed_at,
+      details_url: params.details_url,
       output: params.output,
     })
     return this.mapCheckRun(data)
@@ -131,6 +132,7 @@ export class OctokitGitHubClient implements GitHubClient {
       status: params.status,
       conclusion: params.conclusion,
       completed_at: params.completed_at,
+      details_url: params.details_url,
       output: params.output,
     })
     return this.mapCheckRun(data)
@@ -320,6 +322,7 @@ export class OctokitGitHubClient implements GitHubClient {
     completed_at: string | null
     output?: { title?: string | null; summary?: string | null } | null
     html_url: string | null
+    details_url?: string | null
   }): CheckRun {
     return {
       id: data.id,
@@ -334,6 +337,7 @@ export class OctokitGitHubClient implements GitHubClient {
         summary: data.output?.summary ?? "",
       },
       html_url: data.html_url ?? "",
+      details_url: data.details_url ?? null,
     }
   }
 
@@ -347,6 +351,7 @@ export class OctokitGitHubClient implements GitHubClient {
       html_url?: string | null
       type?: string | null
     } | null
+    performed_via_github_app?: { id?: number | null } | null
     created_at?: string
     updated_at?: string
     html_url?: string
@@ -362,6 +367,7 @@ export class OctokitGitHubClient implements GitHubClient {
         html_url: data.user?.html_url ?? "",
         type: (data.user?.type as GitHubUser["type"]) ?? "User",
       },
+      performed_via_github_app_id: data.performed_via_github_app?.id ?? null,
       created_at: data.created_at ?? now,
       updated_at: data.updated_at ?? now,
       html_url: data.html_url ?? "",
