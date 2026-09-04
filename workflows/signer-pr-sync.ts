@@ -2,6 +2,7 @@ import { createAuditEvent, getOrganizationBySlug } from "@/lib/db/queries"
 import { getGitHubClient } from "@/lib/github"
 import { findOwnedClaBotComment, isManagedClaBotComment } from "@/lib/github/comment-ownership"
 import type { IssueComment } from "@/lib/github/types"
+import { getAppBaseUrl } from "@/lib/cla/signing"
 
 const CHECK_NAME = "CLA Bot / Contributor License Agreement"
 
@@ -286,6 +287,10 @@ async function syncSignerOpenPullRequests(params: {
           check_run_id: latestClaCheck.id,
           status: "completed",
           conclusion: "success",
+          // The failing run linked Details to the sign page. GitHub keeps the
+          // previous details_url unless it is overwritten, so point a passing
+          // check at the contributor dashboard instead of the sign flow.
+          details_url: `${getAppBaseUrl()}/contributor`,
           output: {
             title: "CLA: Signed",
             summary: `@${params.signer.githubUsername} has signed CLA version \`${versionLabel}\`.`,
