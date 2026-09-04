@@ -3,8 +3,8 @@ name: CodeQL
 on:
   push:
     branches: [main]
+  # Every pull request, including stacked ones targeting a feature branch.
   pull_request:
-    branches: [main]
   schedule:
     - cron: "17 4 * * 1"
 
