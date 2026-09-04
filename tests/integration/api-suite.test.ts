@@ -2257,6 +2257,51 @@ test("Webhook: a legacy row without an account id squatting the target slug is q
   assertEqual(legacyAfter?.isActive, false, "legacy row deactivated")
 })
 
+test("Webhook: an installation payload without account.id does not erase the stored account id", async (baseUrl) => {
+  await resetDb(baseUrl)
+
+  const created = await sendWebhook(baseUrl, "installation", {
+    action: "created",
+    installation: { id: 32001, account: { login: "acme", id: 5001, type: "Organization" } },
+    sender: { id: 1, login: "orgadmin" },
+  })
+  const rowId = created.data.org.id as string
+  assertEqual(
+    (await getOrgRowById(rowId))?.githubAccountId,
+    "5001",
+    "account id recorded on install"
+  )
+
+  // GitHub occasionally omits fields; a payload with no account.id must not
+  // downgrade the row to a legacy (null identity) row.
+  const deleted = await sendWebhook(baseUrl, "installation", {
+    action: "deleted",
+    installation: { id: 32001, account: { login: "acme", type: "Organization" } },
+    sender: { id: 1, login: "orgadmin" },
+  })
+  assertEqual(deleted.res.status, 200, "uninstall accepted")
+  const row = await getOrgRowById(rowId)
+  assertEqual(row?.installationId, null, "installation unbound")
+  assertEqual(row?.githubAccountId, "5001", "stored account id preserved")
+
+  // A slug-only reinstall by a different account must now hit the identity
+  // guard instead of adopting the row as legacy.
+  const other = await sendWebhook(baseUrl, "installation", {
+    action: "created",
+    installation: { id: 32002, account: { login: "acme", id: 6666, type: "Organization" } },
+    sender: { id: 1, login: "orgadmin" },
+  })
+  assertEqual(other.res.status, 200, "other account install accepted")
+  assert(other.data.org.id !== rowId, "other account gets its own row")
+  const original = await getOrgRowById(rowId)
+  assertEqual(original?.githubAccountId, "5001", "original row keeps its identity")
+  assertEqual(
+    original?.githubOrgSlug,
+    "acme__orphaned-5001",
+    "original row moved to the orphan slug"
+  )
+})
+
 test("Webhook: pull_request from a different owner account on a reused slug is not served by the stale row", async (baseUrl) => {
   await resetDb(baseUrl)
 

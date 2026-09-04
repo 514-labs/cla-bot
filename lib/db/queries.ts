@@ -300,6 +300,8 @@ function normalizeAccountIdOption(value: string | number | null | undefined): st
  * Predicate that lets an UPDATE carrying `githubAccountId` touch a row only
  * when the row has no account id yet or already has the same one. A write that
  * matches zero rows because of this predicate is an identity conflict.
+ * `githubAccountId` is only ever filled in (legacy backfill), never changed or
+ * cleared: writers ignore a null option instead of persisting it.
  */
 function accountIdCompatible(accountId: string) {
   return or(isNull(organizations.githubAccountId), eq(organizations.githubAccountId, accountId))
@@ -315,8 +317,12 @@ export async function updateOrganizationSlug(
     githubOrgSlug: string
     githubAccountId?: string | null
   } = { githubOrgSlug: newSlug }
-  if (options && "githubAccountId" in options) {
-    updateData.githubAccountId = normalizeAccountIdOption(options.githubAccountId)
+  // A null/undefined account id carries no identity to record. Never write it:
+  // it would erase the immutable identity of the row and turn it back into a
+  // "legacy" row that a later slug-only match could bind to another account.
+  const requestedAccountId = normalizeAccountIdOption(options?.githubAccountId)
+  if (requestedAccountId) {
+    updateData.githubAccountId = requestedAccountId
   }
 
   const identityGuard = updateData.githubAccountId
@@ -590,8 +596,12 @@ export async function updateOrganizationInstallationId(
   if (options?.githubAccountType) {
     updateData.githubAccountType = options.githubAccountType
   }
-  if (options && "githubAccountId" in options) {
-    updateData.githubAccountId = normalizeAccountIdOption(options.githubAccountId)
+  // A null/undefined account id carries no identity to record. Never write it:
+  // it would erase the immutable identity of the row and turn it back into a
+  // "legacy" row that a later slug-only match could bind to another account.
+  const requestedAccountId = normalizeAccountIdOption(options?.githubAccountId)
+  if (requestedAccountId) {
+    updateData.githubAccountId = requestedAccountId
   }
 
   const identityGuard = updateData.githubAccountId
