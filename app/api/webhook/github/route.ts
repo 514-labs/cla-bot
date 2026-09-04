@@ -9,6 +9,8 @@
 
 import { type NextRequest, NextResponse } from "next/server"
 import { getGitHubClient, upsertMockPullRequest } from "@/lib/github"
+import type { GitHubClient } from "@/lib/github/client"
+import type { CheckRun, CheckRunConclusion } from "@/lib/github/types"
 import {
   getOrganizationBySlug,
   getOrganizationByGithubAccountId,
@@ -517,6 +519,122 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({ message: `Ignored event: ${event}` })
 }
 
+type CheckOutput = { title: string; summary: string }
+
+/**
+ * Raised inside the PR-check decision logic when the request cannot be
+ * evaluated (unknown org, missing installation, ...). The outer handler turns
+ * it into a completed *failed* check run plus a JSON error, so the contributor
+ * sees why instead of a check that never appears.
+ */
+class PrCheckAbort extends Error {
+  constructor(
+    readonly status: number,
+    message: string,
+    readonly output: CheckOutput
+  ) {
+    super(message)
+    this.name = "PrCheckAbort"
+  }
+}
+
+type CheckRunFinalizer = {
+  finalize(conclusion: CheckRunConclusion, output: CheckOutput): Promise<CheckRun>
+  readonly finalized: boolean
+}
+
+/**
+ * Post an `in_progress` check run immediately and return a finalizer that turns
+ * it into a completed one. Time-to-visible for the contributor becomes one
+ * GitHub round trip instead of "after every DB and API call has finished".
+ *
+ * If the initial create fails (GitHub hiccup), `finalize` falls back to creating
+ * a completed check run directly, so the outcome is still visible.
+ */
+function startCheckRun(
+  github: GitHubClient,
+  target: { owner: string; repo: string; headSha: string; prAuthor: string }
+): CheckRunFinalizer {
+  const pending = github.createCheckRun({
+    owner: target.owner,
+    repo: target.repo,
+    name: CHECK_NAME,
+    head_sha: target.headSha,
+    status: "in_progress",
+    started_at: new Date().toISOString(),
+    output: {
+      title: "CLA: Checking",
+      summary: `Verifying whether @${target.prAuthor} needs to sign the CLA.`,
+    },
+  })
+  // Observed later in finalize(); avoid an unhandled-rejection warning in between.
+  pending.catch(() => undefined)
+
+  let finalized = false
+  return {
+    get finalized() {
+      return finalized
+    },
+    async finalize(conclusion, output) {
+      const completedAt = new Date().toISOString()
+      const completedFields = {
+        owner: target.owner,
+        repo: target.repo,
+        status: "completed" as const,
+        conclusion,
+        completed_at: completedAt,
+        output,
+      }
+
+      // Distinguish "the in-progress run was never created" from "it exists but
+      // the update failed". Only the former should fall straight through to a
+      // fresh completed run.
+      let created: CheckRun | null = null
+      try {
+        created = await pending
+      } catch (error) {
+        console.error(
+          "[webhook] in-progress check run was not created; posting a completed one instead:",
+          error instanceof Error ? error.message : error
+        )
+      }
+
+      if (created) {
+        // Retry the update once before giving up on the existing run.
+        for (let attempt = 1; attempt <= 2; attempt += 1) {
+          try {
+            const updated = await github.updateCheckRun({
+              ...completedFields,
+              check_run_id: created.id,
+            })
+            finalized = true
+            return updated
+          } catch (error) {
+            console.error(
+              `[webhook] updateCheckRun attempt ${attempt} failed for check run ${created.id}:`,
+              error instanceof Error ? error.message : error
+            )
+          }
+        }
+        // Both updates failed. Post a new completed run with the same name and
+        // head SHA: GitHub treats the newest run per name as authoritative for
+        // the check suite, so this supersedes the stuck in-progress run.
+        console.error(
+          `[webhook] superseding in-progress check run ${created.id} with a new completed run`
+        )
+      }
+
+      const replacement = await github.createCheckRun({
+        ...completedFields,
+        name: CHECK_NAME,
+        head_sha: target.headSha,
+      })
+      finalized = true
+      return replacement
+    },
+  }
+}
+
 async function handlePrCheck(params: {
   orgSlug: string
   repoName: string
@@ -527,12 +645,91 @@ async function handlePrCheck(params: {
   baseUrl: string
   installationId?: number
 }) {
-  const { orgSlug, repoName, prNumber, prAuthor, prAuthorId, headSha, baseUrl, installationId } =
-    params
+  const { orgSlug, repoName, prAuthor, headSha, installationId } = params
+  const target = { owner: orgSlug, repo: repoName, headSha, prAuthor }
+
+  // Fast path: the webhook payload carries the installation id, so the GitHub
+  // client (and the in-progress check) need nothing from the database.
+  let github: GitHubClient | null = null
+  let checkRun: CheckRunFinalizer | null = null
+  if (installationId) {
+    try {
+      github = getGitHubClient(installationId)
+    } catch (err) {
+      console.error("Failed to initialize GitHub client:", err)
+      return NextResponse.json({ error: "GitHub client is not configured" }, { status: 500 })
+    }
+    checkRun = startCheckRun(github, target)
+  }
+
+  try {
+    return await runPrCheck(params, {
+      github,
+      checkRun,
+      ensureClient: (resolvedInstallationId) => {
+        if (github && checkRun) return { github, checkRun }
+        github = getGitHubClient(resolvedInstallationId)
+        checkRun = startCheckRun(github, target)
+        return { github, checkRun }
+      },
+    })
+  } catch (error) {
+    const abort = error instanceof PrCheckAbort ? error : null
+    if (!abort) {
+      console.error("[webhook] PR check failed:", error)
+    }
+
+    // Whatever happened, never leave an in-progress check behind.
+    if (checkRun && !checkRun.finalized) {
+      try {
+        await checkRun.finalize(
+          "failure",
+          abort?.output ?? {
+            title: "CLA: Check could not complete",
+            summary:
+              "CLA Bot hit an unexpected error while checking this pull request. Push a new commit or comment `/recheck` to try again.",
+          }
+        )
+      } catch (finalizeError) {
+        console.error("[webhook] Failed to finalize check run after error:", finalizeError)
+      }
+    }
+
+    if (abort) {
+      return NextResponse.json({ error: abort.message }, { status: abort.status })
+    }
+    return NextResponse.json(
+      { error: "CLA check failed", detail: error instanceof Error ? error.message : String(error) },
+      { status: 500 }
+    )
+  }
+}
+
+async function runPrCheck(
+  params: {
+    orgSlug: string
+    repoName: string
+    prNumber: number
+    prAuthor: string
+    prAuthorId?: number
+    headSha: string
+    baseUrl: string
+    installationId?: number
+  },
+  clients: {
+    github: GitHubClient | null
+    checkRun: CheckRunFinalizer | null
+    ensureClient: (installationId?: number) => { github: GitHubClient; checkRun: CheckRunFinalizer }
+  }
+) {
+  const { orgSlug, repoName, prNumber, prAuthor, prAuthorId, baseUrl, installationId } = params
 
   const org = await getOrganizationBySlug(orgSlug)
   if (!org) {
-    return NextResponse.json({ error: `Organization "${orgSlug}" not found` }, { status: 404 })
+    throw new PrCheckAbort(404, `Organization "${orgSlug}" not found`, {
+      title: "CLA: Organization not registered",
+      summary: `@${orgSlug} is not registered with CLA Bot. An admin must install the app for this account.`,
+    })
   }
 
   const resolvedInstallationId = installationId ?? org.installationId ?? undefined
@@ -541,32 +738,29 @@ async function handlePrCheck(params: {
   }
 
   if (!resolvedInstallationId && process.env.NODE_ENV === "production") {
-    return NextResponse.json(
-      { error: `Missing installation ID for organization "${orgSlug}"` },
-      { status: 424 }
-    )
+    throw new PrCheckAbort(424, `Missing installation ID for organization "${orgSlug}"`, {
+      title: "CLA: Installation missing",
+      summary: `CLA Bot has no GitHub App installation on record for @${orgSlug}. Reinstall the app to restore checks.`,
+    })
   }
 
-  let github: ReturnType<typeof getGitHubClient>
+  let github: GitHubClient
+  let checkRun: CheckRunFinalizer
   try {
-    github = getGitHubClient(resolvedInstallationId)
+    ;({ github, checkRun } = clients.ensureClient(resolvedInstallationId))
   } catch (err) {
     console.error("Failed to initialize GitHub client:", err)
-    return NextResponse.json({ error: "GitHub client is not configured" }, { status: 500 })
+    throw new PrCheckAbort(500, "GitHub client is not configured", {
+      title: "CLA: Bot misconfigured",
+      summary:
+        "CLA Bot could not authenticate with GitHub. The operator needs to check the App credentials.",
+    })
   }
 
   if (!org.isActive) {
-    const check = await github.createCheckRun({
-      owner: orgSlug,
-      repo: repoName,
-      name: CHECK_NAME,
-      head_sha: headSha,
-      status: "completed",
-      conclusion: "success",
-      output: {
-        title: "CLA: Bot deactivated",
-        summary: `CLA enforcement is currently deactivated for @${orgSlug}. This pull request is not blocked by CLA requirements.`,
-      },
+    const check = await checkRun.finalize("success", {
+      title: "CLA: Bot deactivated",
+      summary: `CLA enforcement is currently deactivated for @${orgSlug}. This pull request is not blocked by CLA requirements.`,
     })
 
     const existingComment = await github.findBotComment(orgSlug, repoName, prNumber)
@@ -618,17 +812,9 @@ async function handlePrCheck(params: {
       bypassAccount.bypassKind === "app_bot"
         ? `@${prAuthor} matched app/bot bypass @${bypassAccount.githubUsername} for @${orgSlug}.`
         : `@${prAuthor} is on the CLA bypass list for @${orgSlug}.`
-    const check = await github.createCheckRun({
-      owner: orgSlug,
-      repo: repoName,
-      name: CHECK_NAME,
-      head_sha: headSha,
-      status: "completed",
-      conclusion: "success",
-      output: {
-        title: "CLA: Bypassed",
-        summary: bypassSummary,
-      },
+    const check = await checkRun.finalize("success", {
+      title: "CLA: Bypassed",
+      summary: bypassSummary,
     })
 
     const existingComment = await github.findBotComment(orgSlug, repoName, prNumber)
@@ -685,17 +871,9 @@ async function handlePrCheck(params: {
     const bypassSummary = accountOwner
       ? `@${prAuthor} is the owner of @${orgSlug}. No CLA signature required.`
       : `@${prAuthor} is a member of @${orgSlug}. No CLA signature required.`
-    const check = await github.createCheckRun({
-      owner: orgSlug,
-      repo: repoName,
-      name: CHECK_NAME,
-      head_sha: headSha,
-      status: "completed",
-      conclusion: "success",
-      output: {
-        title: accountOwner ? "CLA: Repository owner" : "CLA: Org member",
-        summary: bypassSummary,
-      },
+    const check = await checkRun.finalize("success", {
+      title: accountOwner ? "CLA: Repository owner" : "CLA: Org member",
+      summary: bypassSummary,
     })
     await createAuditEvent({
       eventType: "webhook.pr_check",
@@ -723,17 +901,9 @@ async function handlePrCheck(params: {
   }
 
   if (!org.claTextSha256 || org.claText.trim().length === 0) {
-    const check = await github.createCheckRun({
-      owner: orgSlug,
-      repo: repoName,
-      name: CHECK_NAME,
-      head_sha: headSha,
-      status: "completed",
-      conclusion: "failure",
-      output: {
-        title: "CLA: Configuration required",
-        summary: `@${orgSlug} has not published a CLA yet. A maintainer must configure one before contributors can sign.`,
-      },
+    const check = await checkRun.finalize("failure", {
+      title: "CLA: Configuration required",
+      summary: `@${orgSlug} has not published a CLA yet. A maintainer must configure one before contributors can sign.`,
     })
 
     const commentBody = generateUnconfiguredClaComment({
@@ -793,17 +963,9 @@ async function handlePrCheck(params: {
   const versionLabel = org.claTextSha256 ? org.claTextSha256.slice(0, 7) : "unknown"
 
   if (isSigned) {
-    const check = await github.createCheckRun({
-      owner: orgSlug,
-      repo: repoName,
-      name: CHECK_NAME,
-      head_sha: headSha,
-      status: "completed",
-      conclusion: "success",
-      output: {
-        title: "CLA: Signed",
-        summary: `@${prAuthor} has signed the current CLA (version \`${versionLabel}\`).`,
-      },
+    const check = await checkRun.finalize("success", {
+      title: "CLA: Signed",
+      summary: `@${prAuthor} has signed the current CLA (version \`${versionLabel}\`).`,
     })
     await createAuditEvent({
       eventType: "webhook.pr_check",
@@ -831,19 +993,11 @@ async function handlePrCheck(params: {
     })
   }
 
-  const check = await github.createCheckRun({
-    owner: orgSlug,
-    repo: repoName,
-    name: CHECK_NAME,
-    head_sha: headSha,
-    status: "completed",
-    conclusion: "failure",
-    output: {
-      title: needsResign ? "CLA: Re-signing required" : "CLA: Signature required",
-      summary: needsResign
-        ? `@${prAuthor} signed an older CLA. Please re-sign (version \`${versionLabel}\`).`
-        : `@${prAuthor} has not signed the CLA for ${orgSlug}. Please sign to continue.`,
-    },
+  const check = await checkRun.finalize("failure", {
+    title: needsResign ? "CLA: Re-signing required" : "CLA: Signature required",
+    summary: needsResign
+      ? `@${prAuthor} signed an older CLA. Please re-sign (version \`${versionLabel}\`).`
+      : `@${prAuthor} has not signed the CLA for ${orgSlug}. Please sign to continue.`,
   })
 
   const commentBody = generateUnsignedComment({

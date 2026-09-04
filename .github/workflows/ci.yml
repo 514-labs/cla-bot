@@ -1,8 +1,9 @@
 name: CI
 
 on:
+  # Run on every pull request regardless of its base branch, so stacked PRs
+  # (targeting another feature branch) are verified before they retarget main.
   pull_request:
-    branches: [main]
   push:
     branches: [main]
 
