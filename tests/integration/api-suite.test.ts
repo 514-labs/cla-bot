@@ -2212,6 +2212,51 @@ test("Webhook: original account reclaiming its slug recovers its quarantined row
   assertEqual(squatterRow?.installationId, null, "B's row unbound")
 })
 
+test("Webhook: a legacy row without an account id squatting the target slug is quarantined on rename", async (baseUrl) => {
+  await resetDb(baseUrl)
+
+  // A installs on `acme`, then renames to `acme-new`.
+  const first = await sendWebhook(baseUrl, "installation", {
+    action: "created",
+    installation: { id: 31001, account: { login: "acme", id: 5001, type: "Organization" } },
+    sender: { id: 1, login: "orgadmin" },
+  })
+  const rowAId = first.data.org.id as string
+  const renamed = await sendWebhook(baseUrl, "organization", {
+    action: "renamed",
+    organization: { id: 5001, login: "acme-new" },
+    changes: { login: { from: "acme" } },
+  })
+  assertEqual(renamed.res.status, 200, "rename accepted")
+
+  // A legacy row (no account id recorded) ends up on the freed `acme` login.
+  const legacy = await sendWebhook(baseUrl, "installation", {
+    action: "created",
+    installation: { id: 31002, account: { login: "acme", type: "Organization" } },
+    sender: { id: 1, login: "orgadmin" },
+  })
+  assertEqual(legacy.res.status, 200, "legacy install accepted")
+  const legacyRowId = legacy.data.org.id as string
+  assert(legacyRowId !== rowAId, "legacy install created its own row")
+  const legacyBefore = await getOrgRowById(legacyRowId)
+  assertEqual(legacyBefore?.githubAccountId, null, "legacy row has no account id")
+
+  // A renames back to `acme`. The legacy squatter must be moved aside so the
+  // unique slug can be reclaimed, instead of the rename failing on the constraint.
+  const back = await sendWebhook(baseUrl, "organization", {
+    action: "renamed",
+    organization: { id: 5001, login: "acme" },
+    changes: { login: { from: "acme-new" } },
+  })
+  assertEqual(back.res.status, 200, "rename back accepted")
+  const rowA = await getOrgRowById(rowAId)
+  assertEqual(rowA?.githubOrgSlug, "acme", "A's row is back on the slug")
+  const legacyAfter = await getOrgRowById(legacyRowId)
+  assertEqual(legacyAfter?.githubOrgSlug, "acme__orphaned-unknown", "legacy row moved off the slug")
+  assertEqual(legacyAfter?.installationId, null, "legacy row unbound")
+  assertEqual(legacyAfter?.isActive, false, "legacy row deactivated")
+})
+
 test("Webhook: pull_request from a different owner account on a reused slug is not served by the stale row", async (baseUrl) => {
   await resetDb(baseUrl)
 
@@ -2236,6 +2281,30 @@ test("Webhook: pull_request from a different owner account on a reused slug is n
 
   const row = await getOrgRowBySlug("fiveonefour")
   assertEqual(row?.installationId, 10001, "stale row was not rebound to the PR's installation")
+  assertEqual(row?.githubAccountId, "2001", "stale row keeps its account id")
+})
+
+test("Webhook: /recheck from a different owner account on a reused slug is not served by the stale row", async (baseUrl) => {
+  await resetDb(baseUrl)
+
+  // Same identity guard as the pull_request path: the recheck payload names
+  // the repository owner's account id, and it does not match the seeded row.
+  const { res, data } = await sendWebhook(baseUrl, "issue_comment", {
+    action: "created",
+    comment: { body: "/recheck", user: { login: "orgadmin" } },
+    issue: {
+      number: 78,
+      user: { login: "contributor1", id: 1002 },
+      pull_request: { url: "https://api.github.com/repos/fiveonefour/repo/pulls/78" },
+    },
+    repository: { owner: { login: "fiveonefour", id: 6666 }, name: "repo" },
+    installation: { id: 40002 },
+  })
+  assertEqual(res.status, 404, "recheck aborted as unregistered")
+  assert(String(data.error).includes("different account"), "error explains the identity mismatch")
+
+  const row = await getOrgRowBySlug("fiveonefour")
+  assertEqual(row?.installationId, 10001, "stale row was not rebound to the recheck's installation")
   assertEqual(row?.githubAccountId, "2001", "stale row keeps its account id")
 })
 

@@ -95,7 +95,7 @@ type IssueCommentPayload = {
   }
   repository?: {
     name?: string
-    owner?: { login?: string }
+    owner?: { login?: string; id?: number }
   }
 }
 
@@ -433,6 +433,7 @@ export async function POST(request: NextRequest) {
     }
 
     const orgSlug = commentPayload.repository?.owner?.login
+    const ownerAccountId = commentPayload.repository?.owner?.id
     const repoName = commentPayload.repository?.name
     const prNumber = commentPayload.issue?.number
     const prAuthor = commentPayload.issue?.user?.login
@@ -513,6 +514,7 @@ export async function POST(request: NextRequest) {
 
     return handlePrCheck({
       orgSlug,
+      ownerAccountId,
       repoName,
       prNumber,
       prAuthor,
@@ -1350,20 +1352,18 @@ async function resolveOrganizationForReconciliation(params: {
   }
 
   // The matched row is about to be renamed to `currentSlug`. If another row
-  // for a different account still holds that slug (the account that owned the
-  // login before), move it out of the way so the rename can converge.
+  // still holds that slug, move it out of the way so the rename can converge:
+  // `githubOrgSlug` is unique, so leaving it in place makes the rename throw.
+  // The matched row is the one identified for this account, so any *other* row
+  // on the login is stale, whether it records a different account id or none
+  // at all (a legacy row created before account ids were stored).
   if (
     params.currentSlug &&
     params.accountId &&
     resolution.org.githubOrgSlug !== params.currentSlug
   ) {
     const squatter = await getOrganizationBySlug(params.currentSlug)
-    if (
-      squatter &&
-      squatter.id !== resolution.org.id &&
-      squatter.githubAccountId !== null &&
-      !accountIdMatches(squatter.githubAccountId, params.accountId)
-    ) {
+    if (squatter && squatter.id !== resolution.org.id) {
       await quarantineStaleOrganization({
         org: squatter,
         matchedBy: "current_slug",
