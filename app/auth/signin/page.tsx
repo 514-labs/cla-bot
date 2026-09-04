@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { BrandLockup } from "@/components/brand-logo"
 import { Github } from "@/components/icons/github"
 import Link from "next/link"
+import { sanitizeReturnTo } from "@/lib/security/return-to"
 
 export default async function SignInPage({
   searchParams,
@@ -50,10 +51,4 @@ export default async function SignInPage({
       </Card>
     </div>
   )
-}
-
-function sanitizeReturnTo(raw: string | null, fallback: string): string {
-  if (!raw) return fallback
-  if (!raw.startsWith("/") || raw.startsWith("//")) return fallback
-  return raw
 }

@@ -357,6 +357,22 @@ describe("returnTo sanitization", () => {
     const location = requireHeader(res, "location")
     expect(new URL(location).pathname).toBe("/dashboard")
   })
+
+  it("falls back to /dashboard for a backslash returnTo that the URL parser would treat as //", async () => {
+    const mockFetch = createMockFetch("success")
+    vi.stubGlobal("fetch", mockFetch)
+
+    // `new URL("/\\evil.com", base)` resolves to https://evil.com/ because the
+    // WHATWG parser treats a backslash as a forward slash.
+    const stateCookie = `${NONCE}:${encodeURIComponent("/\\evil.com/steal")}`
+    const req = makeCallbackRequest({ stateCookie })
+    const res = await GET(req)
+
+    expect(res.status).toBe(307)
+    const location = requireHeader(res, "location")
+    expect(new URL(location).origin).toBe("http://localhost:3000")
+    expect(new URL(location).pathname).toBe("/dashboard")
+  })
 })
 
 function requireHeader(response: Response, name: string): string {
