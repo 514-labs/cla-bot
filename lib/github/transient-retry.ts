@@ -18,7 +18,7 @@ export interface TransientRetryOptions {
 const DEFAULT_ATTEMPTS = 3
 const DEFAULT_BASE_DELAY_MS = 500
 
-export function isTransientGitHubError(error: unknown): boolean {
+function isTransientGitHubError(error: unknown): boolean {
   if (error && typeof error === "object" && "status" in error) {
     const status = (error as { status: unknown }).status
     if (typeof status === "number") return status >= 500
