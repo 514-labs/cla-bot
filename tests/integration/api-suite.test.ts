@@ -2479,6 +2479,30 @@ test("Webhook: merge_group non-checks_requested action is ignored", async (baseU
   assert(data.message.includes("ignored"), "non-checks_requested action is ignored")
 })
 
+test("Webhook: merge_group retries a transient createCheckRun failure", async (baseUrl) => {
+  await resetDb(baseUrl)
+  await configureTestServerGitHub(baseUrl, {
+    failures: { createCheckRun: { status: 502, message: "Injected 502", times: 1 } },
+  })
+
+  const { res, data } = await sendWebhook(
+    baseUrl,
+    "merge_group",
+    makeMergeGroupPayload({
+      action: "checks_requested",
+      orgSlug: "fiveonefour",
+      repoName: "sdk",
+    })
+  )
+  assertEqual(res.status, 200, "merge_group succeeds after the retry")
+  assertEqual(data.check.conclusion, "success", "merge queue check passes")
+
+  const state = await getTestServerState(baseUrl)
+  const creates = state.github.calls.filter((call) => call.method === "createCheckRun")
+  assertEqual(creates.length, 2, "createCheckRun retried once")
+  assertEqual(creates[1].error, null, "second createCheckRun succeeded")
+})
+
 test("Webhook: merge_group missing fields returns 400", async (baseUrl) => {
   await resetDb(baseUrl)
   const { res } = await sendWebhook(baseUrl, "merge_group", {

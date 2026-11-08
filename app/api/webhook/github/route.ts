@@ -42,6 +42,7 @@ import {
   CLA_BOT_COMMENT_SIGNATURE,
   generateUnsignedComment,
 } from "@/lib/pr-comment-template"
+import { withTransientRetry } from "@/lib/github/transient-retry"
 import { verifyWebhookSignatureFromEnv } from "@/lib/github/webhook-signature"
 import { sanitizeForLog, sanitizeForLogOrNull } from "@/lib/security/log"
 
@@ -340,18 +341,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "GitHub client is not configured" }, { status: 500 })
     }
 
-    const check = await github.createCheckRun({
-      owner: orgSlug,
-      repo: repoName,
-      name: CHECK_NAME,
-      head_sha: headSha,
-      status: "completed",
-      conclusion: "success",
-      output: {
-        title: "CLA: Merge queue",
-        summary: `CLA compliance was verified on the original pull request. Merge queue check passed.`,
-      },
-    })
+    const check = await postMergeQueueCheck(github, { owner: orgSlug, repo: repoName, headSha })
 
     return NextResponse.json({
       message: `Merge group check passed for ${orgSlug}/${repoName}.`,
@@ -404,18 +394,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "GitHub client is not configured" }, { status: 500 })
     }
 
-    const check = await github.createCheckRun({
-      owner: orgSlug,
-      repo: repoName,
-      name: CHECK_NAME,
-      head_sha: headSha,
-      status: "completed",
-      conclusion: "success",
-      output: {
-        title: "CLA: Merge queue",
-        summary: `CLA compliance was verified on the original pull request. Merge queue check passed.`,
-      },
-    })
+    const check = await postMergeQueueCheck(github, { owner: orgSlug, repo: repoName, headSha })
 
     return NextResponse.json({
       message: `Merge queue check suite passed for ${orgSlug}/${repoName}.`,
@@ -581,6 +560,34 @@ type CheckRunFinalizer = {
     options?: { detailsUrl?: string }
   ): Promise<CheckRun>
   readonly finalized: boolean
+}
+
+/**
+ * Post the passing merge-queue check. A required check that is never posted
+ * stalls the merge queue, and GitHub does not redeliver a webhook that
+ * returned 5xx, so transient GitHub failures are retried here. A duplicate is
+ * harmless: both runs are completed successes on the same head SHA.
+ */
+function postMergeQueueCheck(
+  github: GitHubClient,
+  target: { owner: string; repo: string; headSha: string }
+): Promise<CheckRun> {
+  return withTransientRetry(
+    () =>
+      github.createCheckRun({
+        owner: target.owner,
+        repo: target.repo,
+        name: CHECK_NAME,
+        head_sha: target.headSha,
+        status: "completed",
+        conclusion: "success",
+        output: {
+          title: "CLA: Merge queue",
+          summary: `CLA compliance was verified on the original pull request. Merge queue check passed.`,
+        },
+      }),
+    { label: "merge-queue createCheckRun" }
+  )
 }
 
 /**
