@@ -8,7 +8,6 @@ import { createAppAuth } from "@octokit/auth-app"
 import type { GitHubClient } from "./client"
 import { findLatestManagedClaBotComment } from "./comment-ownership"
 import { getGitHubApiBaseUrl } from "./base-urls"
-import { withTransientRetry } from "./transient-retry"
 import type {
   GitHubUser,
   OrgMembershipStatus,
@@ -110,40 +109,32 @@ export class OctokitGitHubClient implements GitHubClient {
   // --- Check Runs ---
 
   async createCheckRun(params: CreateCheckRunParams): Promise<CheckRun> {
-    const { data } = await withTransientRetry(
-      () =>
-        this.octokit.rest.checks.create({
-          owner: params.owner,
-          repo: params.repo,
-          name: params.name,
-          head_sha: params.head_sha,
-          status: params.status,
-          conclusion: params.conclusion,
-          started_at: params.started_at,
-          completed_at: params.completed_at,
-          details_url: params.details_url,
-          output: params.output,
-        }),
-      { label: "createCheckRun" }
-    )
+    const { data } = await this.octokit.rest.checks.create({
+      owner: params.owner,
+      repo: params.repo,
+      name: params.name,
+      head_sha: params.head_sha,
+      status: params.status,
+      conclusion: params.conclusion,
+      started_at: params.started_at,
+      completed_at: params.completed_at,
+      details_url: params.details_url,
+      output: params.output,
+    })
     return this.mapCheckRun(data)
   }
 
   async updateCheckRun(params: UpdateCheckRunParams): Promise<CheckRun> {
-    const { data } = await withTransientRetry(
-      () =>
-        this.octokit.rest.checks.update({
-          owner: params.owner,
-          repo: params.repo,
-          check_run_id: params.check_run_id,
-          status: params.status,
-          conclusion: params.conclusion,
-          completed_at: params.completed_at,
-          details_url: params.details_url,
-          output: params.output,
-        }),
-      { label: "updateCheckRun" }
-    )
+    const { data } = await this.octokit.rest.checks.update({
+      owner: params.owner,
+      repo: params.repo,
+      check_run_id: params.check_run_id,
+      status: params.status,
+      conclusion: params.conclusion,
+      completed_at: params.completed_at,
+      details_url: params.details_url,
+      output: params.output,
+    })
     return this.mapCheckRun(data)
   }
 
