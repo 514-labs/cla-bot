@@ -32,7 +32,7 @@ importers:
     dependencies:
       '@c15t/nextjs':
         specifier: ^2.2.0
-        version: 2.2.0(@types/react@19.2.14)(next@16.3.4(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.13.3)(react-dom@19.2.3(react@19.2.6))(react@19.2.6))(react-dom@19.2.3(react@19.2.6))(react@19.2.6)(typescript@7.0.2)
+        version: 2.2.0(@types/react@19.2.18)(next@16.3.4(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.13.3)(react-dom@19.2.3(react@19.2.8))(react@19.2.8))(react-dom@19.2.3(react@19.2.8))(react@19.2.8)(typescript@7.0.2)
       '@neondatabase/serverless':
         specifier: ^1.1.0
         version: 1.1.0
@@ -44,16 +44,16 @@ importers:
         version: 22.0.1
       '@radix-ui/react-dropdown-menu':
         specifier: ^2.1.24
-        version: 2.1.24(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.3(react@19.2.6))(react@19.2.6)
+        version: 2.1.24(@types/react-dom@19.2.3(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.3(react@19.2.8))(react@19.2.8)
       '@radix-ui/react-slot':
         specifier: 1.2.4
-        version: 1.2.4(@types/react@19.2.14)(react@19.2.6)
+        version: 1.2.4(@types/react@19.2.18)(react@19.2.8)
       '@vercel/analytics':
         specifier: ^2.0.1
-        version: 2.0.1(next@16.3.4(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.13.3)(react-dom@19.2.3(react@19.2.6))(react@19.2.6))(react@19.2.6)
+        version: 2.0.1(next@16.3.4(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.13.3)(react-dom@19.2.3(react@19.2.8))(react@19.2.8))(react@19.2.8)
       '@vercel/toolbar':
         specifier: ^0.2.6
-        version: 0.2.6(@vercel/analytics@2.0.1(next@16.3.4(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.13.3)(react-dom@19.2.3(react@19.2.6))(react@19.2.6))(react@19.2.6))(next@16.3.4(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.13.3)(react-dom@19.2.3(react@19.2.6))(react@19.2.6))(react-dom@19.2.3(react@19.2.6))(react@19.2.6)(vite@7.3.6(@types/node@24.13.3)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.5)(yaml@2.9.0))
+        version: 0.2.6(@vercel/analytics@2.0.1(next@16.3.4(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.13.3)(react-dom@19.2.3(react@19.2.8))(react@19.2.8))(react@19.2.8))(debug@4.4.3(supports-color@8.1.1))(next@16.3.4(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.13.3)(react-dom@19.2.3(react@19.2.8))(react@19.2.8))(react-dom@19.2.3(react@19.2.8))(react@19.2.8)(vite@7.3.6(@types/node@24.13.3)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.5)(yaml@2.9.0))
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -62,25 +62,25 @@ importers:
         version: 2.1.1
       drizzle-orm:
         specifier: ^0.45.2
-        version: 0.45.2(@electric-sql/pglite@0.2.17)(@neondatabase/serverless@1.1.0)(@opentelemetry/api@1.9.0)(@types/pg@8.11.6)(gel@2.2.0)(pg@8.20.0)(postgres@3.4.9)
+        version: 0.45.2(@electric-sql/pglite@0.2.17)(@neondatabase/serverless@1.1.0)(@opentelemetry/api@1.9.0)(@types/pg@8.11.6)(gel@2.2.0(supports-color@8.1.1))(pg@8.20.0)(postgres@3.4.9)
       jose:
         specifier: ^6.2.3
         version: 6.2.3
       lucide-react:
         specifier: ^1.38.0
-        version: 1.38.0(react@19.2.6)
+        version: 1.38.0(react@19.2.8)
       next:
         specifier: 16.3.4
-        version: 16.3.4(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.13.3)(react-dom@19.2.3(react@19.2.6))(react@19.2.6)
+        version: 16.3.4(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.13.3)(react-dom@19.2.3(react@19.2.8))(react@19.2.8)
       postgres:
         specifier: ^3.4.9
         version: 3.4.9
       react:
         specifier: ^19
-        version: 19.2.6
+        version: 19.2.8
       react-dom:
         specifier: ^19
-        version: 19.2.3(react@19.2.6)
+        version: 19.2.3(react@19.2.8)
       server-only:
         specifier: ^0.0.1
         version: 0.0.1
@@ -92,7 +92,7 @@ importers:
         version: 1.4.0
       workflow:
         specifier: 4.8.5
-        version: 4.8.5(@nestjs/common@11.1.14(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.18(@nestjs/common@11.1.14(reflect-metadata@0.2.2)(rxjs@7.8.2))(reflect-metadata@0.2.2)(rxjs@7.8.2))(@opentelemetry/api@1.9.0)(@swc/cli@0.8.0(@swc/core@1.15.3(@swc/helpers@0.5.23))(chokidar@5.0.0))(@swc/core@1.15.3(@swc/helpers@0.5.23))(@swc/helpers@0.5.23)(magicast@0.5.2)(next@16.3.4(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.13.3)(react-dom@19.2.3(react@19.2.6))(react@19.2.6))(typescript@7.0.2)
+        version: 4.8.5(@nestjs/common@11.1.14(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(@nestjs/core@11.1.18(@nestjs/common@11.1.14(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(reflect-metadata@0.2.2)(rxjs@7.8.2))(@opentelemetry/api@1.9.0)(@swc/cli@0.8.0(@swc/core@1.15.3(@swc/helpers@0.5.23))(chokidar@5.0.0)(supports-color@8.1.1))(@swc/core@1.15.3(@swc/helpers@0.5.23))(@swc/helpers@0.5.23)(magicast@0.5.2)(next@16.3.4(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.13.3)(react-dom@19.2.3(react@19.2.8))(react@19.2.8))(supports-color@8.1.1)(typescript@7.0.2)
       zod:
         specifier: ^4.4.3
         version: 4.4.3
@@ -111,10 +111,10 @@ importers:
         version: 24.13.3
       '@types/react':
         specifier: ^19
-        version: 19.2.14
+        version: 19.2.18
       '@types/react-dom':
         specifier: ^19
-        version: 19.2.3(@types/react@19.2.14)
+        version: 19.2.3(@types/react@19.2.18)
       '@vitest/coverage-v8':
         specifier: 4.1.7
         version: 4.1.7(vitest@4.1.7)
@@ -2371,8 +2371,8 @@ packages:
     peerDependencies:
       '@types/react': ^19.2.0
 
-  '@types/react@19.2.14':
-    resolution: {integrity: sha512-ilcTH/UniCkMdtexkoCN0bI7pMcJDvmQFPvuPvmEaYA/NSfFTAgdUSLAoVjaRJm7+6PvcM+q1zYOwS4wTYMF9w==}
+  '@types/react@19.2.18':
+    resolution: {integrity: sha512-AnzbBERsrLKtk2XSfTbYRLjQPdy116Sty4q+T+Bp3IC4l6jNBvreVPAHmpq9qhXQM7CXZPjLVmGMw9sy+hxQ3w==}
 
   '@typescript/typescript-aix-ppc64@7.0.2':
     resolution: {integrity: sha512-MTKKkWB7p/0E9xi1d1tHtZ5PiLkGEMIq88pK2CubZjOsLtYTLqhgIgi6zepFa+9GHZ6h05NMCkQxGKiPXMxXtQ==}
@@ -4359,8 +4359,8 @@ packages:
       '@types/react':
         optional: true
 
-  react@19.2.6:
-    resolution: {integrity: sha512-sfWGGfavi0xr8Pg0sVsyHMAOziVYKgPLNrS7ig+ivMNb3wbCBw3KxtflsGBAwD3gYQlE/AEZsTLgToRrSCjb0Q==}
+  react@19.2.8:
+    resolution: {integrity: sha512-PWaYA1L/q9u2u7xYQi+Y3L3Yfnie7XyLeaJICV1MGD6LprsBxcAqGjYyr0eY3p+QdsA+x/Irkt4Qif8D63+Sbw==}
     engines: {node: '>=0.10.0'}
 
   readdirp@3.6.0:
@@ -5137,27 +5137,27 @@ snapshots:
 
   '@borewit/text-codec@0.2.2': {}
 
-  '@c15t/nextjs@2.2.0(@types/react@19.2.14)(next@16.3.4(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.13.3)(react-dom@19.2.3(react@19.2.6))(react@19.2.6))(react-dom@19.2.3(react@19.2.6))(react@19.2.6)(typescript@7.0.2)':
+  '@c15t/nextjs@2.2.0(@types/react@19.2.18)(next@16.3.4(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.13.3)(react-dom@19.2.3(react@19.2.8))(react@19.2.8))(react-dom@19.2.3(react@19.2.8))(react@19.2.8)(typescript@7.0.2)':
     dependencies:
-      '@c15t/react': 2.2.0(@types/react@19.2.14)(react-dom@19.2.3(react@19.2.6))(react@19.2.6)(typescript@7.0.2)
+      '@c15t/react': 2.2.0(@types/react@19.2.18)(react-dom@19.2.3(react@19.2.8))(react@19.2.8)(typescript@7.0.2)
       '@c15t/translations': 2.2.0
-      c15t: 2.2.0(@types/react@19.2.14)(react@19.2.6)(typescript@7.0.2)
-      next: 16.3.4(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.13.3)(react-dom@19.2.3(react@19.2.6))(react@19.2.6)
-      react: 19.2.6
-      react-dom: 19.2.3(react@19.2.6)
+      c15t: 2.2.0(@types/react@19.2.18)(react@19.2.8)(typescript@7.0.2)
+      next: 16.3.4(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.13.3)(react-dom@19.2.3(react@19.2.8))(react@19.2.8)
+      react: 19.2.8
+      react-dom: 19.2.3(react@19.2.8)
     transitivePeerDependencies:
       - '@types/react'
       - immer
       - typescript
       - use-sync-external-store
 
-  '@c15t/react@2.2.0(@types/react@19.2.14)(react-dom@19.2.3(react@19.2.6))(react@19.2.6)(typescript@7.0.2)':
+  '@c15t/react@2.2.0(@types/react@19.2.18)(react-dom@19.2.3(react@19.2.8))(react@19.2.8)(typescript@7.0.2)':
     dependencies:
-      '@c15t/ui': 2.2.0(@types/react@19.2.14)(react@19.2.6)(typescript@7.0.2)
+      '@c15t/ui': 2.2.0(@types/react@19.2.18)(react@19.2.8)(typescript@7.0.2)
       '@types/google.maps': 3.65.3
-      c15t: 2.2.0(@types/react@19.2.14)(react@19.2.6)(typescript@7.0.2)
-      react: 19.2.6
-      react-dom: 19.2.3(react@19.2.6)
+      c15t: 2.2.0(@types/react@19.2.18)(react@19.2.8)(typescript@7.0.2)
+      react: 19.2.8
+      react-dom: 19.2.3(react@19.2.8)
     transitivePeerDependencies:
       - '@types/react'
       - immer
@@ -5172,10 +5172,10 @@ snapshots:
 
   '@c15t/translations@2.2.0': {}
 
-  '@c15t/ui@2.2.0(@types/react@19.2.14)(react@19.2.6)(typescript@7.0.2)':
+  '@c15t/ui@2.2.0(@types/react@19.2.18)(react@19.2.8)(typescript@7.0.2)':
     dependencies:
       '@c15t/translations': 2.2.0
-      c15t: 2.2.0(@types/react@19.2.14)(react@19.2.6)(typescript@7.0.2)
+      c15t: 2.2.0(@types/react@19.2.18)(react@19.2.8)(typescript@7.0.2)
     transitivePeerDependencies:
       - '@types/react'
       - immer
@@ -5504,11 +5504,11 @@ snapshots:
       '@floating-ui/core': 1.8.0
       '@floating-ui/utils': 0.2.12
 
-  '@floating-ui/react-dom@2.1.9(react-dom@19.2.3(react@19.2.6))(react@19.2.6)':
+  '@floating-ui/react-dom@2.1.9(react-dom@19.2.3(react@19.2.8))(react@19.2.8)':
     dependencies:
       '@floating-ui/dom': 1.8.0
-      react: 19.2.6
-      react-dom: 19.2.3(react@19.2.6)
+      react: 19.2.8
+      react-dom: 19.2.3(react@19.2.8)
 
   '@floating-ui/utils@0.2.12': {}
 
@@ -5726,9 +5726,9 @@ snapshots:
 
   '@neondatabase/serverless@1.1.0': {}
 
-  '@nestjs/common@11.1.14(reflect-metadata@0.2.2)(rxjs@7.8.2)':
+  '@nestjs/common@11.1.14(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1)':
     dependencies:
-      file-type: 21.3.4
+      file-type: 21.3.4(supports-color@8.1.1)
       iterare: 1.2.1
       load-esm: 1.0.3
       reflect-metadata: 0.2.2
@@ -5738,9 +5738,9 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@nestjs/core@11.1.18(@nestjs/common@11.1.14(reflect-metadata@0.2.2)(rxjs@7.8.2))(reflect-metadata@0.2.2)(rxjs@7.8.2)':
+  '@nestjs/core@11.1.18(@nestjs/common@11.1.14(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(reflect-metadata@0.2.2)(rxjs@7.8.2)':
     dependencies:
-      '@nestjs/common': 11.1.14(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      '@nestjs/common': 11.1.14(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1)
       '@nuxt/opencollective': 0.4.1
       fast-safe-stringify: 2.1.1
       iterare: 1.2.1
@@ -6081,255 +6081,255 @@ snapshots:
 
   '@radix-ui/primitive@1.1.7': {}
 
-  '@radix-ui/react-arrow@1.1.15(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.3(react@19.2.6))(react@19.2.6)':
+  '@radix-ui/react-arrow@1.1.15(@types/react-dom@19.2.3(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.3(react@19.2.8))(react@19.2.8)':
     dependencies:
-      '@radix-ui/react-primitive': 2.1.10(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.3(react@19.2.6))(react@19.2.6)
-      react: 19.2.6
-      react-dom: 19.2.3(react@19.2.6)
+      '@radix-ui/react-primitive': 2.1.10(@types/react-dom@19.2.3(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.3(react@19.2.8))(react@19.2.8)
+      react: 19.2.8
+      react-dom: 19.2.3(react@19.2.8)
     optionalDependencies:
-      '@types/react': 19.2.14
-      '@types/react-dom': 19.2.3(@types/react@19.2.14)
+      '@types/react': 19.2.18
+      '@types/react-dom': 19.2.3(@types/react@19.2.18)
 
-  '@radix-ui/react-collection@1.1.15(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.3(react@19.2.6))(react@19.2.6)':
+  '@radix-ui/react-collection@1.1.15(@types/react-dom@19.2.3(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.3(react@19.2.8))(react@19.2.8)':
     dependencies:
-      '@radix-ui/react-compose-refs': 1.1.5(@types/react@19.2.14)(react@19.2.6)
-      '@radix-ui/react-context': 1.2.2(@types/react@19.2.14)(react@19.2.6)
-      '@radix-ui/react-primitive': 2.1.10(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.3(react@19.2.6))(react@19.2.6)
-      '@radix-ui/react-slot': 1.3.3(@types/react@19.2.14)(react@19.2.6)
-      react: 19.2.6
-      react-dom: 19.2.3(react@19.2.6)
+      '@radix-ui/react-compose-refs': 1.1.5(@types/react@19.2.18)(react@19.2.8)
+      '@radix-ui/react-context': 1.2.2(@types/react@19.2.18)(react@19.2.8)
+      '@radix-ui/react-primitive': 2.1.10(@types/react-dom@19.2.3(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.3(react@19.2.8))(react@19.2.8)
+      '@radix-ui/react-slot': 1.3.3(@types/react@19.2.18)(react@19.2.8)
+      react: 19.2.8
+      react-dom: 19.2.3(react@19.2.8)
     optionalDependencies:
-      '@types/react': 19.2.14
-      '@types/react-dom': 19.2.3(@types/react@19.2.14)
+      '@types/react': 19.2.18
+      '@types/react-dom': 19.2.3(@types/react@19.2.18)
 
-  '@radix-ui/react-compose-refs@1.1.2(@types/react@19.2.14)(react@19.2.6)':
+  '@radix-ui/react-compose-refs@1.1.2(@types/react@19.2.18)(react@19.2.8)':
     dependencies:
-      react: 19.2.6
+      react: 19.2.8
     optionalDependencies:
-      '@types/react': 19.2.14
+      '@types/react': 19.2.18
 
-  '@radix-ui/react-compose-refs@1.1.5(@types/react@19.2.14)(react@19.2.6)':
+  '@radix-ui/react-compose-refs@1.1.5(@types/react@19.2.18)(react@19.2.8)':
     dependencies:
-      react: 19.2.6
+      react: 19.2.8
     optionalDependencies:
-      '@types/react': 19.2.14
+      '@types/react': 19.2.18
 
-  '@radix-ui/react-context@1.2.2(@types/react@19.2.14)(react@19.2.6)':
+  '@radix-ui/react-context@1.2.2(@types/react@19.2.18)(react@19.2.8)':
     dependencies:
-      react: 19.2.6
+      react: 19.2.8
     optionalDependencies:
-      '@types/react': 19.2.14
+      '@types/react': 19.2.18
 
-  '@radix-ui/react-direction@1.1.4(@types/react@19.2.14)(react@19.2.6)':
+  '@radix-ui/react-direction@1.1.4(@types/react@19.2.18)(react@19.2.8)':
     dependencies:
-      react: 19.2.6
+      react: 19.2.8
     optionalDependencies:
-      '@types/react': 19.2.14
+      '@types/react': 19.2.18
 
-  '@radix-ui/react-dismissable-layer@1.1.19(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.3(react@19.2.6))(react@19.2.6)':
+  '@radix-ui/react-dismissable-layer@1.1.19(@types/react-dom@19.2.3(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.3(react@19.2.8))(react@19.2.8)':
     dependencies:
       '@radix-ui/primitive': 1.1.7
-      '@radix-ui/react-compose-refs': 1.1.5(@types/react@19.2.14)(react@19.2.6)
-      '@radix-ui/react-primitive': 2.1.10(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.3(react@19.2.6))(react@19.2.6)
-      '@radix-ui/react-use-callback-ref': 1.1.4(@types/react@19.2.14)(react@19.2.6)
-      '@radix-ui/react-use-effect-event': 0.0.5(@types/react@19.2.14)(react@19.2.6)
-      react: 19.2.6
-      react-dom: 19.2.3(react@19.2.6)
+      '@radix-ui/react-compose-refs': 1.1.5(@types/react@19.2.18)(react@19.2.8)
+      '@radix-ui/react-primitive': 2.1.10(@types/react-dom@19.2.3(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.3(react@19.2.8))(react@19.2.8)
+      '@radix-ui/react-use-callback-ref': 1.1.4(@types/react@19.2.18)(react@19.2.8)
+      '@radix-ui/react-use-effect-event': 0.0.5(@types/react@19.2.18)(react@19.2.8)
+      react: 19.2.8
+      react-dom: 19.2.3(react@19.2.8)
     optionalDependencies:
-      '@types/react': 19.2.14
-      '@types/react-dom': 19.2.3(@types/react@19.2.14)
+      '@types/react': 19.2.18
+      '@types/react-dom': 19.2.3(@types/react@19.2.18)
 
-  '@radix-ui/react-dropdown-menu@2.1.24(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.3(react@19.2.6))(react@19.2.6)':
+  '@radix-ui/react-dropdown-menu@2.1.24(@types/react-dom@19.2.3(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.3(react@19.2.8))(react@19.2.8)':
     dependencies:
       '@radix-ui/primitive': 1.1.7
-      '@radix-ui/react-compose-refs': 1.1.5(@types/react@19.2.14)(react@19.2.6)
-      '@radix-ui/react-context': 1.2.2(@types/react@19.2.14)(react@19.2.6)
-      '@radix-ui/react-id': 1.1.4(@types/react@19.2.14)(react@19.2.6)
-      '@radix-ui/react-menu': 2.1.24(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.3(react@19.2.6))(react@19.2.6)
-      '@radix-ui/react-primitive': 2.1.10(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.3(react@19.2.6))(react@19.2.6)
-      '@radix-ui/react-use-controllable-state': 1.2.6(@types/react@19.2.14)(react@19.2.6)
-      react: 19.2.6
-      react-dom: 19.2.3(react@19.2.6)
+      '@radix-ui/react-compose-refs': 1.1.5(@types/react@19.2.18)(react@19.2.8)
+      '@radix-ui/react-context': 1.2.2(@types/react@19.2.18)(react@19.2.8)
+      '@radix-ui/react-id': 1.1.4(@types/react@19.2.18)(react@19.2.8)
+      '@radix-ui/react-menu': 2.1.24(@types/react-dom@19.2.3(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.3(react@19.2.8))(react@19.2.8)
+      '@radix-ui/react-primitive': 2.1.10(@types/react-dom@19.2.3(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.3(react@19.2.8))(react@19.2.8)
+      '@radix-ui/react-use-controllable-state': 1.2.6(@types/react@19.2.18)(react@19.2.8)
+      react: 19.2.8
+      react-dom: 19.2.3(react@19.2.8)
     optionalDependencies:
-      '@types/react': 19.2.14
-      '@types/react-dom': 19.2.3(@types/react@19.2.14)
+      '@types/react': 19.2.18
+      '@types/react-dom': 19.2.3(@types/react@19.2.18)
 
-  '@radix-ui/react-focus-guards@1.1.6(@types/react@19.2.14)(react@19.2.6)':
+  '@radix-ui/react-focus-guards@1.1.6(@types/react@19.2.18)(react@19.2.8)':
     dependencies:
-      react: 19.2.6
+      react: 19.2.8
     optionalDependencies:
-      '@types/react': 19.2.14
+      '@types/react': 19.2.18
 
-  '@radix-ui/react-focus-scope@1.1.16(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.3(react@19.2.6))(react@19.2.6)':
+  '@radix-ui/react-focus-scope@1.1.16(@types/react-dom@19.2.3(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.3(react@19.2.8))(react@19.2.8)':
     dependencies:
-      '@radix-ui/react-compose-refs': 1.1.5(@types/react@19.2.14)(react@19.2.6)
-      '@radix-ui/react-primitive': 2.1.10(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.3(react@19.2.6))(react@19.2.6)
-      '@radix-ui/react-use-callback-ref': 1.1.4(@types/react@19.2.14)(react@19.2.6)
-      react: 19.2.6
-      react-dom: 19.2.3(react@19.2.6)
+      '@radix-ui/react-compose-refs': 1.1.5(@types/react@19.2.18)(react@19.2.8)
+      '@radix-ui/react-primitive': 2.1.10(@types/react-dom@19.2.3(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.3(react@19.2.8))(react@19.2.8)
+      '@radix-ui/react-use-callback-ref': 1.1.4(@types/react@19.2.18)(react@19.2.8)
+      react: 19.2.8
+      react-dom: 19.2.3(react@19.2.8)
     optionalDependencies:
-      '@types/react': 19.2.14
-      '@types/react-dom': 19.2.3(@types/react@19.2.14)
+      '@types/react': 19.2.18
+      '@types/react-dom': 19.2.3(@types/react@19.2.18)
 
-  '@radix-ui/react-id@1.1.4(@types/react@19.2.14)(react@19.2.6)':
+  '@radix-ui/react-id@1.1.4(@types/react@19.2.18)(react@19.2.8)':
     dependencies:
-      '@radix-ui/react-use-layout-effect': 1.1.4(@types/react@19.2.14)(react@19.2.6)
-      react: 19.2.6
+      '@radix-ui/react-use-layout-effect': 1.1.4(@types/react@19.2.18)(react@19.2.8)
+      react: 19.2.8
     optionalDependencies:
-      '@types/react': 19.2.14
+      '@types/react': 19.2.18
 
-  '@radix-ui/react-menu@2.1.24(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.3(react@19.2.6))(react@19.2.6)':
+  '@radix-ui/react-menu@2.1.24(@types/react-dom@19.2.3(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.3(react@19.2.8))(react@19.2.8)':
     dependencies:
       '@radix-ui/primitive': 1.1.7
-      '@radix-ui/react-collection': 1.1.15(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.3(react@19.2.6))(react@19.2.6)
-      '@radix-ui/react-compose-refs': 1.1.5(@types/react@19.2.14)(react@19.2.6)
-      '@radix-ui/react-context': 1.2.2(@types/react@19.2.14)(react@19.2.6)
-      '@radix-ui/react-direction': 1.1.4(@types/react@19.2.14)(react@19.2.6)
-      '@radix-ui/react-dismissable-layer': 1.1.19(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.3(react@19.2.6))(react@19.2.6)
-      '@radix-ui/react-focus-guards': 1.1.6(@types/react@19.2.14)(react@19.2.6)
-      '@radix-ui/react-focus-scope': 1.1.16(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.3(react@19.2.6))(react@19.2.6)
-      '@radix-ui/react-id': 1.1.4(@types/react@19.2.14)(react@19.2.6)
-      '@radix-ui/react-popper': 1.3.7(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.3(react@19.2.6))(react@19.2.6)
-      '@radix-ui/react-portal': 1.1.17(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.3(react@19.2.6))(react@19.2.6)
-      '@radix-ui/react-presence': 1.1.10(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.3(react@19.2.6))(react@19.2.6)
-      '@radix-ui/react-primitive': 2.1.10(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.3(react@19.2.6))(react@19.2.6)
-      '@radix-ui/react-roving-focus': 1.1.19(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.3(react@19.2.6))(react@19.2.6)
-      '@radix-ui/react-slot': 1.3.3(@types/react@19.2.14)(react@19.2.6)
-      '@radix-ui/react-use-callback-ref': 1.1.4(@types/react@19.2.14)(react@19.2.6)
+      '@radix-ui/react-collection': 1.1.15(@types/react-dom@19.2.3(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.3(react@19.2.8))(react@19.2.8)
+      '@radix-ui/react-compose-refs': 1.1.5(@types/react@19.2.18)(react@19.2.8)
+      '@radix-ui/react-context': 1.2.2(@types/react@19.2.18)(react@19.2.8)
+      '@radix-ui/react-direction': 1.1.4(@types/react@19.2.18)(react@19.2.8)
+      '@radix-ui/react-dismissable-layer': 1.1.19(@types/react-dom@19.2.3(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.3(react@19.2.8))(react@19.2.8)
+      '@radix-ui/react-focus-guards': 1.1.6(@types/react@19.2.18)(react@19.2.8)
+      '@radix-ui/react-focus-scope': 1.1.16(@types/react-dom@19.2.3(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.3(react@19.2.8))(react@19.2.8)
+      '@radix-ui/react-id': 1.1.4(@types/react@19.2.18)(react@19.2.8)
+      '@radix-ui/react-popper': 1.3.7(@types/react-dom@19.2.3(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.3(react@19.2.8))(react@19.2.8)
+      '@radix-ui/react-portal': 1.1.17(@types/react-dom@19.2.3(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.3(react@19.2.8))(react@19.2.8)
+      '@radix-ui/react-presence': 1.1.10(@types/react-dom@19.2.3(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.3(react@19.2.8))(react@19.2.8)
+      '@radix-ui/react-primitive': 2.1.10(@types/react-dom@19.2.3(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.3(react@19.2.8))(react@19.2.8)
+      '@radix-ui/react-roving-focus': 1.1.19(@types/react-dom@19.2.3(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.3(react@19.2.8))(react@19.2.8)
+      '@radix-ui/react-slot': 1.3.3(@types/react@19.2.18)(react@19.2.8)
+      '@radix-ui/react-use-callback-ref': 1.1.4(@types/react@19.2.18)(react@19.2.8)
       aria-hidden: 1.2.6
-      react: 19.2.6
-      react-dom: 19.2.3(react@19.2.6)
-      react-remove-scroll: 2.7.2(@types/react@19.2.14)(react@19.2.6)
+      react: 19.2.8
+      react-dom: 19.2.3(react@19.2.8)
+      react-remove-scroll: 2.7.2(@types/react@19.2.18)(react@19.2.8)
     optionalDependencies:
-      '@types/react': 19.2.14
-      '@types/react-dom': 19.2.3(@types/react@19.2.14)
+      '@types/react': 19.2.18
+      '@types/react-dom': 19.2.3(@types/react@19.2.18)
 
-  '@radix-ui/react-popper@1.3.7(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.3(react@19.2.6))(react@19.2.6)':
+  '@radix-ui/react-popper@1.3.7(@types/react-dom@19.2.3(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.3(react@19.2.8))(react@19.2.8)':
     dependencies:
-      '@floating-ui/react-dom': 2.1.9(react-dom@19.2.3(react@19.2.6))(react@19.2.6)
-      '@radix-ui/react-arrow': 1.1.15(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.3(react@19.2.6))(react@19.2.6)
-      '@radix-ui/react-compose-refs': 1.1.5(@types/react@19.2.14)(react@19.2.6)
-      '@radix-ui/react-context': 1.2.2(@types/react@19.2.14)(react@19.2.6)
-      '@radix-ui/react-primitive': 2.1.10(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.3(react@19.2.6))(react@19.2.6)
-      '@radix-ui/react-use-callback-ref': 1.1.4(@types/react@19.2.14)(react@19.2.6)
-      '@radix-ui/react-use-layout-effect': 1.1.4(@types/react@19.2.14)(react@19.2.6)
-      '@radix-ui/react-use-rect': 1.1.4(@types/react@19.2.14)(react@19.2.6)
-      '@radix-ui/react-use-size': 1.1.4(@types/react@19.2.14)(react@19.2.6)
+      '@floating-ui/react-dom': 2.1.9(react-dom@19.2.3(react@19.2.8))(react@19.2.8)
+      '@radix-ui/react-arrow': 1.1.15(@types/react-dom@19.2.3(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.3(react@19.2.8))(react@19.2.8)
+      '@radix-ui/react-compose-refs': 1.1.5(@types/react@19.2.18)(react@19.2.8)
+      '@radix-ui/react-context': 1.2.2(@types/react@19.2.18)(react@19.2.8)
+      '@radix-ui/react-primitive': 2.1.10(@types/react-dom@19.2.3(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.3(react@19.2.8))(react@19.2.8)
+      '@radix-ui/react-use-callback-ref': 1.1.4(@types/react@19.2.18)(react@19.2.8)
+      '@radix-ui/react-use-layout-effect': 1.1.4(@types/react@19.2.18)(react@19.2.8)
+      '@radix-ui/react-use-rect': 1.1.4(@types/react@19.2.18)(react@19.2.8)
+      '@radix-ui/react-use-size': 1.1.4(@types/react@19.2.18)(react@19.2.8)
       '@radix-ui/rect': 1.1.3
-      react: 19.2.6
-      react-dom: 19.2.3(react@19.2.6)
+      react: 19.2.8
+      react-dom: 19.2.3(react@19.2.8)
     optionalDependencies:
-      '@types/react': 19.2.14
-      '@types/react-dom': 19.2.3(@types/react@19.2.14)
+      '@types/react': 19.2.18
+      '@types/react-dom': 19.2.3(@types/react@19.2.18)
 
-  '@radix-ui/react-portal@1.1.17(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.3(react@19.2.6))(react@19.2.6)':
+  '@radix-ui/react-portal@1.1.17(@types/react-dom@19.2.3(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.3(react@19.2.8))(react@19.2.8)':
     dependencies:
-      '@radix-ui/react-primitive': 2.1.10(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.3(react@19.2.6))(react@19.2.6)
-      '@radix-ui/react-use-layout-effect': 1.1.4(@types/react@19.2.14)(react@19.2.6)
-      react: 19.2.6
-      react-dom: 19.2.3(react@19.2.6)
+      '@radix-ui/react-primitive': 2.1.10(@types/react-dom@19.2.3(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.3(react@19.2.8))(react@19.2.8)
+      '@radix-ui/react-use-layout-effect': 1.1.4(@types/react@19.2.18)(react@19.2.8)
+      react: 19.2.8
+      react-dom: 19.2.3(react@19.2.8)
     optionalDependencies:
-      '@types/react': 19.2.14
-      '@types/react-dom': 19.2.3(@types/react@19.2.14)
+      '@types/react': 19.2.18
+      '@types/react-dom': 19.2.3(@types/react@19.2.18)
 
-  '@radix-ui/react-presence@1.1.10(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.3(react@19.2.6))(react@19.2.6)':
+  '@radix-ui/react-presence@1.1.10(@types/react-dom@19.2.3(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.3(react@19.2.8))(react@19.2.8)':
     dependencies:
-      '@radix-ui/react-use-layout-effect': 1.1.4(@types/react@19.2.14)(react@19.2.6)
-      react: 19.2.6
-      react-dom: 19.2.3(react@19.2.6)
+      '@radix-ui/react-use-layout-effect': 1.1.4(@types/react@19.2.18)(react@19.2.8)
+      react: 19.2.8
+      react-dom: 19.2.3(react@19.2.8)
     optionalDependencies:
-      '@types/react': 19.2.14
-      '@types/react-dom': 19.2.3(@types/react@19.2.14)
+      '@types/react': 19.2.18
+      '@types/react-dom': 19.2.3(@types/react@19.2.18)
 
-  '@radix-ui/react-primitive@2.1.10(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.3(react@19.2.6))(react@19.2.6)':
+  '@radix-ui/react-primitive@2.1.10(@types/react-dom@19.2.3(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.3(react@19.2.8))(react@19.2.8)':
     dependencies:
-      '@radix-ui/react-slot': 1.3.3(@types/react@19.2.14)(react@19.2.6)
-      react: 19.2.6
-      react-dom: 19.2.3(react@19.2.6)
+      '@radix-ui/react-slot': 1.3.3(@types/react@19.2.18)(react@19.2.8)
+      react: 19.2.8
+      react-dom: 19.2.3(react@19.2.8)
     optionalDependencies:
-      '@types/react': 19.2.14
-      '@types/react-dom': 19.2.3(@types/react@19.2.14)
+      '@types/react': 19.2.18
+      '@types/react-dom': 19.2.3(@types/react@19.2.18)
 
-  '@radix-ui/react-roving-focus@1.1.19(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.3(react@19.2.6))(react@19.2.6)':
+  '@radix-ui/react-roving-focus@1.1.19(@types/react-dom@19.2.3(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.3(react@19.2.8))(react@19.2.8)':
     dependencies:
       '@radix-ui/primitive': 1.1.7
-      '@radix-ui/react-collection': 1.1.15(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.3(react@19.2.6))(react@19.2.6)
-      '@radix-ui/react-compose-refs': 1.1.5(@types/react@19.2.14)(react@19.2.6)
-      '@radix-ui/react-context': 1.2.2(@types/react@19.2.14)(react@19.2.6)
-      '@radix-ui/react-direction': 1.1.4(@types/react@19.2.14)(react@19.2.6)
-      '@radix-ui/react-id': 1.1.4(@types/react@19.2.14)(react@19.2.6)
-      '@radix-ui/react-primitive': 2.1.10(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.3(react@19.2.6))(react@19.2.6)
-      '@radix-ui/react-use-callback-ref': 1.1.4(@types/react@19.2.14)(react@19.2.6)
-      '@radix-ui/react-use-controllable-state': 1.2.6(@types/react@19.2.14)(react@19.2.6)
-      '@radix-ui/react-use-is-hydrated': 0.1.3(@types/react@19.2.14)(react@19.2.6)
-      '@radix-ui/react-use-layout-effect': 1.1.4(@types/react@19.2.14)(react@19.2.6)
-      react: 19.2.6
-      react-dom: 19.2.3(react@19.2.6)
+      '@radix-ui/react-collection': 1.1.15(@types/react-dom@19.2.3(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.3(react@19.2.8))(react@19.2.8)
+      '@radix-ui/react-compose-refs': 1.1.5(@types/react@19.2.18)(react@19.2.8)
+      '@radix-ui/react-context': 1.2.2(@types/react@19.2.18)(react@19.2.8)
+      '@radix-ui/react-direction': 1.1.4(@types/react@19.2.18)(react@19.2.8)
+      '@radix-ui/react-id': 1.1.4(@types/react@19.2.18)(react@19.2.8)
+      '@radix-ui/react-primitive': 2.1.10(@types/react-dom@19.2.3(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.3(react@19.2.8))(react@19.2.8)
+      '@radix-ui/react-use-callback-ref': 1.1.4(@types/react@19.2.18)(react@19.2.8)
+      '@radix-ui/react-use-controllable-state': 1.2.6(@types/react@19.2.18)(react@19.2.8)
+      '@radix-ui/react-use-is-hydrated': 0.1.3(@types/react@19.2.18)(react@19.2.8)
+      '@radix-ui/react-use-layout-effect': 1.1.4(@types/react@19.2.18)(react@19.2.8)
+      react: 19.2.8
+      react-dom: 19.2.3(react@19.2.8)
     optionalDependencies:
-      '@types/react': 19.2.14
-      '@types/react-dom': 19.2.3(@types/react@19.2.14)
+      '@types/react': 19.2.18
+      '@types/react-dom': 19.2.3(@types/react@19.2.18)
 
-  '@radix-ui/react-slot@1.2.4(@types/react@19.2.14)(react@19.2.6)':
+  '@radix-ui/react-slot@1.2.4(@types/react@19.2.18)(react@19.2.8)':
     dependencies:
-      '@radix-ui/react-compose-refs': 1.1.2(@types/react@19.2.14)(react@19.2.6)
-      react: 19.2.6
+      '@radix-ui/react-compose-refs': 1.1.2(@types/react@19.2.18)(react@19.2.8)
+      react: 19.2.8
     optionalDependencies:
-      '@types/react': 19.2.14
+      '@types/react': 19.2.18
 
-  '@radix-ui/react-slot@1.3.3(@types/react@19.2.14)(react@19.2.6)':
+  '@radix-ui/react-slot@1.3.3(@types/react@19.2.18)(react@19.2.8)':
     dependencies:
-      '@radix-ui/react-compose-refs': 1.1.5(@types/react@19.2.14)(react@19.2.6)
-      react: 19.2.6
+      '@radix-ui/react-compose-refs': 1.1.5(@types/react@19.2.18)(react@19.2.8)
+      react: 19.2.8
     optionalDependencies:
-      '@types/react': 19.2.14
+      '@types/react': 19.2.18
 
-  '@radix-ui/react-use-callback-ref@1.1.4(@types/react@19.2.14)(react@19.2.6)':
+  '@radix-ui/react-use-callback-ref@1.1.4(@types/react@19.2.18)(react@19.2.8)':
     dependencies:
-      react: 19.2.6
+      react: 19.2.8
     optionalDependencies:
-      '@types/react': 19.2.14
+      '@types/react': 19.2.18
 
-  '@radix-ui/react-use-controllable-state@1.2.6(@types/react@19.2.14)(react@19.2.6)':
+  '@radix-ui/react-use-controllable-state@1.2.6(@types/react@19.2.18)(react@19.2.8)':
     dependencies:
       '@radix-ui/primitive': 1.1.7
-      '@radix-ui/react-use-effect-event': 0.0.5(@types/react@19.2.14)(react@19.2.6)
-      '@radix-ui/react-use-layout-effect': 1.1.4(@types/react@19.2.14)(react@19.2.6)
-      react: 19.2.6
+      '@radix-ui/react-use-effect-event': 0.0.5(@types/react@19.2.18)(react@19.2.8)
+      '@radix-ui/react-use-layout-effect': 1.1.4(@types/react@19.2.18)(react@19.2.8)
+      react: 19.2.8
     optionalDependencies:
-      '@types/react': 19.2.14
+      '@types/react': 19.2.18
 
-  '@radix-ui/react-use-effect-event@0.0.5(@types/react@19.2.14)(react@19.2.6)':
+  '@radix-ui/react-use-effect-event@0.0.5(@types/react@19.2.18)(react@19.2.8)':
     dependencies:
-      '@radix-ui/react-use-layout-effect': 1.1.4(@types/react@19.2.14)(react@19.2.6)
-      react: 19.2.6
+      '@radix-ui/react-use-layout-effect': 1.1.4(@types/react@19.2.18)(react@19.2.8)
+      react: 19.2.8
     optionalDependencies:
-      '@types/react': 19.2.14
+      '@types/react': 19.2.18
 
-  '@radix-ui/react-use-is-hydrated@0.1.3(@types/react@19.2.14)(react@19.2.6)':
+  '@radix-ui/react-use-is-hydrated@0.1.3(@types/react@19.2.18)(react@19.2.8)':
     dependencies:
-      react: 19.2.6
+      react: 19.2.8
     optionalDependencies:
-      '@types/react': 19.2.14
+      '@types/react': 19.2.18
 
-  '@radix-ui/react-use-layout-effect@1.1.4(@types/react@19.2.14)(react@19.2.6)':
+  '@radix-ui/react-use-layout-effect@1.1.4(@types/react@19.2.18)(react@19.2.8)':
     dependencies:
-      react: 19.2.6
+      react: 19.2.8
     optionalDependencies:
-      '@types/react': 19.2.14
+      '@types/react': 19.2.18
 
-  '@radix-ui/react-use-rect@1.1.4(@types/react@19.2.14)(react@19.2.6)':
+  '@radix-ui/react-use-rect@1.1.4(@types/react@19.2.18)(react@19.2.8)':
     dependencies:
       '@radix-ui/rect': 1.1.3
-      react: 19.2.6
+      react: 19.2.8
     optionalDependencies:
-      '@types/react': 19.2.14
+      '@types/react': 19.2.18
 
-  '@radix-ui/react-use-size@1.1.4(@types/react@19.2.14)(react@19.2.6)':
+  '@radix-ui/react-use-size@1.1.4(@types/react@19.2.18)(react@19.2.8)':
     dependencies:
-      '@radix-ui/react-use-layout-effect': 1.1.4(@types/react@19.2.14)(react@19.2.6)
-      react: 19.2.6
+      '@radix-ui/react-use-layout-effect': 1.1.4(@types/react@19.2.18)(react@19.2.8)
+      react: 19.2.8
     optionalDependencies:
-      '@types/react': 19.2.14
+      '@types/react': 19.2.18
 
   '@radix-ui/rect@1.1.3': {}
 
@@ -6443,11 +6443,11 @@ snapshots:
 
   '@sveltejs/load-config@0.2.3': {}
 
-  '@swc/cli@0.8.0(@swc/core@1.15.3(@swc/helpers@0.5.23))(chokidar@5.0.0)':
+  '@swc/cli@0.8.0(@swc/core@1.15.3(@swc/helpers@0.5.23))(chokidar@5.0.0)(supports-color@8.1.1)':
     dependencies:
       '@swc/core': 1.15.3(@swc/helpers@0.5.23)
       '@swc/counter': 0.1.3
-      '@xhmikosr/bin-wrapper': 13.2.0
+      '@xhmikosr/bin-wrapper': 13.2.0(supports-color@8.1.1)
       commander: 8.3.0
       minimatch: 9.0.9
       piscina: 4.9.3
@@ -6659,7 +6659,7 @@ snapshots:
 
   '@tinyhttp/url@1.3.0': {}
 
-  '@tokenizer/inflate@0.2.7':
+  '@tokenizer/inflate@0.2.7(supports-color@8.1.1)':
     dependencies:
       debug: 4.4.3(supports-color@8.1.1)
       fflate: 0.8.3
@@ -6667,7 +6667,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@tokenizer/inflate@0.4.1':
+  '@tokenizer/inflate@0.4.1(supports-color@8.1.1)':
     dependencies:
       debug: 4.4.3(supports-color@8.1.1)
       token-types: 6.1.2
@@ -6711,11 +6711,11 @@ snapshots:
       pg-types: 4.1.0
     optional: true
 
-  '@types/react-dom@19.2.3(@types/react@19.2.14)':
+  '@types/react-dom@19.2.3(@types/react@19.2.18)':
     dependencies:
-      '@types/react': 19.2.14
+      '@types/react': 19.2.18
 
-  '@types/react@19.2.14':
+  '@types/react@19.2.18':
     dependencies:
       csstype: 3.2.3
 
@@ -6779,10 +6779,10 @@ snapshots:
   '@typescript/typescript-win32-x64@7.0.2':
     optional: true
 
-  '@vercel/analytics@2.0.1(next@16.3.4(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.13.3)(react-dom@19.2.3(react@19.2.6))(react@19.2.6))(react@19.2.6)':
+  '@vercel/analytics@2.0.1(next@16.3.4(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.13.3)(react-dom@19.2.3(react@19.2.8))(react@19.2.8))(react@19.2.8)':
     optionalDependencies:
-      next: 16.3.4(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.13.3)(react-dom@19.2.3(react@19.2.6))(react@19.2.6)
-      react: 19.2.6
+      next: 16.3.4(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.13.3)(react-dom@19.2.3(react@19.2.8))(react@19.2.8)
+      react: 19.2.8
 
   '@vercel/cli-auth@0.0.1':
     dependencies:
@@ -6806,7 +6806,7 @@ snapshots:
     optionalDependencies:
       '@aws-sdk/credential-provider-web-identity': 3.972.49
 
-  '@vercel/microfrontends@2.3.4(@vercel/analytics@2.0.1(next@16.3.4(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.13.3)(react-dom@19.2.3(react@19.2.6))(react@19.2.6))(react@19.2.6))(next@16.3.4(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.13.3)(react-dom@19.2.3(react@19.2.6))(react@19.2.6))(react-dom@19.2.3(react@19.2.6))(react@19.2.6)(vite@7.3.6(@types/node@24.13.3)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.5)(yaml@2.9.0))':
+  '@vercel/microfrontends@2.3.4(@vercel/analytics@2.0.1(next@16.3.4(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.13.3)(react-dom@19.2.3(react@19.2.8))(react@19.2.8))(react@19.2.8))(debug@4.4.3(supports-color@8.1.1))(next@16.3.4(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.13.3)(react-dom@19.2.3(react@19.2.8))(react@19.2.8))(react-dom@19.2.3(react@19.2.8))(react@19.2.8)(vite@7.3.6(@types/node@24.13.3)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.5)(yaml@2.9.0))':
     dependencies:
       '@next/env': 16.0.10
       '@types/md5': 2.3.6
@@ -6814,17 +6814,17 @@ snapshots:
       commander: 12.1.0
       cookie: 1.0.2
       fast-glob: 3.3.3
-      http-proxy: 1.18.1
+      http-proxy: 1.18.1(debug@4.4.3(supports-color@8.1.1))
       jsonc-parser: 3.3.1
       md5: 2.3.0
       nanoid: 3.3.17
       path-to-regexp: 6.3.0
       semver: 7.8.0
     optionalDependencies:
-      '@vercel/analytics': 2.0.1(next@16.3.4(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.13.3)(react-dom@19.2.3(react@19.2.6))(react@19.2.6))(react@19.2.6)
-      next: 16.3.4(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.13.3)(react-dom@19.2.3(react@19.2.6))(react@19.2.6)
-      react: 19.2.6
-      react-dom: 19.2.3(react@19.2.6)
+      '@vercel/analytics': 2.0.1(next@16.3.4(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.13.3)(react-dom@19.2.3(react@19.2.8))(react@19.2.8))(react@19.2.8)
+      next: 16.3.4(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.13.3)(react-dom@19.2.3(react@19.2.8))(react@19.2.8)
+      react: 19.2.8
+      react-dom: 19.2.3(react@19.2.8)
       vite: 7.3.6(@types/node@24.13.3)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.5)(yaml@2.9.0)
     transitivePeerDependencies:
       - debug
@@ -6844,18 +6844,18 @@ snapshots:
       mixpart: 0.0.6
       picocolors: 1.1.1
 
-  '@vercel/toolbar@0.2.6(@vercel/analytics@2.0.1(next@16.3.4(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.13.3)(react-dom@19.2.3(react@19.2.6))(react@19.2.6))(react@19.2.6))(next@16.3.4(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.13.3)(react-dom@19.2.3(react@19.2.6))(react@19.2.6))(react-dom@19.2.3(react@19.2.6))(react@19.2.6)(vite@7.3.6(@types/node@24.13.3)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.5)(yaml@2.9.0))':
+  '@vercel/toolbar@0.2.6(@vercel/analytics@2.0.1(next@16.3.4(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.13.3)(react-dom@19.2.3(react@19.2.8))(react@19.2.8))(react@19.2.8))(debug@4.4.3(supports-color@8.1.1))(next@16.3.4(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.13.3)(react-dom@19.2.3(react@19.2.8))(react@19.2.8))(react-dom@19.2.3(react@19.2.8))(react@19.2.8)(vite@7.3.6(@types/node@24.13.3)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.5)(yaml@2.9.0))':
     dependencies:
       '@tinyhttp/app': 1.3.0
-      '@vercel/microfrontends': 2.3.4(@vercel/analytics@2.0.1(next@16.3.4(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.13.3)(react-dom@19.2.3(react@19.2.6))(react@19.2.6))(react@19.2.6))(next@16.3.4(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.13.3)(react-dom@19.2.3(react@19.2.6))(react@19.2.6))(react-dom@19.2.3(react@19.2.6))(react@19.2.6)(vite@7.3.6(@types/node@24.13.3)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.5)(yaml@2.9.0))
+      '@vercel/microfrontends': 2.3.4(@vercel/analytics@2.0.1(next@16.3.4(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.13.3)(react-dom@19.2.3(react@19.2.8))(react@19.2.8))(react@19.2.8))(debug@4.4.3(supports-color@8.1.1))(next@16.3.4(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.13.3)(react-dom@19.2.3(react@19.2.8))(react@19.2.8))(react-dom@19.2.3(react@19.2.8))(react@19.2.8)(vite@7.3.6(@types/node@24.13.3)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.5)(yaml@2.9.0))
       chokidar: 3.6.0
       execa: 5.1.1
       find-up: 5.0.0
       get-port: 5.1.1
       strip-ansi: 6.0.1
     optionalDependencies:
-      next: 16.3.4(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.13.3)(react-dom@19.2.3(react@19.2.6))(react@19.2.6)
-      react: 19.2.6
+      next: 16.3.4(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.13.3)(react-dom@19.2.3(react@19.2.8))(react@19.2.8)
+      react: 19.2.8
       vite: 7.3.6(@types/node@24.13.3)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.5)(yaml@2.9.0)
     transitivePeerDependencies:
       - '@sveltejs/kit'
@@ -6919,13 +6919,13 @@ snapshots:
       convert-source-map: 2.0.0
       tinyrainbow: 3.1.0
 
-  '@workflow/astro@4.0.20(@opentelemetry/api@1.9.0)(@swc/helpers@0.5.23)':
+  '@workflow/astro@4.0.20(@opentelemetry/api@1.9.0)(@swc/helpers@0.5.23)(supports-color@8.1.1)':
     dependencies:
       '@swc/core': 1.15.3(@swc/helpers@0.5.23)
-      '@workflow/builders': 4.1.10(@opentelemetry/api@1.9.0)(@swc/helpers@0.5.23)
-      '@workflow/rollup': 4.0.20(@opentelemetry/api@1.9.0)(@swc/helpers@0.5.23)
+      '@workflow/builders': 4.1.10(@opentelemetry/api@1.9.0)(@swc/helpers@0.5.23)(supports-color@8.1.1)
+      '@workflow/rollup': 4.0.20(@opentelemetry/api@1.9.0)(@swc/helpers@0.5.23)(supports-color@8.1.1)
       '@workflow/swc-plugin': 4.1.2(@swc/core@1.15.3(@swc/helpers@0.5.23))
-      '@workflow/vite': 4.0.20(@opentelemetry/api@1.9.0)(@swc/helpers@0.5.23)
+      '@workflow/vite': 4.0.20(@opentelemetry/api@1.9.0)(@swc/helpers@0.5.23)(supports-color@8.1.1)
       exsolve: 1.1.1
       pathe: 2.0.3
     transitivePeerDependencies:
@@ -6934,10 +6934,10 @@ snapshots:
       - supports-color
       - ws
 
-  '@workflow/builders@4.1.10(@opentelemetry/api@1.9.0)(@swc/helpers@0.5.23)':
+  '@workflow/builders@4.1.10(@opentelemetry/api@1.9.0)(@swc/helpers@0.5.23)(supports-color@8.1.1)':
     dependencies:
       '@swc/core': 1.15.3(@swc/helpers@0.5.23)
-      '@workflow/core': 4.8.5(@opentelemetry/api@1.9.0)
+      '@workflow/core': 4.8.5(@opentelemetry/api@1.9.0)(supports-color@8.1.1)
       '@workflow/errors': 4.2.1
       '@workflow/swc-plugin': 4.1.2(@swc/core@1.15.3(@swc/helpers@0.5.23))
       '@workflow/utils': 4.1.4
@@ -6954,18 +6954,18 @@ snapshots:
       - supports-color
       - ws
 
-  '@workflow/cli@4.3.9(@opentelemetry/api@1.9.0)(@swc/helpers@0.5.23)':
+  '@workflow/cli@4.3.9(@opentelemetry/api@1.9.0)(@swc/helpers@0.5.23)(supports-color@8.1.1)':
     dependencies:
       '@oclif/core': 4.11.4
       '@oclif/plugin-help': 6.2.37
       '@swc/core': 1.15.3(@swc/helpers@0.5.23)
       '@vercel/cli-auth': 0.0.1
-      '@workflow/builders': 4.1.10(@opentelemetry/api@1.9.0)(@swc/helpers@0.5.23)
-      '@workflow/core': 4.8.5(@opentelemetry/api@1.9.0)
+      '@workflow/builders': 4.1.10(@opentelemetry/api@1.9.0)(@swc/helpers@0.5.23)(supports-color@8.1.1)
+      '@workflow/core': 4.8.5(@opentelemetry/api@1.9.0)(supports-color@8.1.1)
       '@workflow/errors': 4.2.1
       '@workflow/swc-plugin': 4.1.2(@swc/core@1.15.3(@swc/helpers@0.5.23))
       '@workflow/utils': 4.1.4
-      '@workflow/web': 4.1.21
+      '@workflow/web': 4.1.21(supports-color@8.1.1)
       '@workflow/world': 4.5.0
       '@workflow/world-local': 4.4.0(@opentelemetry/api@1.9.0)
       '@workflow/world-vercel': 4.7.1(@opentelemetry/api@1.9.0)
@@ -6992,7 +6992,7 @@ snapshots:
       - supports-color
       - ws
 
-  '@workflow/core@4.8.5(@opentelemetry/api@1.9.0)':
+  '@workflow/core@4.8.5(@opentelemetry/api@1.9.0)(supports-color@8.1.1)':
     dependencies:
       '@aws-sdk/credential-provider-web-identity': 3.972.49
       '@jridgewell/trace-mapping': 0.3.31
@@ -7024,13 +7024,13 @@ snapshots:
       '@workflow/utils': 4.1.4
       ms: 2.1.3
 
-  '@workflow/nest@4.0.21(@nestjs/common@11.1.14(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.18(@nestjs/common@11.1.14(reflect-metadata@0.2.2)(rxjs@7.8.2))(reflect-metadata@0.2.2)(rxjs@7.8.2))(@opentelemetry/api@1.9.0)(@swc/cli@0.8.0(@swc/core@1.15.3(@swc/helpers@0.5.23))(chokidar@5.0.0))(@swc/core@1.15.3(@swc/helpers@0.5.23))(@swc/helpers@0.5.23)':
+  '@workflow/nest@4.0.21(@nestjs/common@11.1.14(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(@nestjs/core@11.1.18(@nestjs/common@11.1.14(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(reflect-metadata@0.2.2)(rxjs@7.8.2))(@opentelemetry/api@1.9.0)(@swc/cli@0.8.0(@swc/core@1.15.3(@swc/helpers@0.5.23))(chokidar@5.0.0)(supports-color@8.1.1))(@swc/core@1.15.3(@swc/helpers@0.5.23))(@swc/helpers@0.5.23)(supports-color@8.1.1)':
     dependencies:
-      '@nestjs/common': 11.1.14(reflect-metadata@0.2.2)(rxjs@7.8.2)
-      '@nestjs/core': 11.1.18(@nestjs/common@11.1.14(reflect-metadata@0.2.2)(rxjs@7.8.2))(reflect-metadata@0.2.2)(rxjs@7.8.2)
-      '@swc/cli': 0.8.0(@swc/core@1.15.3(@swc/helpers@0.5.23))(chokidar@5.0.0)
+      '@nestjs/common': 11.1.14(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1)
+      '@nestjs/core': 11.1.18(@nestjs/common@11.1.14(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      '@swc/cli': 0.8.0(@swc/core@1.15.3(@swc/helpers@0.5.23))(chokidar@5.0.0)(supports-color@8.1.1)
       '@swc/core': 1.15.3(@swc/helpers@0.5.23)
-      '@workflow/builders': 4.1.10(@opentelemetry/api@1.9.0)(@swc/helpers@0.5.23)
+      '@workflow/builders': 4.1.10(@opentelemetry/api@1.9.0)(@swc/helpers@0.5.23)(supports-color@8.1.1)
       '@workflow/swc-plugin': 4.1.2(@swc/core@1.15.3(@swc/helpers@0.5.23))
       pathe: 2.0.3
     transitivePeerDependencies:
@@ -7039,31 +7039,31 @@ snapshots:
       - supports-color
       - ws
 
-  '@workflow/next@4.1.9(@opentelemetry/api@1.9.0)(@swc/helpers@0.5.23)(next@16.3.4(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.13.3)(react-dom@19.2.3(react@19.2.6))(react@19.2.6))':
+  '@workflow/next@4.1.9(@opentelemetry/api@1.9.0)(@swc/helpers@0.5.23)(next@16.3.4(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.13.3)(react-dom@19.2.3(react@19.2.8))(react@19.2.8))(supports-color@8.1.1)':
     dependencies:
       '@swc/core': 1.15.3(@swc/helpers@0.5.23)
-      '@workflow/builders': 4.1.10(@opentelemetry/api@1.9.0)(@swc/helpers@0.5.23)
-      '@workflow/core': 4.8.5(@opentelemetry/api@1.9.0)
+      '@workflow/builders': 4.1.10(@opentelemetry/api@1.9.0)(@swc/helpers@0.5.23)(supports-color@8.1.1)
+      '@workflow/core': 4.8.5(@opentelemetry/api@1.9.0)(supports-color@8.1.1)
       '@workflow/swc-plugin': 4.1.2(@swc/core@1.15.3(@swc/helpers@0.5.23))
       semver: 7.7.4
       watchpack: 2.5.1
     optionalDependencies:
-      next: 16.3.4(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.13.3)(react-dom@19.2.3(react@19.2.6))(react@19.2.6)
+      next: 16.3.4(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.13.3)(react-dom@19.2.3(react@19.2.8))(react@19.2.8)
     transitivePeerDependencies:
       - '@opentelemetry/api'
       - '@swc/helpers'
       - supports-color
       - ws
 
-  '@workflow/nitro@4.1.11(@opentelemetry/api@1.9.0)(@swc/helpers@0.5.23)':
+  '@workflow/nitro@4.1.11(@opentelemetry/api@1.9.0)(@swc/helpers@0.5.23)(supports-color@8.1.1)':
     dependencies:
       '@swc/core': 1.15.3(@swc/helpers@0.5.23)
-      '@workflow/builders': 4.1.10(@opentelemetry/api@1.9.0)(@swc/helpers@0.5.23)
-      '@workflow/core': 4.8.5(@opentelemetry/api@1.9.0)
-      '@workflow/rollup': 4.0.20(@opentelemetry/api@1.9.0)(@swc/helpers@0.5.23)
+      '@workflow/builders': 4.1.10(@opentelemetry/api@1.9.0)(@swc/helpers@0.5.23)(supports-color@8.1.1)
+      '@workflow/core': 4.8.5(@opentelemetry/api@1.9.0)(supports-color@8.1.1)
+      '@workflow/rollup': 4.0.20(@opentelemetry/api@1.9.0)(@swc/helpers@0.5.23)(supports-color@8.1.1)
       '@workflow/swc-plugin': 4.1.2(@swc/core@1.15.3(@swc/helpers@0.5.23))
-      '@workflow/vite': 4.0.20(@opentelemetry/api@1.9.0)(@swc/helpers@0.5.23)
-      '@workflow/web': 4.1.21
+      '@workflow/vite': 4.0.20(@opentelemetry/api@1.9.0)(@swc/helpers@0.5.23)(supports-color@8.1.1)
+      '@workflow/web': 4.1.21(supports-color@8.1.1)
       exsolve: 1.0.8
       pathe: 2.0.3
     transitivePeerDependencies:
@@ -7072,10 +7072,10 @@ snapshots:
       - supports-color
       - ws
 
-  '@workflow/nuxt@4.0.21(@opentelemetry/api@1.9.0)(@swc/helpers@0.5.23)(magicast@0.5.2)':
+  '@workflow/nuxt@4.0.21(@opentelemetry/api@1.9.0)(@swc/helpers@0.5.23)(magicast@0.5.2)(supports-color@8.1.1)':
     dependencies:
       '@nuxt/kit': 4.4.8(magicast@0.5.2)
-      '@workflow/nitro': 4.1.11(@opentelemetry/api@1.9.0)(@swc/helpers@0.5.23)
+      '@workflow/nitro': 4.1.11(@opentelemetry/api@1.9.0)(@swc/helpers@0.5.23)(supports-color@8.1.1)
     transitivePeerDependencies:
       - '@opentelemetry/api'
       - '@swc/helpers'
@@ -7083,10 +7083,10 @@ snapshots:
       - supports-color
       - ws
 
-  '@workflow/rollup@4.0.20(@opentelemetry/api@1.9.0)(@swc/helpers@0.5.23)':
+  '@workflow/rollup@4.0.20(@opentelemetry/api@1.9.0)(@swc/helpers@0.5.23)(supports-color@8.1.1)':
     dependencies:
       '@swc/core': 1.15.3(@swc/helpers@0.5.23)
-      '@workflow/builders': 4.1.10(@opentelemetry/api@1.9.0)(@swc/helpers@0.5.23)
+      '@workflow/builders': 4.1.10(@opentelemetry/api@1.9.0)(@swc/helpers@0.5.23)(supports-color@8.1.1)
       '@workflow/swc-plugin': 4.1.2(@swc/core@1.15.3(@swc/helpers@0.5.23))
       exsolve: 1.0.7
     transitivePeerDependencies:
@@ -7097,14 +7097,14 @@ snapshots:
 
   '@workflow/serde@4.1.2': {}
 
-  '@workflow/sveltekit@4.0.20(@opentelemetry/api@1.9.0)(@swc/helpers@0.5.23)':
+  '@workflow/sveltekit@4.0.20(@opentelemetry/api@1.9.0)(@swc/helpers@0.5.23)(supports-color@8.1.1)':
     dependencies:
       '@sveltejs/load-config': 0.2.3
       '@swc/core': 1.15.3(@swc/helpers@0.5.23)
-      '@workflow/builders': 4.1.10(@opentelemetry/api@1.9.0)(@swc/helpers@0.5.23)
-      '@workflow/rollup': 4.0.20(@opentelemetry/api@1.9.0)(@swc/helpers@0.5.23)
+      '@workflow/builders': 4.1.10(@opentelemetry/api@1.9.0)(@swc/helpers@0.5.23)(supports-color@8.1.1)
+      '@workflow/rollup': 4.0.20(@opentelemetry/api@1.9.0)(@swc/helpers@0.5.23)(supports-color@8.1.1)
       '@workflow/swc-plugin': 4.1.2(@swc/core@1.15.3(@swc/helpers@0.5.23))
-      '@workflow/vite': 4.0.20(@opentelemetry/api@1.9.0)(@swc/helpers@0.5.23)
+      '@workflow/vite': 4.0.20(@opentelemetry/api@1.9.0)(@swc/helpers@0.5.23)(supports-color@8.1.1)
       exsolve: 1.1.1
       fs-extra: 11.4.0
       pathe: 2.0.3
@@ -7126,18 +7126,18 @@ snapshots:
     dependencies:
       ms: 2.1.3
 
-  '@workflow/vite@4.0.20(@opentelemetry/api@1.9.0)(@swc/helpers@0.5.23)':
+  '@workflow/vite@4.0.20(@opentelemetry/api@1.9.0)(@swc/helpers@0.5.23)(supports-color@8.1.1)':
     dependencies:
-      '@workflow/builders': 4.1.10(@opentelemetry/api@1.9.0)(@swc/helpers@0.5.23)
+      '@workflow/builders': 4.1.10(@opentelemetry/api@1.9.0)(@swc/helpers@0.5.23)(supports-color@8.1.1)
     transitivePeerDependencies:
       - '@opentelemetry/api'
       - '@swc/helpers'
       - supports-color
       - ws
 
-  '@workflow/web@4.1.21':
+  '@workflow/web@4.1.21(supports-color@8.1.1)':
     dependencies:
-      express: 5.2.1
+      express: 5.2.1(supports-color@8.1.1)
     transitivePeerDependencies:
       - supports-color
 
@@ -7171,9 +7171,9 @@ snapshots:
       ulid: 3.0.2
       zod: 4.3.6
 
-  '@xhmikosr/archive-type@7.1.0':
+  '@xhmikosr/archive-type@7.1.0(supports-color@8.1.1)':
     dependencies:
-      file-type: 20.5.0
+      file-type: 20.5.0(supports-color@8.1.1)
     transitivePeerDependencies:
       - supports-color
 
@@ -7182,10 +7182,10 @@ snapshots:
       execa: 5.1.1
       isexe: 2.0.0
 
-  '@xhmikosr/bin-wrapper@13.2.0':
+  '@xhmikosr/bin-wrapper@13.2.0(supports-color@8.1.1)':
     dependencies:
       '@xhmikosr/bin-check': 7.1.0
-      '@xhmikosr/downloader': 15.2.0
+      '@xhmikosr/downloader': 15.2.0(supports-color@8.1.1)
       '@xhmikosr/os-filter-obj': 3.0.0
       bin-version-check: 5.1.0
     transitivePeerDependencies:
@@ -7194,9 +7194,9 @@ snapshots:
       - react-native-b4a
       - supports-color
 
-  '@xhmikosr/decompress-tar@8.1.0':
+  '@xhmikosr/decompress-tar@8.1.0(supports-color@8.1.1)':
     dependencies:
-      file-type: 20.5.0
+      file-type: 20.5.0(supports-color@8.1.1)
       is-stream: 2.0.1
       tar-stream: 3.2.0
     transitivePeerDependencies:
@@ -7205,10 +7205,10 @@ snapshots:
       - react-native-b4a
       - supports-color
 
-  '@xhmikosr/decompress-tarbz2@8.1.0':
+  '@xhmikosr/decompress-tarbz2@8.1.0(supports-color@8.1.1)':
     dependencies:
-      '@xhmikosr/decompress-tar': 8.1.0
-      file-type: 20.5.0
+      '@xhmikosr/decompress-tar': 8.1.0(supports-color@8.1.1)
+      file-type: 20.5.0(supports-color@8.1.1)
       is-stream: 2.0.1
       seek-bzip: 2.0.0
       unbzip2-stream: 1.4.3
@@ -7218,10 +7218,10 @@ snapshots:
       - react-native-b4a
       - supports-color
 
-  '@xhmikosr/decompress-targz@8.1.0':
+  '@xhmikosr/decompress-targz@8.1.0(supports-color@8.1.1)':
     dependencies:
-      '@xhmikosr/decompress-tar': 8.1.0
-      file-type: 20.5.0
+      '@xhmikosr/decompress-tar': 8.1.0(supports-color@8.1.1)
+      file-type: 20.5.0(supports-color@8.1.1)
       is-stream: 2.0.1
     transitivePeerDependencies:
       - bare-abort-controller
@@ -7229,20 +7229,20 @@ snapshots:
       - react-native-b4a
       - supports-color
 
-  '@xhmikosr/decompress-unzip@7.1.0':
+  '@xhmikosr/decompress-unzip@7.1.0(supports-color@8.1.1)':
     dependencies:
-      file-type: 20.5.0
+      file-type: 20.5.0(supports-color@8.1.1)
       get-stream: 6.0.1
       yauzl: 3.4.0
     transitivePeerDependencies:
       - supports-color
 
-  '@xhmikosr/decompress@10.2.2':
+  '@xhmikosr/decompress@10.2.2(supports-color@8.1.1)':
     dependencies:
-      '@xhmikosr/decompress-tar': 8.1.0
-      '@xhmikosr/decompress-tarbz2': 8.1.0
-      '@xhmikosr/decompress-targz': 8.1.0
-      '@xhmikosr/decompress-unzip': 7.1.0
+      '@xhmikosr/decompress-tar': 8.1.0(supports-color@8.1.1)
+      '@xhmikosr/decompress-tarbz2': 8.1.0(supports-color@8.1.1)
+      '@xhmikosr/decompress-targz': 8.1.0(supports-color@8.1.1)
+      '@xhmikosr/decompress-unzip': 7.1.0(supports-color@8.1.1)
       graceful-fs: 4.2.11
       strip-dirs: 3.0.0
     transitivePeerDependencies:
@@ -7251,14 +7251,14 @@ snapshots:
       - react-native-b4a
       - supports-color
 
-  '@xhmikosr/downloader@15.2.0':
+  '@xhmikosr/downloader@15.2.0(supports-color@8.1.1)':
     dependencies:
-      '@xhmikosr/archive-type': 7.1.0
-      '@xhmikosr/decompress': 10.2.2
+      '@xhmikosr/archive-type': 7.1.0(supports-color@8.1.1)
+      '@xhmikosr/decompress': 10.2.2(supports-color@8.1.1)
       content-disposition: 0.5.4
       defaults: 2.0.2
       ext-name: 5.0.0
-      file-type: 20.5.0
+      file-type: 20.5.0(supports-color@8.1.1)
       filenamify: 6.0.0
       get-stream: 6.0.1
       got: 13.0.0
@@ -7391,7 +7391,7 @@ snapshots:
 
   binary-extensions@2.3.0: {}
 
-  body-parser@2.3.0:
+  body-parser@2.3.0(supports-color@8.1.1):
     dependencies:
       bytes: 3.1.2
       content-type: 2.1.0
@@ -7462,11 +7462,11 @@ snapshots:
     optionalDependencies:
       magicast: 0.5.2
 
-  c15t@2.2.0(@types/react@19.2.14)(react@19.2.6)(typescript@7.0.2):
+  c15t@2.2.0(@types/react@19.2.18)(react@19.2.8)(typescript@7.0.2):
     dependencies:
       '@c15t/schema': 2.2.0(typescript@7.0.2)
       '@c15t/translations': 2.2.0
-      zustand: 5.0.14(@types/react@19.2.14)(react@19.2.6)
+      zustand: 5.0.14(@types/react@19.2.18)(react@19.2.8)
     transitivePeerDependencies:
       - '@types/react'
       - immer
@@ -7668,13 +7668,13 @@ snapshots:
       esbuild: 0.25.12
       tsx: 4.23.5
 
-  drizzle-orm@0.45.2(@electric-sql/pglite@0.2.17)(@neondatabase/serverless@1.1.0)(@opentelemetry/api@1.9.0)(@types/pg@8.11.6)(gel@2.2.0)(pg@8.20.0)(postgres@3.4.9):
+  drizzle-orm@0.45.2(@electric-sql/pglite@0.2.17)(@neondatabase/serverless@1.1.0)(@opentelemetry/api@1.9.0)(@types/pg@8.11.6)(gel@2.2.0(supports-color@8.1.1))(pg@8.20.0)(postgres@3.4.9):
     optionalDependencies:
       '@electric-sql/pglite': 0.2.17
       '@neondatabase/serverless': 1.1.0
       '@opentelemetry/api': 1.9.0
       '@types/pg': 8.11.6
-      gel: 2.2.0
+      gel: 2.2.0(supports-color@8.1.1)
       pg: 8.20.0
       postgres: 3.4.9
 
@@ -7874,10 +7874,10 @@ snapshots:
 
   expect-type@1.3.0: {}
 
-  express@5.2.1:
+  express@5.2.1(supports-color@8.1.1):
     dependencies:
       accepts: 2.0.0
-      body-parser: 2.3.0
+      body-parser: 2.3.0(supports-color@8.1.1)
       content-disposition: 1.1.0
       content-type: 1.0.5
       cookie: 0.7.2
@@ -7887,7 +7887,7 @@ snapshots:
       encodeurl: 2.0.0
       escape-html: 1.0.3
       etag: 1.8.1
-      finalhandler: 2.1.1
+      finalhandler: 2.1.1(supports-color@8.1.1)
       fresh: 2.0.0
       http-errors: 2.0.1
       merge-descriptors: 2.0.0
@@ -7898,9 +7898,9 @@ snapshots:
       proxy-addr: 2.0.7
       qs: 6.15.3
       range-parser: 1.3.0
-      router: 2.2.0
-      send: 1.2.1
-      serve-static: 2.2.1
+      router: 2.2.0(supports-color@8.1.1)
+      send: 1.2.1(supports-color@8.1.1)
+      serve-static: 2.2.1(supports-color@8.1.1)
       statuses: 2.0.2
       type-is: 2.1.0
       vary: 1.1.2
@@ -7954,18 +7954,18 @@ snapshots:
 
   fflate@0.8.3: {}
 
-  file-type@20.5.0:
+  file-type@20.5.0(supports-color@8.1.1):
     dependencies:
-      '@tokenizer/inflate': 0.2.7
+      '@tokenizer/inflate': 0.2.7(supports-color@8.1.1)
       strtok3: 10.3.5
       token-types: 6.1.2
       uint8array-extras: 1.5.0
     transitivePeerDependencies:
       - supports-color
 
-  file-type@21.3.4:
+  file-type@21.3.4(supports-color@8.1.1):
     dependencies:
-      '@tokenizer/inflate': 0.4.1
+      '@tokenizer/inflate': 0.4.1(supports-color@8.1.1)
       strtok3: 10.3.5
       token-types: 6.1.2
       uint8array-extras: 1.5.0
@@ -7986,7 +7986,7 @@ snapshots:
     dependencies:
       to-regex-range: 5.0.1
 
-  finalhandler@2.1.1:
+  finalhandler@2.1.1(supports-color@8.1.1):
     dependencies:
       debug: 4.4.3(supports-color@8.1.1)
       encodeurl: 2.0.0
@@ -8012,7 +8012,9 @@ snapshots:
     dependencies:
       semver-regex: 4.0.5
 
-  follow-redirects@1.16.0: {}
+  follow-redirects@1.16.0(debug@4.4.3(supports-color@8.1.1)):
+    optionalDependencies:
+      debug: 4.4.3(supports-color@8.1.1)
 
   form-data-encoder@2.1.4: {}
 
@@ -8039,7 +8041,7 @@ snapshots:
 
   function-bind@1.1.2: {}
 
-  gel@2.2.0:
+  gel@2.2.0(supports-color@8.1.1):
     dependencies:
       '@petamoriken/float16': 3.9.3
       debug: 4.4.3(supports-color@8.1.1)
@@ -8135,10 +8137,10 @@ snapshots:
       statuses: 2.0.2
       toidentifier: 1.0.1
 
-  http-proxy@1.18.1:
+  http-proxy@1.18.1(debug@4.4.3(supports-color@8.1.1)):
     dependencies:
       eventemitter3: 4.0.7
-      follow-redirects: 1.16.0
+      follow-redirects: 1.16.0(debug@4.4.3(supports-color@8.1.1))
       requires-port: 1.0.0
     transitivePeerDependencies:
       - debug
@@ -8356,9 +8358,9 @@ snapshots:
 
   lowercase-keys@3.0.0: {}
 
-  lucide-react@1.38.0(react@19.2.6):
+  lucide-react@1.38.0(react@19.2.8):
     dependencies:
-      react: 19.2.6
+      react: 19.2.8
 
   magic-string@0.30.21:
     dependencies:
@@ -8444,16 +8446,16 @@ snapshots:
     dependencies:
       content-type: 2.1.0
 
-  next@16.3.4(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.13.3)(react-dom@19.2.3(react@19.2.6))(react@19.2.6):
+  next@16.3.4(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.13.3)(react-dom@19.2.3(react@19.2.8))(react@19.2.8):
     dependencies:
       '@next/env': 16.3.4
       '@swc/helpers': 0.5.23
       baseline-browser-mapping: 2.11.12
       caniuse-lite: 1.0.30001806
       postcss: 8.5.25
-      react: 19.2.6
-      react-dom: 19.2.3(react@19.2.6)
-      styled-jsx: 5.1.6(react@19.2.6)
+      react: 19.2.8
+      react-dom: 19.2.3(react@19.2.8)
+      styled-jsx: 5.1.6(react@19.2.8)
     optionalDependencies:
       '@next/swc-darwin-arm64': 16.3.4
       '@next/swc-darwin-x64': 16.3.4
@@ -8766,39 +8768,39 @@ snapshots:
       defu: 6.1.7
       destr: 2.0.5
 
-  react-dom@19.2.3(react@19.2.6):
+  react-dom@19.2.3(react@19.2.8):
     dependencies:
-      react: 19.2.6
+      react: 19.2.8
       scheduler: 0.27.0
 
-  react-remove-scroll-bar@2.3.8(@types/react@19.2.14)(react@19.2.6):
+  react-remove-scroll-bar@2.3.8(@types/react@19.2.18)(react@19.2.8):
     dependencies:
-      react: 19.2.6
-      react-style-singleton: 2.2.3(@types/react@19.2.14)(react@19.2.6)
+      react: 19.2.8
+      react-style-singleton: 2.2.3(@types/react@19.2.18)(react@19.2.8)
       tslib: 2.8.1
     optionalDependencies:
-      '@types/react': 19.2.14
+      '@types/react': 19.2.18
 
-  react-remove-scroll@2.7.2(@types/react@19.2.14)(react@19.2.6):
+  react-remove-scroll@2.7.2(@types/react@19.2.18)(react@19.2.8):
     dependencies:
-      react: 19.2.6
-      react-remove-scroll-bar: 2.3.8(@types/react@19.2.14)(react@19.2.6)
-      react-style-singleton: 2.2.3(@types/react@19.2.14)(react@19.2.6)
+      react: 19.2.8
+      react-remove-scroll-bar: 2.3.8(@types/react@19.2.18)(react@19.2.8)
+      react-style-singleton: 2.2.3(@types/react@19.2.18)(react@19.2.8)
       tslib: 2.8.1
-      use-callback-ref: 1.3.3(@types/react@19.2.14)(react@19.2.6)
-      use-sidecar: 1.1.3(@types/react@19.2.14)(react@19.2.6)
+      use-callback-ref: 1.3.3(@types/react@19.2.18)(react@19.2.8)
+      use-sidecar: 1.1.3(@types/react@19.2.18)(react@19.2.8)
     optionalDependencies:
-      '@types/react': 19.2.14
+      '@types/react': 19.2.18
 
-  react-style-singleton@2.2.3(@types/react@19.2.14)(react@19.2.6):
+  react-style-singleton@2.2.3(@types/react@19.2.18)(react@19.2.8):
     dependencies:
       get-nonce: 1.0.1
-      react: 19.2.6
+      react: 19.2.8
       tslib: 2.8.1
     optionalDependencies:
-      '@types/react': 19.2.14
+      '@types/react': 19.2.18
 
-  react@19.2.6: {}
+  react@19.2.8: {}
 
   readdirp@3.6.0:
     dependencies:
@@ -8863,7 +8865,7 @@ snapshots:
       '@rollup/rollup-win32-x64-msvc': 4.62.4
       fsevents: 2.3.3
 
-  router@2.2.0:
+  router@2.2.0(supports-color@8.1.1):
     dependencies:
       debug: 4.4.3(supports-color@8.1.1)
       depd: 2.0.0
@@ -8909,7 +8911,7 @@ snapshots:
 
   semver@7.8.5: {}
 
-  send@1.2.1:
+  send@1.2.1(supports-color@8.1.1):
     dependencies:
       debug: 4.4.3(supports-color@8.1.1)
       encodeurl: 2.0.0
@@ -8925,12 +8927,12 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  serve-static@2.2.1:
+  serve-static@2.2.1(supports-color@8.1.1):
     dependencies:
       encodeurl: 2.0.0
       escape-html: 1.0.3
       parseurl: 1.3.3
-      send: 1.2.1
+      send: 1.2.1(supports-color@8.1.1)
     transitivePeerDependencies:
       - supports-color
 
@@ -9090,10 +9092,10 @@ snapshots:
     dependencies:
       '@tokenizer/token': 0.3.0
 
-  styled-jsx@5.1.6(react@19.2.6):
+  styled-jsx@5.1.6(react@19.2.8):
     dependencies:
       client-only: 0.0.1
-      react: 19.2.6
+      react: 19.2.8
 
   supports-color@10.2.2: {}
 
@@ -9275,20 +9277,20 @@ snapshots:
       knitwork: 1.3.0
       scule: 1.3.0
 
-  use-callback-ref@1.3.3(@types/react@19.2.14)(react@19.2.6):
+  use-callback-ref@1.3.3(@types/react@19.2.18)(react@19.2.8):
     dependencies:
-      react: 19.2.6
+      react: 19.2.8
       tslib: 2.8.1
     optionalDependencies:
-      '@types/react': 19.2.14
+      '@types/react': 19.2.18
 
-  use-sidecar@1.1.3(@types/react@19.2.14)(react@19.2.6):
+  use-sidecar@1.1.3(@types/react@19.2.18)(react@19.2.8):
     dependencies:
       detect-node-es: 1.1.0
-      react: 19.2.6
+      react: 19.2.8
       tslib: 2.8.1
     optionalDependencies:
-      '@types/react': 19.2.14
+      '@types/react': 19.2.18
 
   valibot@1.4.2(typescript@7.0.2):
     optionalDependencies:
@@ -9379,18 +9381,18 @@ snapshots:
 
   wordwrap@1.0.0: {}
 
-  workflow@4.8.5(@nestjs/common@11.1.14(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.18(@nestjs/common@11.1.14(reflect-metadata@0.2.2)(rxjs@7.8.2))(reflect-metadata@0.2.2)(rxjs@7.8.2))(@opentelemetry/api@1.9.0)(@swc/cli@0.8.0(@swc/core@1.15.3(@swc/helpers@0.5.23))(chokidar@5.0.0))(@swc/core@1.15.3(@swc/helpers@0.5.23))(@swc/helpers@0.5.23)(magicast@0.5.2)(next@16.3.4(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.13.3)(react-dom@19.2.3(react@19.2.6))(react@19.2.6))(typescript@7.0.2):
+  workflow@4.8.5(@nestjs/common@11.1.14(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(@nestjs/core@11.1.18(@nestjs/common@11.1.14(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(reflect-metadata@0.2.2)(rxjs@7.8.2))(@opentelemetry/api@1.9.0)(@swc/cli@0.8.0(@swc/core@1.15.3(@swc/helpers@0.5.23))(chokidar@5.0.0)(supports-color@8.1.1))(@swc/core@1.15.3(@swc/helpers@0.5.23))(@swc/helpers@0.5.23)(magicast@0.5.2)(next@16.3.4(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.13.3)(react-dom@19.2.3(react@19.2.8))(react@19.2.8))(supports-color@8.1.1)(typescript@7.0.2):
     dependencies:
-      '@workflow/astro': 4.0.20(@opentelemetry/api@1.9.0)(@swc/helpers@0.5.23)
-      '@workflow/cli': 4.3.9(@opentelemetry/api@1.9.0)(@swc/helpers@0.5.23)
-      '@workflow/core': 4.8.5(@opentelemetry/api@1.9.0)
+      '@workflow/astro': 4.0.20(@opentelemetry/api@1.9.0)(@swc/helpers@0.5.23)(supports-color@8.1.1)
+      '@workflow/cli': 4.3.9(@opentelemetry/api@1.9.0)(@swc/helpers@0.5.23)(supports-color@8.1.1)
+      '@workflow/core': 4.8.5(@opentelemetry/api@1.9.0)(supports-color@8.1.1)
       '@workflow/errors': 4.2.1
-      '@workflow/nest': 4.0.21(@nestjs/common@11.1.14(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.18(@nestjs/common@11.1.14(reflect-metadata@0.2.2)(rxjs@7.8.2))(reflect-metadata@0.2.2)(rxjs@7.8.2))(@opentelemetry/api@1.9.0)(@swc/cli@0.8.0(@swc/core@1.15.3(@swc/helpers@0.5.23))(chokidar@5.0.0))(@swc/core@1.15.3(@swc/helpers@0.5.23))(@swc/helpers@0.5.23)
-      '@workflow/next': 4.1.9(@opentelemetry/api@1.9.0)(@swc/helpers@0.5.23)(next@16.3.4(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.13.3)(react-dom@19.2.3(react@19.2.6))(react@19.2.6))
-      '@workflow/nitro': 4.1.11(@opentelemetry/api@1.9.0)(@swc/helpers@0.5.23)
-      '@workflow/nuxt': 4.0.21(@opentelemetry/api@1.9.0)(@swc/helpers@0.5.23)(magicast@0.5.2)
-      '@workflow/rollup': 4.0.20(@opentelemetry/api@1.9.0)(@swc/helpers@0.5.23)
-      '@workflow/sveltekit': 4.0.20(@opentelemetry/api@1.9.0)(@swc/helpers@0.5.23)
+      '@workflow/nest': 4.0.21(@nestjs/common@11.1.14(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(@nestjs/core@11.1.18(@nestjs/common@11.1.14(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(reflect-metadata@0.2.2)(rxjs@7.8.2))(@opentelemetry/api@1.9.0)(@swc/cli@0.8.0(@swc/core@1.15.3(@swc/helpers@0.5.23))(chokidar@5.0.0)(supports-color@8.1.1))(@swc/core@1.15.3(@swc/helpers@0.5.23))(@swc/helpers@0.5.23)(supports-color@8.1.1)
+      '@workflow/next': 4.1.9(@opentelemetry/api@1.9.0)(@swc/helpers@0.5.23)(next@16.3.4(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(@types/node@24.13.3)(react-dom@19.2.3(react@19.2.8))(react@19.2.8))(supports-color@8.1.1)
+      '@workflow/nitro': 4.1.11(@opentelemetry/api@1.9.0)(@swc/helpers@0.5.23)(supports-color@8.1.1)
+      '@workflow/nuxt': 4.0.21(@opentelemetry/api@1.9.0)(@swc/helpers@0.5.23)(magicast@0.5.2)(supports-color@8.1.1)
+      '@workflow/rollup': 4.0.20(@opentelemetry/api@1.9.0)(@swc/helpers@0.5.23)(supports-color@8.1.1)
+      '@workflow/sveltekit': 4.0.20(@opentelemetry/api@1.9.0)(@swc/helpers@0.5.23)(supports-color@8.1.1)
       '@workflow/typescript-plugin': 4.0.3(typescript@7.0.2)
       '@workflow/utils': 4.1.4
       ms: 2.1.3
@@ -9459,7 +9461,7 @@ snapshots:
 
   zod@4.5.4: {}
 
-  zustand@5.0.14(@types/react@19.2.14)(react@19.2.6):
+  zustand@5.0.14(@types/react@19.2.18)(react@19.2.8):
     optionalDependencies:
-      '@types/react': 19.2.14
-      react: 19.2.6
+      '@types/react': 19.2.18
+      react: 19.2.8
